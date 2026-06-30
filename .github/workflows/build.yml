@@ -1,0 +1,184 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+  GRADLE_OPTS: >-
+    -Dorg.gradle.daemon=false
+    -Dorg.gradle.parallel=true
+    -Dorg.gradle.caching=true
+    -Dorg.gradle.vfs.watch=false
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          gradle-home-cache-cleanup: true
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Clear Gradle Cache
+        run: |
+          rm -rf ~/.gradle/wrapper
+          rm -rf ~/.gradle/caches
+        shell: bash
+
+      - name: Build Android Release
+        run: |
+          set -euo pipefail
+          retry() {
+            local n=1 max=3 delay=5
+            while true; do
+              echo "Attempt #$n: $*"
+              "$@" && break
+              [ $n -ge $max ] && { echo "Failed after $n attempts."; return 1; }
+              n=$((n+1)); echo "Retrying in ${delay}s..."; sleep $delay; delay=$((delay*2))
+            done
+          }
+          retry ./gradlew assembleRelease
+        shell: bash
+
+      - name: Sign Android Release
+        if: github.event_name != 'pull_request' && env.SIGNING_KEY != null
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Upload Signed APKs
+        if: steps.sign_app.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signed-apks
+          path: app/build/outputs/apk/release/*-signed.apk
+          retention-days: 30
+
+      - name: Upload Unsigned APKs (Fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unsigned-apks
+          path: app/build/outputs/apk/release/*-unsigned.apk
+          retention-days: 7
+
+  release:
+    name: Draft Release
+    needs: [build-android]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Read Project Version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(grep 'versionName =' app/build.gradle.kts | head -1 | sed 's/.*= *"\(.*\)"/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: could not read versionName from app/build.gradle.kts"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: v$VERSION"
+        shell: bash
+
+      - name: Download all Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Stage Release Files
+        id: stage
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+
+          stage_file() {
+            local src="$1"
+            local target_name="$2"
+            if [ -f "$src" ]; then
+              cp "$src" "release-files/$target_name"
+              echo "Staged: $target_name"
+              return 0
+            fi
+            return 1
+          }
+
+          # Stage Signed APKs if they exist
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            stage_file "$f" "$(basename "$f")"
+          done < <(find artifacts/android-signed-apks -type f -name '*-signed.apk' 2>/dev/null || true)
+
+          # Stage Unsigned APKs as fallback
+          if [ -z "$(ls -A release-files/ 2>/dev/null)" ]; then
+            while IFS= read -r f; do
+              [ -n "$f" ] || continue
+              stage_file "$f" "$(basename "$f")"
+            done < <(find artifacts/android-unsigned-apks -type f -name '*-unsigned.apk' 2>/dev/null || true)
+          fi
+          
+          if [ -z "$(ls -A release-files/ 2>/dev/null)" ]; then
+            echo "ERROR: No APKs found to stage for release!"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Create or Update Draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Draft release $TAG already exists — replacing assets..."
+            gh release upload "$TAG" release-files/* --clobber
+          else
+            echo "Creating new draft release $TAG..."
+            gh release create "$TAG" \
+              --draft \
+              --title "v$VERSION" \
+              --generate-notes \
+              release-files/*
+          fi
+        shell: bash

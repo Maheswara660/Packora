@@ -1,0 +1,64 @@
+# NDK
+obj/
+
+# Gradle files
+.gradle/
+build/
+app/build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log Files
+*.log
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Android Studio captures folder
+captures/
+
+# IntelliJ
+*.iml
+.idea/
+!.idea/vcs.xml
+!.idea/codeStyles/
+
+# Keystore files
+# Packora generates custom keystores (.p12, .jks) dynamically, so we must ignore them.
+*.jks
+*.keystore
+*.p12
+
+# External native build folder generated in Android Studio 2.2 and later
+.externalNativeBuild
+.cxx/
+
+# APKs and App Bundles
+*.apk
+*.apks
+*.aab
+*.apxc
+
+# Packora EXCEPTION: Do NOT ignore the template WebAPK since it's the core engine asset!
+!app/src/main/assets/template/webview_shell.apk
+
+# Mac
+.DS_Store
+
+# Temporary scratch scripts (Python scripts used for debugging)
+*.py
+__pycache__/
+
+# VS Code
+.vscode/
+
+# Secrets & Environment
+.env
+*.env
+keystore.properties
+secrets.properties
+google-services.json
+
+# Windows
+Thumbs.db

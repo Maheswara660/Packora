@@ -68,12 +68,27 @@ class ApkTemplate(private val context: Context) {
     }
 
     fun scaleBitmapToPng(bitmap: Bitmap, size: Int): ByteArray {
-        val scaled = Bitmap.createScaledBitmap(bitmap, size, size, true)
-        val baos = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.PNG, 100, baos)
-        if (scaled != bitmap) {
-            scaled.recycle()
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        // 15% padding (85% safe zone) to unscale the icon visually
+        val safeZoneSize = (size * 0.85f).toInt()
+        val padding = (size - safeZoneSize) / 2
+
+        val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
+
+        val paint = Paint().apply {
+            isAntiAlias = true
+            isFilterBitmap = true
         }
+        canvas.drawBitmap(scaled, padding.toFloat(), padding.toFloat(), paint)
+
+        val baos = ByteArrayOutputStream()
+        output.compress(Bitmap.CompressFormat.PNG, 100, baos)
+
+        if (scaled != bitmap) scaled.recycle()
+        output.recycle()
+
         return baos.toByteArray()
     }
 

@@ -36,7 +36,8 @@ class AxmlRebuilder {
 
         private val BASELINE_RUNTIME_PERMISSIONS = listOf(
             "android.permission.INTERNET",
-            "android.permission.ACCESS_NETWORK_STATE"
+            "android.permission.ACCESS_NETWORK_STATE",
+            "android.permission.POST_NOTIFICATIONS"
         )
 
         private val WEBTOAPP_RUNTIME_COMPONENTS = setOf(

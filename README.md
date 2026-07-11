@@ -42,11 +42,13 @@ Packora utilizes industry-standard technologies to ensure a stable and fluid exp
 *   **Zero Dependencies**: Build Android apps 100% offline using an embedded WebAPK shell.
 *   **Rapid Processing**: Generate install-ready APKs in seconds.
 *   **Full Independence**: Completely bypasses the need for cloud servers or PC IDEs.
+*   **Custom Download Locations**: Built-in native folder picker to route WebAPK downloads to any directory on your device.
 
 ### ⚡ Dynamic AXML Rebuilding
 *   **Binary Level Editing**: Custom parser natively modifies package names and version codes.
 *   **Deep Link Injection**: Adjusts Intent filters to seamlessly wrap target URLs.
 *   **App Title Control**: Modifies binary XML structures to inject your chosen app name perfectly.
+*   **Notification Injection**: Natively injects `POST_NOTIFICATIONS` permissions so generated apps can display download statuses in the system status bar.
 
 ### 🎨 Signature Aesthetics & Resources
 *   **Inverted Corners**: A unique boxed UI that provides a physical, tactile feel.

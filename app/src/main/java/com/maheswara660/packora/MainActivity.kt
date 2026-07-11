@@ -416,6 +416,9 @@ fun HomeScreen(
     var versionCode by remember { mutableStateOf("") }
     var versionName by remember { mutableStateOf("") }
 
+    var useCustomDownloadFolder by remember { mutableStateOf(false) }
+    var customDownloadFolder by remember { mutableStateOf("") }
+
     var iconUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var iconName by remember { mutableStateOf<String?>(null) }
     var autoFetchedIconBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -466,6 +469,19 @@ fun HomeScreen(
         }
     }
 
+    val downloadFolderPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            val path = uri.path
+            if (path != null && path.contains(":")) {
+                customDownloadFolder = path.substringAfter(":")
+            } else {
+                customDownloadFolder = "Downloads"
+            }
+        }
+    }
+
     androidx.activity.compose.BackHandler(enabled = !isBuilding) {
     }
 
@@ -489,6 +505,8 @@ fun HomeScreen(
                         keystorePassword = ""
                         keyAlias = ""
                         commonName = ""
+                        useCustomDownloadFolder = false
+                        customDownloadFolder = ""
                     }, enabled = !isBuilding) {
                         Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, contentDescription = "Reset Form", tint = MaterialTheme.colorScheme.onSurface)
                     }
@@ -566,24 +584,9 @@ fun HomeScreen(
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = { if (!isBuilding) iconPickerLauncher.launch("image/png") },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (iconUri != null) androidx.compose.ui.graphics.Color(0xFF10B981) else MaterialTheme.colorScheme.secondary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = if (iconUri != null) androidx.compose.ui.graphics.Color(0xFF10B981) else MaterialTheme.colorScheme.secondary
-                            )
-                        ) {
-                            Text(text = iconName ?: "Select Image")
-                        }
-
                         val displayBitmap = remember(iconUri, autoFetchedIconBitmap) {
                             if (iconUri != null) {
                                 try {
@@ -598,22 +601,38 @@ fun HomeScreen(
                             }
                         }
 
-                        if (displayBitmap != null) {
-                            Image(
-                                bitmap = displayBitmap.asImageBitmap(),
-                                contentDescription = "Preview icon",
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                            )
-                        } else if (isFetchingIcon) {
+                        if (isFetchingIcon) {
                             Box(
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(72.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 PackoraLoader(size = 20)
                             }
+                        } else {
+                            val finalBitmap = displayBitmap ?: ApkBuilder.getDefaultMascotIcon(context)
+                            Image(
+                                bitmap = finalBitmap.asImageBitmap(),
+                                contentDescription = "Preview icon",
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                            )
+                        }
+                        
+                        OutlinedButton(
+                            onClick = { if (!isBuilding) iconPickerLauncher.launch("image/png") },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (iconUri != null) androidx.compose.ui.graphics.Color(0xFF10B981) else MaterialTheme.colorScheme.secondary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = if (iconUri != null) androidx.compose.ui.graphics.Color(0xFF10B981) else MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text(text = iconName ?: "Select Image")
                         }
                     }
                 }
@@ -707,6 +726,43 @@ fun HomeScreen(
                                 )
                             }
                             
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Custom Download Folder",
+                                    fontSize = 14.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                                PackoraSwitch(
+                                    checked = useCustomDownloadFolder,
+                                    onCheckedChange = { useCustomDownloadFolder = it }
+                                )
+                            }
+
+                            if (useCustomDownloadFolder) {
+                                OutlinedButton(
+                                    onClick = { downloadFolderPickerLauncher.launch(null) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.secondary
+                                    ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Icon(androidx.compose.material.icons.Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = if (customDownloadFolder.isNotBlank()) customDownloadFolder else "Select Download Folder")
+                                }
+                            }
+
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                             Row(
@@ -867,8 +923,9 @@ fun HomeScreen(
                                     versionCode = finalCode,
                                     versionName = finalName,
                                     iconBitmap = inputBitmap,
-                                    disableHeader = true, // Force disable header for modern unified UI
+                                    disableHeader = true,
                                     outputPath = targetFileName,
+                                    customDownloadFolder = if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) customDownloadFolder.trim() else null,
                                     keystorePassword = if (useCustomKeystore) keystorePassword else null,
                                     keyAlias = if (useCustomKeystore) keyAlias else null,
                                     commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,

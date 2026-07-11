@@ -40,6 +40,7 @@ class ApkBuilder(private val context: Context) {
         disableHeader: Boolean,
         outputPath: String,
         customExportUri: String? = null,
+        customDownloadFolder: String? = null,
         keystorePassword: String?,
         keyAlias: String?,
         commonName: String?,
@@ -152,6 +153,12 @@ class ApkBuilder(private val context: Context) {
                                     put("versionName", versionName)
                                     put("webViewConfig", JSONObject().apply {
                                         put("openExternalLinks", true)
+                                        if (customDownloadFolder != null) {
+                                            put("downloadLocation", customDownloadFolder)
+                                            put("customDownloadFolder", customDownloadFolder)
+                                        } else {
+                                            put("downloadLocation", "Downloads/$sanitizedAppName")
+                                        }
                                     })
                                 }
                                 val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
@@ -204,6 +211,12 @@ class ApkBuilder(private val context: Context) {
                             put("versionName", versionName)
                             put("webViewConfig", JSONObject().apply {
                                 put("openExternalLinks", true)
+                                if (customDownloadFolder != null) {
+                                    put("downloadLocation", customDownloadFolder)
+                                    put("customDownloadFolder", customDownloadFolder)
+                                } else {
+                                    put("downloadLocation", "Downloads/$sanitizedAppName")
+                                }
                             })
                         }
                         val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
@@ -347,30 +360,32 @@ class ApkBuilder(private val context: Context) {
         return pathMatch?.second ?: 96
     }
 
-    private fun getDefaultMascotIcon(context: Context): Bitmap {
-        val width = 512
-        val height = 512
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+    companion object {
+        fun getDefaultMascotIcon(context: Context): Bitmap {
+            val width = 512
+            val height = 512
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
 
-        val bgId = context.resources.getIdentifier("ic_launcher_background", "drawable", context.packageName)
-        val bgDrawable = if (bgId != 0) ResourcesCompat.getDrawable(context.resources, bgId, context.theme) else null
-        if (bgDrawable != null) {
-            bgDrawable.setBounds(0, 0, width, height)
-            bgDrawable.draw(canvas)
-        } else {
-            canvas.drawColor(Color.parseColor("#3DDC84"))
+            val bgId = context.resources.getIdentifier("ic_launcher_background", "drawable", context.packageName)
+            val bgDrawable = if (bgId != 0) ResourcesCompat.getDrawable(context.resources, bgId, context.theme) else null
+            if (bgDrawable != null) {
+                bgDrawable.setBounds(0, 0, width, height)
+                bgDrawable.draw(canvas)
+            } else {
+                canvas.drawColor(Color.parseColor("#3DDC84"))
+            }
+
+            val fgId = context.resources.getIdentifier("ic_launcher_foreground", "drawable", context.packageName)
+            val fgDrawable = if (fgId != 0) ResourcesCompat.getDrawable(context.resources, fgId, context.theme) else null
+            if (fgDrawable != null) {
+                val paddingX = (width * 0.14).toInt()
+                val paddingY = (height * 0.14).toInt()
+                fgDrawable.setBounds(paddingX, paddingY, width - paddingX, height - paddingY)
+                fgDrawable.draw(canvas)
+            }
+
+            return bitmap
         }
-
-        val fgId = context.resources.getIdentifier("ic_launcher_foreground", "drawable", context.packageName)
-        val fgDrawable = if (fgId != 0) ResourcesCompat.getDrawable(context.resources, fgId, context.theme) else null
-        if (fgDrawable != null) {
-            val paddingX = (width * 0.14).toInt()
-            val paddingY = (height * 0.14).toInt()
-            fgDrawable.setBounds(paddingX, paddingY, width - paddingX, height - paddingY)
-            fgDrawable.draw(canvas)
-        }
-
-        return bitmap
     }
 }

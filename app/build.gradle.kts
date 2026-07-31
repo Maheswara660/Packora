@@ -51,38 +51,13 @@ android {
 }
 
 // ── Template APK Automation ─────────────────────────────────────────────────
-// Automatically builds :template and copies the APK to assets before every
-// :app compilation. This way clicking "Run" or "Build" in Android Studio
-// always picks up the latest template without any manual steps.
-
-val templateApkDest = layout.projectDirectory.file("src/main/assets/template/webview_shell.apk")
-
-val buildTemplateApk by tasks.registering(Exec::class) {
-    description = "Builds the :template release APK"
-    group = "build"
-    val gradlew = rootProject.file("gradlew")
-    
-    val envJavaHome = System.getenv("JAVA_HOME")
-    val macStudioJdk = "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-    val selectedJavaHome = when {
-        !envJavaHome.isNullOrBlank() && java.io.File(envJavaHome).exists() -> envJavaHome
-        java.io.File(macStudioJdk).exists() -> macStudioJdk
-        else -> null
-    }
-
-    if (selectedJavaHome != null) {
-        environment("JAVA_HOME", selectedJavaHome)
-        environment("PATH", "$selectedJavaHome/bin:" + (System.getenv("PATH") ?: ""))
-    }
-
-    commandLine(gradlew.absolutePath, "--no-configuration-cache", ":template:assembleRelease")
-    workingDir = rootProject.projectDir
-}
+// Automatically builds :template natively and copies the APK to assets before every
+// :app compilation. Single Gradle daemon execution prevents dual compiler lock errors.
 
 val copyTemplateApk by tasks.registering(Copy::class) {
     description = "Copies the built template APK into app assets"
     group = "build"
-    dependsOn(buildTemplateApk)
+    mustRunAfter(":template:assembleRelease")
     from(rootProject.file("template/build/outputs/apk/release/template-release-unsigned.apk"))
     into(layout.projectDirectory.dir("src/main/assets/template"))
     rename { "webview_shell.apk" }

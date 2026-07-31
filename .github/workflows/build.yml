@@ -45,13 +45,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Clear Gradle Cache
-        run: |
-          rm -rf ~/.gradle/wrapper
-          rm -rf ~/.gradle/caches
-        shell: bash
-
-      - name: Build Template Release & Packora Release
+      - name: Build Template Shell & Packora Release
         run: |
           set -euo pipefail
           retry() {
@@ -63,11 +57,14 @@ jobs:
               n=$((n+1)); echo "Retrying in ${delay}s..."; sleep $delay; delay=$((delay*2))
             done
           }
-          echo "Building template release APK..."
+          echo "Step 1: Building template shell APK..."
           retry ./gradlew :template:assembleRelease --stacktrace
+
+          echo "Step 2: Copying template shell APK to app assets..."
           mkdir -p app/src/main/assets/template
           cp template/build/outputs/apk/release/template-release-unsigned.apk app/src/main/assets/template/webview_shell.apk
-          echo "Building Packora release APK..."
+
+          echo "Step 3: Building main Packora release APK..."
           retry ./gradlew :app:assembleRelease --stacktrace
         shell: bash
 

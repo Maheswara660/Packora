@@ -61,10 +61,20 @@ val buildTemplateApk by tasks.registering(Exec::class) {
     description = "Builds the :template release APK"
     group = "build"
     val gradlew = rootProject.file("gradlew")
-    // Use Android Studio's bundled JDK to ensure jlink is available
-    val androidStudioJdk = "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-    environment("JAVA_HOME", androidStudioJdk)
-    environment("PATH", "$androidStudioJdk/bin:" + (System.getenv("PATH") ?: ""))
+    
+    val envJavaHome = System.getenv("JAVA_HOME")
+    val macStudioJdk = "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+    val selectedJavaHome = when {
+        !envJavaHome.isNullOrBlank() && java.io.File(envJavaHome).exists() -> envJavaHome
+        java.io.File(macStudioJdk).exists() -> macStudioJdk
+        else -> null
+    }
+
+    if (selectedJavaHome != null) {
+        environment("JAVA_HOME", selectedJavaHome)
+        environment("PATH", "$selectedJavaHome/bin:" + (System.getenv("PATH") ?: ""))
+    }
+
     commandLine(gradlew.absolutePath, "--no-configuration-cache", ":template:assembleRelease")
     workingDir = rootProject.projectDir
 }

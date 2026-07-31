@@ -51,7 +51,7 @@ jobs:
           rm -rf ~/.gradle/caches
         shell: bash
 
-      - name: Build Android Release
+      - name: Build Template Release & Packora Release
         run: |
           set -euo pipefail
           retry() {
@@ -63,7 +63,12 @@ jobs:
               n=$((n+1)); echo "Retrying in ${delay}s..."; sleep $delay; delay=$((delay*2))
             done
           }
-          retry ./gradlew assembleRelease
+          echo "Building template release APK..."
+          retry ./gradlew :template:assembleRelease
+          mkdir -p app/src/main/assets/template
+          cp template/build/outputs/apk/release/template-release-unsigned.apk app/src/main/assets/template/webview_shell.apk
+          echo "Building Packora release APK..."
+          retry ./gradlew :app:assembleRelease
         shell: bash
 
       - name: Sign Android Release

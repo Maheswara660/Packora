@@ -9,93 +9,40 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
-    background = Color(0xFF0E1414),
-    surface = Color(0xFF0E1414),
-    surfaceContainer = Color(0xFF161D1D),
-    onBackground = Color(0xFFDEE3E3),
-    onSurface = Color(0xFFDEE3E3)
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = Color(0xFFF4FBFA),
-    surface = Color(0xFFF4FBFA),
-    surfaceContainer = Color(0xFFE9EFEE),
-    onBackground = Color(0xFF161D1D),
-    onSurface = Color(0xFF161D1D)
-)
+private val DarkColorScheme = darkColorScheme()
+private val LightColorScheme = lightColorScheme()
 
 @Composable
 fun PackoraTheme(
-    themeConfig: String = "SYSTEM",
-    accentColorIndex: Int = 0, // Default to Teal (index 0) matching Chronora/Calcora defaults
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val darkTheme = when (themeConfig) {
-        "LIGHT" -> false
-        "DARK" -> true
-        "AMOLED" -> true
-        else -> isSystemInDarkTheme()
-    }
-
-    val context = LocalContext.current
-    val dynamicColor = accentColorIndex == -1
-
-    var colorScheme = when {
+    val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
-
-    if (accentColorIndex >= 0) {
-        val accent = CustomAccents.getOrNull(accentColorIndex)
-        if (accent != null) {
-            colorScheme = colorScheme.copy(
-                primary = accent.primary,
-                secondary = accent.secondary,
-                outline = accent.primary.copy(alpha = 0.5f)
-            )
-        }
-    }
-
-    if (darkTheme && themeConfig == "AMOLED") {
-        colorScheme = colorScheme.copy(
-            background = Color.Black,
-            surface = Color.Black,
-            surfaceDim = Color.Black,
-            surfaceBright = Color(0xFF1A1A1A),
-            surfaceContainerLowest = Color.Black,
-            surfaceContainerLow = Color.Black,
-            surfaceContainer = Color.Black,
-            surfaceContainerHigh = Color(0xFF121212),
-            surfaceContainerHighest = Color(0xFF1A1A1A),
-            surfaceVariant = Color.Black,
-            onBackground = Color.White,
-            onSurface = Color.White,
-            onSurfaceVariant = Color.White,
-            outline = Color.White.copy(alpha = 0.2f),
-            outlineVariant = Color.White.copy(alpha = 0.1f)
-        )
-    }
-
-    val view = androidx.compose.ui.platform.LocalView.current
+    
+    val view = LocalView.current
     if (!view.isInEditMode) {
-        androidx.compose.runtime.SideEffect {
+        SideEffect {
             val window = (view.context as Activity).window
-            val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, view)
-            insetsController.isAppearanceLightStatusBars = !darkTheme
-            insetsController.isAppearanceLightNavigationBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+            WindowCompat.setDecorFitsSystemWindows(window, false)
         }
     }
 

@@ -88,15 +88,18 @@ class ArscRebuilder {
 
             var modified = false
             val appNamePatterns = listOf(
-                "WebToApp - Convert Any Website to Android App",
-                "WebToApp"
+                "Packora",                                          
+                "WebToApp - Convert Any Website to Android App",    
+                "WebToApp",                                         
+                "TemplateApp",                                      
+                "My Application"                                    
             )
 
             for (i in strings.indices) {
                 val str = strings[i]
 
                 for (pattern in appNamePatterns) {
-                    if (str.startsWith(pattern) && !str.contains("/") && !str.contains(".")) {
+                    if (str == pattern || (str.startsWith(pattern) && !str.contains("/") && !str.contains("."))) {
                         AppLogger.d(TAG, "Found app_name at index $i: '$str' -> '$targetAppName'")
                         strings[i] = targetAppName
                         modified = true
@@ -107,16 +110,21 @@ class ArscRebuilder {
             }
 
             if (!modified) {
-                AppLogger.w(TAG, "app_name not found in string pool, trying pattern matching...")
-
+                AppLogger.w(TAG, "app_name not found via known patterns, trying smart fallback...")
                 for (i in strings.indices) {
                     val str = strings[i]
-                    if (str.trim().startsWith("WebToApp") &&
-                        str.length < 100 &&
+                    if (str.isNotBlank() &&
+                        str.length in 2..60 &&
+                        !str.contains("/") &&
+                        !str.contains(".") &&
+                        !str.contains("@") &&
+                        !str.contains(":") &&
                         !str.contains("Theme") &&
                         !str.contains("http") &&
-                        !str.contains(".")) {
-                        AppLogger.d(TAG, "Found potential app_name at index $i: '$str'")
+                        !str.contains("com.") &&
+                        !str.all { it.isDigit() }
+                    ) {
+                        AppLogger.d(TAG, "Smart fallback: replacing index $i ('$str') -> '$targetAppName'")
                         strings[i] = targetAppName
                         modified = true
                         break
@@ -197,9 +205,13 @@ class ArscRebuilder {
             val icLauncherKeyIdx = keyStrings.indexOf("ic_launcher")
             val icLauncherRoundKeyIdx = keyStrings.indexOf("ic_launcher_round")
             val icLauncherFgKeyIdx = keyStrings.indexOf("ic_launcher_foreground")
+            val icLauncherBgKeyIdx = keyStrings.indexOf("ic_launcher_background")
+            val icLauncherMonoKeyIdx = keyStrings.indexOf("ic_launcher_monochrome")
+
+            val targetKeyIndices = setOf(icLauncherKeyIdx, icLauncherRoundKeyIdx, icLauncherFgKeyIdx, icLauncherBgKeyIdx, icLauncherMonoKeyIdx).filter { it >= 0 }.toSet()
 
             AppLogger.d(TAG, "mipmapTypeId=$mipmapTypeId, drawableTypeId=$drawableTypeId")
-            AppLogger.d(TAG, "keyIndices: ic_launcher=$icLauncherKeyIdx, round=$icLauncherRoundKeyIdx, foreground=$icLauncherFgKeyIdx")
+            AppLogger.d(TAG, "targetKeyIndices: $targetKeyIndices")
 
             if (mipmapTypeId <= 0 && drawableTypeId <= 0) {
                 AppLogger.w(TAG, "mipmap/drawable types not found in package")
@@ -234,23 +246,12 @@ class ArscRebuilder {
                     if (isInteresting) {
                         if (typeId == mipmapTypeId) mipmapTypeChunkCount++
                         if (typeId == drawableTypeId) drawableTypeChunkCount++
-                        AppLogger.d(TAG, "Type chunk #$typeChunkCount: typeId=$typeId, entryCount=$entryCount, entriesStart=$entriesStart, chunkHeaderSize=$chunkHeaderSize, pos=$pos")
                     }
 
                     buf.position(pos + chunkHeaderSize)
                     val entryOffsets = IntArray(entryCount)
                     for (i in 0 until entryCount) {
                         entryOffsets[i] = buf.int
-                    }
-
-                    if (isInteresting) {
-
-                        for (targetIdx in listOf(icLauncherKeyIdx, icLauncherRoundKeyIdx, icLauncherFgKeyIdx)) {
-                            if (targetIdx >= 0 && targetIdx < entryCount) {
-                                val offset = entryOffsets[targetIdx]
-                                AppLogger.d(TAG, "  Target key $targetIdx offset in entry table: $offset (entryIdx maps to keyIdx)")
-                            }
-                        }
                     }
 
                     for (entryIdx in 0 until entryCount) {
@@ -265,12 +266,7 @@ class ArscRebuilder {
                         val entryKeyIndex = buf.int
 
                         val isComplex = (entryFlags and 0x0001) != 0
-                        if (isComplex) {
-                            if (isInteresting && (entryKeyIndex == icLauncherKeyIdx || entryKeyIndex == icLauncherRoundKeyIdx || entryKeyIndex == icLauncherFgKeyIdx)) {
-                                AppLogger.d(TAG, "  Entry $entryIdx: keyIndex=$entryKeyIndex is COMPLEX (bag/map), skipping")
-                            }
-                            continue
-                        }
+                        if (isComplex) continue
 
                         if (entryPos + entrySize + 8 > packageData.size) continue
                         val valueSize = buf.short.toInt() and 0xFFFF
@@ -278,29 +274,17 @@ class ArscRebuilder {
                         val valueType = buf.get().toInt() and 0xFF
                         val valueData = buf.int
 
-                        if (isInteresting && (entryKeyIndex == icLauncherKeyIdx || entryKeyIndex == icLauncherRoundKeyIdx || entryKeyIndex == icLauncherFgKeyIdx)) {
-                            val keyName = if (entryKeyIndex >= 0 && entryKeyIndex < keyStrings.size) keyStrings[entryKeyIndex] else "?"
-                            val pathStr = if (valueType == 0x03 && valueData >= 0 && valueData < globalStrings.size) globalStrings[valueData] else "N/A"
-                            AppLogger.d(TAG, "  Entry $entryIdx: keyIndex=$entryKeyIndex('$keyName'), valueType=0x${valueType.toString(16)}, valueData=$valueData, path='$pathStr'")
-                        }
-
                         if (valueType != 0x03) continue
 
                         val globalStrIdx = valueData
                         if (globalStrIdx < 0 || globalStrIdx >= globalStrings.size) continue
 
-                        if (typeId == mipmapTypeId) {
-                            if (entryKeyIndex == icLauncherKeyIdx || entryKeyIndex == icLauncherRoundKeyIdx) {
-                                val oldPath = globalStrings[globalStrIdx]
+                        if (isInteresting && entryKeyIndex in targetKeyIndices) {
+                            val oldPath = globalStrings[globalStrIdx]
+                            val lowerPath = oldPath.lowercase()
+                            if (lowerPath.endsWith(".png") || lowerPath.endsWith(".webp")) {
                                 val keyName = if (entryKeyIndex >= 0 && entryKeyIndex < keyStrings.size) keyStrings[entryKeyIndex] else "?"
-                                AppLogger.d(TAG, "Found mipmap/$keyName → '$oldPath' (adaptive icon XML, KEEPING)")
-                            }
-                        }
-
-                        if (typeId == drawableTypeId) {
-                            if (entryKeyIndex == icLauncherFgKeyIdx) {
-                                val oldPath = globalStrings[globalStrIdx]
-                                AppLogger.d(TAG, "Found drawable/ic_launcher_foreground → '$oldPath' (foreground image, REPLACING)")
+                                AppLogger.d(TAG, "Discovered icon image entry: key='$keyName', path='$oldPath'")
                                 result.add(globalStrIdx to oldPath)
                             }
                         }

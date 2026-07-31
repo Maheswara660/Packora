@@ -11,8 +11,8 @@ android {
         applicationId = "com.maheswara660.packora"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 20
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,6 +49,46 @@ android {
         compose = true
     }
 }
+
+// ── Template APK Automation ─────────────────────────────────────────────────
+// Automatically builds :template and copies the APK to assets before every
+// :app compilation. This way clicking "Run" or "Build" in Android Studio
+// always picks up the latest template without any manual steps.
+
+val templateApkDest = layout.projectDirectory.file("src/main/assets/template/webview_shell.apk")
+
+val buildTemplateApk by tasks.registering(Exec::class) {
+    description = "Builds the :template release APK"
+    group = "build"
+    val gradlew = rootProject.file("gradlew")
+    // Use Android Studio's bundled JDK to ensure jlink is available
+    val androidStudioJdk = "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+    environment("JAVA_HOME", androidStudioJdk)
+    environment("PATH", "$androidStudioJdk/bin:" + (System.getenv("PATH") ?: ""))
+    commandLine(gradlew.absolutePath, "--no-configuration-cache", ":template:assembleRelease")
+    workingDir = rootProject.projectDir
+}
+
+val copyTemplateApk by tasks.registering(Copy::class) {
+    description = "Copies the built template APK into app assets"
+    group = "build"
+    dependsOn(buildTemplateApk)
+    from(rootProject.file("template/build/outputs/apk/release/template-release-unsigned.apk"))
+    into(layout.projectDirectory.dir("src/main/assets/template"))
+    rename { "webview_shell.apk" }
+}
+
+// Hook into all preBuild, lint, and asset tasks so the template is always fresh and dependencies are clean
+tasks.matching { 
+    it.name.startsWith("pre") || 
+    it.name.contains("Lint") || 
+    it.name.contains("Asset") || 
+    it.name.contains("Manifest") 
+}.configureEach {
+    dependsOn(copyTemplateApk)
+}
+
+
 
 kotlin {
     jvmToolchain(17)

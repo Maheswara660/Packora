@@ -26,8 +26,6 @@ class JarSigner(private val context: Context) {
         private const val KEY_ALIAS = "PackoraKey"
         private const val FALLBACK_KEY_ALIAS = "PackoraFallback"
 
-        @Suppress("unused")
-        private const val CUSTOM_KEY_ALIAS = "CustomKey"
         private const val DIGEST_ALGORITHM = "SHA-256"
         private const val SIGNATURE_ALGORITHM = "SHA256withRSA"
         private const val KEY_SIZE = 2048

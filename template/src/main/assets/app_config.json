@@ -1,0 +1,21 @@
+{
+  "appName": "TemplateApp",
+  "packageName": "com.maheswara660.packora.template",
+  "targetUrl": "https://google.com",
+  "versionCode": 1,
+  "versionName": "1.0",
+  "webViewConfig": {
+    "openExternalLinks": true,
+    "desktopMode": false,
+    "userAgent": "",
+    "downloadLocation": "Downloads/TemplateApp",
+    "customDownloadFolder": null
+  },
+  "deviceDisguiseConfig": {
+    "enabled": false,
+    "deviceType": "MOBILE",
+    "deviceOS": "ANDROID",
+    "deviceBrand": "GENERIC",
+    "isDesktopViewport": false
+  }
+}

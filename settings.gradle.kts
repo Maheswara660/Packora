@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Packora"
 include(":app")
+include(":template")

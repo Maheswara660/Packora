@@ -41,6 +41,7 @@ class ApkBuilder(private val context: Context) {
         outputPath: String,
         customExportUri: String? = null,
         customDownloadFolder: String? = null,
+        isDesktopMode: Boolean = false,
         keystorePassword: String?,
         keyAlias: String?,
         commonName: String?,
@@ -109,10 +110,6 @@ class ApkBuilder(private val context: Context) {
                         .sortedWith(compareBy<ZipEntry> { it.name != "resources.arsc" })
 
                     entries.forEach { entry ->
-                        // Skip adaptive icon XML definitions to fix the package installer flyout mismatch
-                        if (entry.name == "res/mipmap-anydpi-v26/ic_launcher.xml" || entry.name == "res/mipmap-anydpi-v26/ic_launcher_round.xml") {
-                            return@forEach
-                        }
                         when {
                             entry.name.startsWith("META-INF/") &&
                             (entry.name.endsWith(".SF") || entry.name.endsWith(".RSA") ||
@@ -124,7 +121,7 @@ class ApkBuilder(private val context: Context) {
                                 val originalData = zipIn.getInputStream(entry).readBytes()
                                 val modifiedData = axmlRebuilder.expandAndModifyFull(
                                     axmlData = originalData,
-                                    originalPackage = "com.webtoapp",
+                                    originalPackage = "com.maheswara660.packora.template",
                                     newPackage = packageName,
                                     versionCode = versionCode,
                                     versionName = versionName,
@@ -153,6 +150,10 @@ class ApkBuilder(private val context: Context) {
                                     put("versionName", versionName)
                                     put("webViewConfig", JSONObject().apply {
                                         put("openExternalLinks", true)
+                                        put("desktopMode", isDesktopMode)
+                                        if (isDesktopMode) {
+                                            put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                                        }
                                         if (customDownloadFolder != null) {
                                             put("downloadLocation", customDownloadFolder)
                                             put("customDownloadFolder", customDownloadFolder)
@@ -160,6 +161,15 @@ class ApkBuilder(private val context: Context) {
                                             put("downloadLocation", "Downloads/$sanitizedAppName")
                                         }
                                     })
+                                    if (isDesktopMode) {
+                                        put("deviceDisguiseConfig", JSONObject().apply {
+                                            put("enabled", true)
+                                            put("deviceType", "DESKTOP")
+                                            put("deviceOS", "WINDOWS")
+                                            put("deviceBrand", "GENERIC_WINDOWS")
+                                            put("isDesktopViewport", true)
+                                        })
+                                    }
                                 }
                                 val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                                 ZipUtils.writeEntryDeflated(zipOut, entry.name, configBytes)
@@ -167,7 +177,16 @@ class ApkBuilder(private val context: Context) {
 
                             isIconEntry(entry.name) || discoveredOldIconPaths.contains(entry.name) -> {
                                 val size = getIconSize(entry.name)
-                                val iconBytes = template.scaleBitmapToPng(finalIconBitmap, size)
+                                val lower = entry.name.lowercase()
+                                val iconBytes = if (lower.contains("foreground") || lower.contains("monochrome")) {
+                                    template.createAdaptiveForegroundIcon(finalIconBitmap, size)
+                                } else if (lower.contains("background")) {
+                                    template.createAdaptiveBackgroundIcon(size)
+                                } else if (lower.contains("round")) {
+                                    template.createRoundIcon(finalIconBitmap, size)
+                                } else {
+                                    template.scaleBitmapToPng(finalIconBitmap, size)
+                                }
                                 ZipUtils.writeEntryDeflated(zipOut, entry.name, iconBytes)
                             }
 
@@ -211,6 +230,10 @@ class ApkBuilder(private val context: Context) {
                             put("versionName", versionName)
                             put("webViewConfig", JSONObject().apply {
                                 put("openExternalLinks", true)
+                                put("desktopMode", isDesktopMode)
+                                if (isDesktopMode) {
+                                    put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                                }
                                 if (customDownloadFolder != null) {
                                     put("downloadLocation", customDownloadFolder)
                                     put("customDownloadFolder", customDownloadFolder)
@@ -218,6 +241,15 @@ class ApkBuilder(private val context: Context) {
                                     put("downloadLocation", "Downloads/$sanitizedAppName")
                                 }
                             })
+                            if (isDesktopMode) {
+                                put("deviceDisguiseConfig", JSONObject().apply {
+                                    put("enabled", true)
+                                    put("deviceType", "DESKTOP")
+                                    put("deviceOS", "WINDOWS")
+                                    put("deviceBrand", "GENERIC_WINDOWS")
+                                    put("isDesktopViewport", true)
+                                })
+                            }
                         }
                         val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                         ZipUtils.writeEntryDeflated(zipOut, ApkTemplate.CONFIG_PATH, configBytes)
@@ -350,14 +382,30 @@ class ApkBuilder(private val context: Context) {
     }
 
     private fun isIconEntry(name: String): Boolean {
-        return ApkTemplate.ICON_PATHS.any { it.first == name } ||
-               ApkTemplate.ROUND_ICON_PATHS.any { it.first == name }
+        if (ApkTemplate.ICON_PATHS.any { it.first == name } || ApkTemplate.ROUND_ICON_PATHS.any { it.first == name }) {
+            return true
+        }
+        val lower = name.lowercase()
+        return (lower.startsWith("res/mipmap") || lower.startsWith("res/drawable")) &&
+               (lower.contains("ic_launcher") || lower.contains("app_icon")) &&
+               (lower.endsWith(".png") || lower.endsWith(".webp")) &&
+               !lower.endsWith(".xml")
     }
 
     private fun getIconSize(name: String): Int {
         val pathMatch = ApkTemplate.ICON_PATHS.find { it.first == name }
             ?: ApkTemplate.ROUND_ICON_PATHS.find { it.first == name }
-        return pathMatch?.second ?: 96
+        if (pathMatch != null) return pathMatch.second
+
+        val lower = name.lowercase()
+        return when {
+            lower.contains("xxxhdpi") -> 192
+            lower.contains("xxhdpi") -> 144
+            lower.contains("xhdpi") -> 96
+            lower.contains("hdpi") -> 72
+            lower.contains("mdpi") -> 48
+            else -> 96
+        }
     }
 
     companion object {
@@ -367,23 +415,32 @@ class ApkBuilder(private val context: Context) {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
-            val bgId = context.resources.getIdentifier("ic_launcher_background", "drawable", context.packageName)
-            val bgDrawable = if (bgId != 0) ResourcesCompat.getDrawable(context.resources, bgId, context.theme) else null
-            if (bgDrawable != null) {
-                bgDrawable.setBounds(0, 0, width, height)
-                bgDrawable.draw(canvas)
-            } else {
-                canvas.drawColor(Color.parseColor("#3DDC84"))
+            val whiteBg = Color.WHITE
+            val greenMascot = Color.parseColor("#3DDC84")
+
+            canvas.drawColor(whiteBg)
+
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
             }
 
-            val fgId = context.resources.getIdentifier("ic_launcher_foreground", "drawable", context.packageName)
-            val fgDrawable = if (fgId != 0) ResourcesCompat.getDrawable(context.resources, fgId, context.theme) else null
-            if (fgDrawable != null) {
-                val paddingX = (width * 0.14).toInt()
-                val paddingY = (height * 0.14).toInt()
-                fgDrawable.setBounds(paddingX, paddingY, width - paddingX, height - paddingY)
-                fgDrawable.draw(canvas)
-            }
+            // Draw green Android head dome
+            paint.color = greenMascot
+            val rectF = android.graphics.RectF(106f, 180f, 406f, 440f)
+            canvas.drawArc(rectF, 180f, 180f, true, paint)
+            canvas.drawRect(106f, 310f, 406f, 340f, paint)
+
+            // Draw white eyes
+            paint.color = whiteBg
+            canvas.drawCircle(190f, 250f, 16f, paint)
+            canvas.drawCircle(322f, 250f, 16f, paint)
+
+            // Draw green antennae
+            paint.color = greenMascot
+            paint.strokeWidth = 16f
+            paint.strokeCap = android.graphics.Paint.Cap.ROUND
+            canvas.drawLine(170f, 190f, 130f, 130f, paint)
+            canvas.drawLine(342f, 190f, 382f, 130f, paint)
 
             return bitmap
         }

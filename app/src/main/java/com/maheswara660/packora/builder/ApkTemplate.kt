@@ -17,7 +17,14 @@ class ApkTemplate(private val context: Context) {
     companion object {
         const val CONFIG_PATH = "assets/app_config.json"
 
+        // Both path formats: AAPT2 may emit either -v4 or no qualifier suffix
         val ICON_PATHS = listOf(
+            "res/mipmap-mdpi/ic_launcher.png" to 48,
+            "res/mipmap-hdpi/ic_launcher.png" to 72,
+            "res/mipmap-xhdpi/ic_launcher.png" to 96,
+            "res/mipmap-xxhdpi/ic_launcher.png" to 144,
+            "res/mipmap-xxxhdpi/ic_launcher.png" to 192,
+            // Legacy -v4 variants
             "res/mipmap-mdpi-v4/ic_launcher.png" to 48,
             "res/mipmap-hdpi-v4/ic_launcher.png" to 72,
             "res/mipmap-xhdpi-v4/ic_launcher.png" to 96,
@@ -26,6 +33,12 @@ class ApkTemplate(private val context: Context) {
         )
 
         val ROUND_ICON_PATHS = listOf(
+            "res/mipmap-mdpi/ic_launcher_round.png" to 48,
+            "res/mipmap-hdpi/ic_launcher_round.png" to 72,
+            "res/mipmap-xhdpi/ic_launcher_round.png" to 96,
+            "res/mipmap-xxhdpi/ic_launcher_round.png" to 144,
+            "res/mipmap-xxxhdpi/ic_launcher_round.png" to 192,
+            // Legacy -v4 variants
             "res/mipmap-mdpi-v4/ic_launcher_round.png" to 48,
             "res/mipmap-hdpi-v4/ic_launcher_round.png" to 72,
             "res/mipmap-xhdpi-v4/ic_launcher_round.png" to 96,
@@ -71,8 +84,15 @@ class ApkTemplate(private val context: Context) {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
-        // 15% padding (85% safe zone) to unscale the icon visually
-        val safeZoneSize = (size * 0.85f).toInt()
+        // Draw clean white rounded squircle background
+        val radius = size * 0.20f
+        val bgPaint = Paint().apply {
+            isAntiAlias = true
+            color = android.graphics.Color.WHITE
+        }
+        canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), radius, radius, bgPaint)
+
+        val safeZoneSize = (size * 0.50f).toInt()
         val padding = (size - safeZoneSize) / 2
 
         val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
@@ -113,7 +133,7 @@ class ApkTemplate(private val context: Context) {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
-        val safeZoneSize = (size * 72f / 108f).toInt()
+        val safeZoneSize = (size * 68f / 108f).toInt()
         val padding = (size - safeZoneSize) / 2
 
         val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
@@ -133,21 +153,39 @@ class ApkTemplate(private val context: Context) {
         return baos.toByteArray()
     }
 
-    fun createRoundIcon(bitmap: Bitmap, size: Int): ByteArray {
-        val scaled = Bitmap.createScaledBitmap(bitmap, size, size, true)
+    fun createAdaptiveBackgroundIcon(size: Int): ByteArray {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-
         val canvas = Canvas(output)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        val baos = ByteArrayOutputStream()
+        output.compress(Bitmap.CompressFormat.PNG, 100, baos)
+        output.recycle()
+
+        return baos.toByteArray()
+    }
+
+    fun createRoundIcon(bitmap: Bitmap, size: Int): ByteArray {
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        // Draw white circle background
+        val bgPaint = Paint().apply {
+            isAntiAlias = true
+            color = android.graphics.Color.WHITE
+        }
+        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
+        canvas.drawOval(rect, bgPaint)
+
+        val safeZoneSize = (size * 0.72f).toInt()
+        val padding = (size - safeZoneSize) / 2
+        val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
+
         val paint = Paint().apply {
             isAntiAlias = true
             isFilterBitmap = true
         }
-
-        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-        canvas.drawOval(rect, paint)
-
-        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(scaled, 0f, 0f, paint)
+        canvas.drawBitmap(scaled, padding.toFloat(), padding.toFloat(), paint)
 
         val baos = ByteArrayOutputStream()
         output.compress(Bitmap.CompressFormat.PNG, 100, baos)

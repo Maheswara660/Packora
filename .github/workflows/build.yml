@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JAVA_VERSION: '21'
+  JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
   GRADLE_OPTS: >-
     -Dorg.gradle.daemon=false
@@ -64,11 +64,11 @@ jobs:
             done
           }
           echo "Building template release APK..."
-          retry ./gradlew :template:assembleRelease
+          retry ./gradlew :template:assembleRelease --stacktrace
           mkdir -p app/src/main/assets/template
           cp template/build/outputs/apk/release/template-release-unsigned.apk app/src/main/assets/template/webview_shell.apk
           echo "Building Packora release APK..."
-          retry ./gradlew :app:assembleRelease
+          retry ./gradlew :app:assembleRelease --stacktrace
         shell: bash
 
       - name: Sign Android Release

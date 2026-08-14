@@ -2,6 +2,15 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [2.1.0] - 2026-08-14
+### Added & Enhanced
+- **Dynamic Status Bar & Navigation Bar Contrast**: System status bar and navigation bar background colors dynamically sync with the web app header/theme color in real-time. Status bar font and system navigation buttons automatically adapt between **BLACK** (for light backgrounds) and **WHITE** (for dark backgrounds).
+- **Algorithmic Dark Mode**: Added `WebSettingsCompat.setAlgorithmicDarkeningAllowed` support to WebAPK shell, allowing web pages to render in Dark Mode matching system appearance.
+- **Android Password Manager & Autofill Integration**: Enabled `importantForAutofill = IMPORTANT_FOR_AUTOFILL_YES` and added an `AutofillBridge` JavaScript interface to trigger system Password Managers (Google Password Manager, Bitwarden, 1Password) on web login forms.
+- **Stale Icon Reset**: Fixed an issue where changing the input URL retained the previously fetched app icon. Now URL edits immediately clear cached icons and fetch fresh favicons.
+- **High-Precision Icon Scaling**: Rewrote bitmap scaling in `ApkTemplate.kt` using direct `Matrix` transformations with anti-aliasing, filtering, and dithering for razor-sharp launcher icons.
+- **Automated Template Build Pipeline**: Updated `:app` Gradle build configuration to automatically assemble `:template:assembleRelease` and refresh `webview_shell.apk` in assets before every build.
+
 ## [2.0.0] - 2026-07-31
 ### Added & Enhanced
 - **Native In-House Template Module (`:template`)**: Replaced external static shell binaries with an integrated Gradle `:template` application module. The WebAPK shell is now compiled alongside Packora, ensuring 100% binary consistency and easy future extensibility.

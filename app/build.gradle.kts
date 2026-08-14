@@ -11,8 +11,8 @@ android {
         applicationId = "com.maheswara660.packora"
         minSdk = 24
         targetSdk = 35
-        versionCode = 20
-        versionName = "2.0.0"
+        versionCode = 21
+        versionName = "2.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -57,6 +57,7 @@ android {
 val copyTemplateApk by tasks.registering(Copy::class) {
     description = "Copies the built template APK into app assets"
     group = "build"
+    dependsOn(":template:assembleRelease")
     mustRunAfter(":template:assembleRelease")
     from(rootProject.file("template/build/outputs/apk/release/template-release-unsigned.apk"))
     into(layout.projectDirectory.dir("src/main/assets/template"))

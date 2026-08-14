@@ -119,15 +119,24 @@ fun PackoraDashboard() {
     var isAdvancedExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(url) {
+        autoFetchedIconBitmap = null
+        iconUri = null
+        iconName = null
         if (url.isNotBlank()) {
             val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
             
-            delay(1200)
             isFetchingIcon = true
+            delay(600)
             try {
                 val fetched = fetchPremiumIcon(fetchUrl)
-                if (fetched != null) autoFetchedIconBitmap = fetched
-            } catch (e: Exception) {} finally { isFetchingIcon = false }
+                autoFetchedIconBitmap = fetched
+            } catch (e: Exception) {
+                autoFetchedIconBitmap = null
+            } finally {
+                isFetchingIcon = false
+            }
+        } else {
+            isFetchingIcon = false
         }
     }
 
@@ -362,7 +371,7 @@ fun PackoraDashboard() {
                                 OutlinedTextField(value = packageName, onValueChange = { packageName = it }, label = { Text("Custom Package Name") }, placeholder = { Text("com.maheswara660.packora.app") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     OutlinedTextField(value = versionCode, onValueChange = { versionCode = it }, label = { Text("Version Code") }, placeholder = { Text("1") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
-                                    OutlinedTextField(value = versionName, onValueChange = { versionName = it }, label = { Text("Version Name") }, placeholder = { Text("2.0.0") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
+                                    OutlinedTextField(value = versionName, onValueChange = { versionName = it }, label = { Text("Version Name") }, placeholder = { Text("2.1.0") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
                                 }
                                 
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

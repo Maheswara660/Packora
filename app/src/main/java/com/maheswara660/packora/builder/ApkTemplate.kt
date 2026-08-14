@@ -4,10 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -66,7 +66,6 @@ class ApkTemplate(private val context: Context) {
             templateFile
         } catch (e: Exception) {
             AppLogger.e("ApkTemplate", "Failed to extract webview_shell.apk from assets", e)
-            // Fall back to cached version if re-extraction fails
             if (templateFile.exists() && templateFile.length() > 0) templateFile else null
         }
     }
@@ -85,28 +84,32 @@ class ApkTemplate(private val context: Context) {
         val canvas = Canvas(output)
 
         // Draw clean white rounded squircle background
-        val radius = size * 0.20f
+        val radius = size * 0.18f
         val bgPaint = Paint().apply {
             isAntiAlias = true
-            color = android.graphics.Color.WHITE
+            color = Color.WHITE
         }
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), radius, radius, bgPaint)
 
+        // 85% safe zone for crisp, clear visual visibility
         val safeZoneSize = (size * 0.50f).toInt()
-        val padding = (size - safeZoneSize) / 2
-
-        val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
+        val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {
             isAntiAlias = true
             isFilterBitmap = true
+            isDither = true
         }
-        canvas.drawBitmap(scaled, padding.toFloat(), padding.toFloat(), paint)
+
+        val matrix = Matrix()
+        val scale = safeZoneSize.toFloat() / bitmap.width.toFloat()
+        matrix.postScale(scale, scale)
+        matrix.postTranslate(padding, padding)
+
+        canvas.drawBitmap(bitmap, matrix, paint)
 
         val baos = ByteArrayOutputStream()
         output.compress(Bitmap.CompressFormat.PNG, 100, baos)
-
-        if (scaled != bitmap) scaled.recycle()
         output.recycle()
 
         return baos.toByteArray()
@@ -133,21 +136,25 @@ class ApkTemplate(private val context: Context) {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
-        val safeZoneSize = (size * 68f / 108f).toInt()
-        val padding = (size - safeZoneSize) / 2
-
-        val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
+        // 72% safe zone for adaptive foreground icons according to Android spec
+        val safeZoneSize = (size * 0.72f).toInt()
+        val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {
             isAntiAlias = true
             isFilterBitmap = true
+            isDither = true
         }
-        canvas.drawBitmap(scaled, padding.toFloat(), padding.toFloat(), paint)
+
+        val matrix = Matrix()
+        val scale = safeZoneSize.toFloat() / bitmap.width.toFloat()
+        matrix.postScale(scale, scale)
+        matrix.postTranslate(padding, padding)
+
+        canvas.drawBitmap(bitmap, matrix, paint)
 
         val baos = ByteArrayOutputStream()
         output.compress(Bitmap.CompressFormat.PNG, 100, baos)
-
-        if (scaled != bitmap) scaled.recycle()
         output.recycle()
 
         return baos.toByteArray()
@@ -156,7 +163,7 @@ class ApkTemplate(private val context: Context) {
     fun createAdaptiveBackgroundIcon(size: Int): ByteArray {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
-        canvas.drawColor(android.graphics.Color.WHITE)
+        canvas.drawColor(Color.WHITE)
 
         val baos = ByteArrayOutputStream()
         output.compress(Bitmap.CompressFormat.PNG, 100, baos)
@@ -172,25 +179,30 @@ class ApkTemplate(private val context: Context) {
         // Draw white circle background
         val bgPaint = Paint().apply {
             isAntiAlias = true
-            color = android.graphics.Color.WHITE
+            color = Color.WHITE
         }
         val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
         canvas.drawOval(rect, bgPaint)
 
-        val safeZoneSize = (size * 0.72f).toInt()
-        val padding = (size - safeZoneSize) / 2
-        val scaled = Bitmap.createScaledBitmap(bitmap, safeZoneSize, safeZoneSize, true)
+        // 84% safe zone for round launcher icons
+        val safeZoneSize = (size * 0.84f).toInt()
+        val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {
             isAntiAlias = true
             isFilterBitmap = true
+            isDither = true
         }
-        canvas.drawBitmap(scaled, padding.toFloat(), padding.toFloat(), paint)
+
+        val matrix = Matrix()
+        val scale = safeZoneSize.toFloat() / bitmap.width.toFloat()
+        matrix.postScale(scale, scale)
+        matrix.postTranslate(padding, padding)
+
+        canvas.drawBitmap(bitmap, matrix, paint)
 
         val baos = ByteArrayOutputStream()
         output.compress(Bitmap.CompressFormat.PNG, 100, baos)
-
-        if (scaled != bitmap) scaled.recycle()
         output.recycle()
 
         return baos.toByteArray()

@@ -7,12 +7,17 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.View
+import android.view.autofill.AutofillManager
 import android.webkit.DownloadListener
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -29,6 +34,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.maheswara660.packora.template.databinding.ActivityMainBinding
 import org.json.JSONObject
 import java.io.InputStreamReader
@@ -38,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var binding: ActivityMainBinding
     private var config: JSONObject? = null
     private lateinit var insetsController: WindowInsetsControllerCompat
+    private var isNightMode: Boolean = false
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -60,6 +68,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // JavaScript Bridge to trigger native Android Password Manager / Autofill Framework
+    inner class AutofillBridge {
+        @JavascriptInterface
+        fun triggerAutofill() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                runOnUiThread {
+                    val afm = getSystemService(AutofillManager::class.java)
+                    if (afm != null && afm.isEnabled) {
+                        afm.requestAutofill(binding.webView)
+                    }
+                }
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +94,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+) for download completion notifications
+        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+) for download notifications
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -84,9 +107,11 @@ class MainActivity : ComponentActivity() {
         setContentView(binding.root)
 
         insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val isNightMode = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        insetsController.isAppearanceLightStatusBars = !isNightMode
-        insetsController.isAppearanceLightNavigationBars = !isNightMode
+
+        // Automatic System Dark/Light Mode Detection (Matching Packora & System Appearance)
+        isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val defaultBgColor = if (isNightMode) Color.parseColor("#121212") else Color.WHITE
+        updateSystemBarsTheme(defaultBgColor, defaultBgColor)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(
@@ -118,7 +143,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        isNightMode = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+        // Dynamically update WebView Force Dark / Algorithmic Darkening when system theme changes
+        val settings = binding.webView.settings
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isNightMode)
+                } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    @Suppress("DEPRECATION")
+                    WebSettingsCompat.setForceDark(
+                        settings,
+                        if (isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                    )
+                }
+            } catch (e: Exception) { }
+        }
+
+        syncWebPageThemeColor(binding.webView)
+    }
+
+    @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun setupWebView() {
         val webView = binding.webView
         val settings = webView.settings
@@ -132,6 +180,27 @@ class MainActivity : ComponentActivity() {
         settings.displayZoomControls = false
         settings.allowContentAccess = true
         settings.loadsImagesAutomatically = true
+
+        // Configure WebView Force Dark / Algorithmic Darkening matching System Dark Mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isNightMode)
+                } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    @Suppress("DEPRECATION")
+                    WebSettingsCompat.setForceDark(
+                        settings,
+                        if (isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                    )
+                }
+            } catch (e: Exception) { }
+        }
+
+        // Enable Android Autofill Framework for Password Managers (Google Password Manager, Bitwarden, etc.)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+        }
+        webView.addJavascriptInterface(AutofillBridge(), "AndroidAutofill")
 
         val webViewConfig = config?.optJSONObject("webViewConfig")
         val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
@@ -154,6 +223,7 @@ class MainActivity : ComponentActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                syncWebPageThemeColor(view)
                 if (isDesktopMode) {
                     view?.evaluateJavascript(
                         """
@@ -173,6 +243,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                syncWebPageThemeColor(view)
                 if (isDesktopMode) {
                     view?.evaluateJavascript(
                         """
@@ -185,6 +256,34 @@ class MainActivity : ComponentActivity() {
                         """.trimIndent(), null
                     )
                 }
+
+                // Inject Autofill & Password Manager helper logic into login forms
+                view?.evaluateJavascript(
+                    """
+                    (function() {
+                        try {
+                            var inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
+                            inputs.forEach(function(input) {
+                                var type = input.getAttribute('type') || '';
+                                var name = (input.getAttribute('name') || '').toLowerCase();
+                                var id = (input.getAttribute('id') || '').toLowerCase();
+                                
+                                if (type === 'password' && !input.getAttribute('autocomplete')) {
+                                    input.setAttribute('autocomplete', 'current-password');
+                                } else if ((name.includes('login') || name.includes('user') || name.includes('email') || id.includes('login') || id.includes('user')) && !input.getAttribute('autocomplete')) {
+                                    input.setAttribute('autocomplete', 'username');
+                                }
+                                
+                                input.addEventListener('focus', function() {
+                                    if (window.AndroidAutofill && window.AndroidAutofill.triggerAutofill) {
+                                        window.AndroidAutofill.triggerAutofill();
+                                    }
+                                });
+                            });
+                        } catch(e) {}
+                    })();
+                    """.trimIndent(), null
+                )
             }
 
             override fun shouldOverrideUrlLoading(
@@ -209,7 +308,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Enable HTML5 File Input Chooser
+        // Enable HTML5 File Input Chooser & Sync System Bar Colors Continuously
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 webView: WebView?,
@@ -230,6 +329,18 @@ class MainActivity : ComponentActivity() {
                 } catch (e: Exception) {
                     this@MainActivity.filePathCallback = null
                     false
+                }
+            }
+
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                super.onReceivedTitle(view, title)
+                syncWebPageThemeColor(view)
+            }
+
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                if (newProgress > 25) {
+                    syncWebPageThemeColor(view)
                 }
             }
         }
@@ -253,6 +364,112 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(applicationContext, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         })
+    }
+
+    private fun syncWebPageThemeColor(view: WebView?) {
+        view?.evaluateJavascript(
+            """
+            (function() {
+                var meta = document.querySelector('meta[name="theme-color"]');
+                var topColor = meta ? meta.content : '';
+                function getBg(elem) {
+                    if (!elem) return '';
+                    var color = window.getComputedStyle(elem).backgroundColor;
+                    if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') return color;
+                    return '';
+                }
+                if (!topColor) {
+                    var header = document.querySelector('header') || document.querySelector('nav') || document.querySelector('.header');
+                    topColor = getBg(header) || getBg(document.body) || getBg(document.documentElement) || '';
+                }
+                var bottomColor = getBg(document.body) || getBg(document.documentElement) || topColor;
+                return JSON.stringify({ top: topColor, bottom: bottomColor });
+            })()
+            """.trimIndent()
+        ) { rawJson ->
+            if (!rawJson.isNullOrBlank() && rawJson != "null") {
+                try {
+                    val cleanJson = rawJson.replace("^\"|\"$".toRegex(), "").replace("\\\"", "\"")
+                    val jsonObj = JSONObject(cleanJson)
+                    val topStr = jsonObj.optString("top", "")
+                    val bottomStr = jsonObj.optString("bottom", "")
+
+                    val topColor = parseCssColor(topStr)
+                    val bottomColor = parseCssColor(bottomStr) ?: topColor
+
+                    if (topColor != null) {
+                        runOnUiThread {
+                            updateSystemBarsTheme(topColor, bottomColor ?: topColor)
+                        }
+                    } else {
+                        val fallbackColor = if (isNightMode) Color.parseColor("#121212") else Color.WHITE
+                        runOnUiThread {
+                            updateSystemBarsTheme(fallbackColor, fallbackColor)
+                        }
+                    }
+                } catch (e: Exception) {
+                    val fallbackColor = if (isNightMode) Color.parseColor("#121212") else Color.WHITE
+                    runOnUiThread {
+                        updateSystemBarsTheme(fallbackColor, fallbackColor)
+                    }
+                }
+            } else {
+                val fallbackColor = if (isNightMode) Color.parseColor("#121212") else Color.WHITE
+                runOnUiThread {
+                    updateSystemBarsTheme(fallbackColor, fallbackColor)
+                }
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun updateSystemBarsTheme(topColor: Int, bottomColor: Int = topColor) {
+        val isTopLight = isColorLight(topColor)
+        val isBottomLight = isColorLight(bottomColor)
+
+        // Status Bar Font & Icon Contrast:
+        // Light background -> BLACK font & icons (isAppearanceLightStatusBars = true)
+        // Dark background  -> WHITE font & icons (isAppearanceLightStatusBars = false)
+        insetsController.isAppearanceLightStatusBars = isTopLight
+
+        // Navigation Bar Button Contrast:
+        // Light background -> BLACK navigation buttons (isAppearanceLightNavigationBars = true)
+        // Dark background  -> WHITE navigation buttons (isAppearanceLightNavigationBars = false)
+        insetsController.isAppearanceLightNavigationBars = isBottomLight
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window.statusBarColor = topColor
+            window.navigationBarColor = bottomColor
+        }
+
+        window.decorView.setBackgroundColor(topColor)
+        binding.root.setBackgroundColor(topColor)
+        binding.webView.setBackgroundColor(Color.TRANSPARENT)
+    }
+
+    private fun parseCssColor(cssStr: String): Int? {
+        val clean = cssStr.replace("\"", "").trim()
+        if (clean.startsWith("#")) {
+            return try { Color.parseColor(clean) } catch (e: Exception) { null }
+        }
+        if (clean.startsWith("rgb")) {
+            val match = Regex("""rgba?\((\d+),\s*(\d+),\s*(\d+)""").find(clean)
+            if (match != null) {
+                val (r, g, b) = match.destructured
+                return try { Color.rgb(r.toInt(), g.toInt(), b.toInt()) } catch (e: Exception) { null }
+            }
+        }
+        return null
+    }
+
+    private fun isColorLight(color: Int): Boolean {
+        val red = Color.red(color) / 255.0
+        val green = Color.green(color) / 255.0
+        val blue = Color.blue(color) / 255.0
+        val luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+        return luminance > 0.5
     }
 
     @Suppress("DEPRECATION")

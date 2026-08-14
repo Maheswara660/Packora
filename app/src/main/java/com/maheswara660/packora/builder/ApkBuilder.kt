@@ -399,12 +399,12 @@ class ApkBuilder(private val context: Context) {
 
         val lower = name.lowercase()
         return when {
-            lower.contains("xxxhdpi") -> 192
-            lower.contains("xxhdpi") -> 144
-            lower.contains("xhdpi") -> 96
-            lower.contains("hdpi") -> 72
-            lower.contains("mdpi") -> 48
-            else -> 96
+            lower.contains("xxxhdpi") || lower.contains("480") || lower.contains("640") -> 192
+            lower.contains("xxhdpi") || lower.contains("360") || lower.contains("320") -> 144
+            lower.contains("xhdpi") || lower.contains("240") -> 96
+            lower.contains("hdpi") || lower.contains("180") -> 72
+            lower.contains("mdpi") || lower.contains("120") -> 48
+            else -> 192
         }
     }
 

@@ -10,8 +10,8 @@ android {
         applicationId = "com.maheswara660.packora.template"
         minSdk = 24
         targetSdk = 35
-        versionCode = 20
-        versionName = "2.0.0"
+        versionCode = 21
+        versionName = "2.1.0"
     }
 
     buildTypes {
@@ -36,4 +36,5 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.webkit:webkit:1.12.0")
 }

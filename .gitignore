@@ -4,7 +4,9 @@ obj/
 # Gradle files
 .gradle/
 build/
+*/build/
 app/build/
+template/build/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -18,14 +20,14 @@ local.properties
 # Android Studio captures folder
 captures/
 
-# IntelliJ
+# IntelliJ / Android Studio
 *.iml
 .idea/
 !.idea/vcs.xml
 !.idea/codeStyles/
 
 # Keystore files
-# Packora generates custom keystores (.p12, .jks) dynamically, so we must ignore them.
+# Packora generates custom keystores (.p12, .jks, .keystore) dynamically, so we ignore generated binaries.
 *.jks
 *.keystore
 *.p12
@@ -40,13 +42,16 @@ captures/
 *.aab
 *.apxc
 
-# Packora EXCEPTION: Do NOT ignore the template WebAPK since it's the core engine asset!
+# Packora EXCEPTION: Do NOT ignore the compiled template WebAPK asset!
 !app/src/main/assets/template/webview_shell.apk
 
-# Mac
+# Mac OS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Temporary scratch scripts (Python scripts used for debugging)
+# Temporary scratch scripts (Python & Shell scripts used for testing/patching)
+scratch/
 *.py
 __pycache__/
 
@@ -62,3 +67,5 @@ google-services.json
 
 # Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.view.View
 import android.view.autofill.AutofillManager
+import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
@@ -27,6 +28,8 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -114,14 +117,19 @@ class MainActivity : ComponentActivity() {
         updateSystemBarsTheme(defaultBgColor, defaultBgColor)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+
+            val density = resources.displayMetrics.density
+            val isGestureNav = navBars.bottom < (24 * density).toInt()
+            val bottomPadding = if (isGestureNav) 0 else navBars.bottom
+
             view.updatePadding(
-                top = bars.top,
-                bottom = bars.bottom,
-                left = bars.left,
-                right = bars.right
+                top = maxOf(statusBars.top, cutout.top),
+                bottom = bottomPadding,
+                left = maxOf(navBars.left, cutout.left),
+                right = maxOf(navBars.right, cutout.right)
             )
             insets
         }
@@ -130,6 +138,9 @@ class MainActivity : ComponentActivity() {
         setupWebView()
 
         val targetUrl = config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
+        val webViewConfig = config?.optJSONObject("webViewConfig")
+        val browserEngine = webViewConfig?.optString("browserEngine", "SYSTEM_DEFAULT") ?: "SYSTEM_DEFAULT"
+
         if (targetUrl != null) {
             binding.webView.loadUrl(targetUrl)
         } else {
@@ -173,6 +184,8 @@ class MainActivity : ComponentActivity() {
 
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        @Suppress("DEPRECATION")
+        settings.databaseEnabled = true
         settings.allowFileAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.setSupportZoom(true)
@@ -180,6 +193,13 @@ class MainActivity : ComponentActivity() {
         settings.displayZoomControls = false
         settings.allowContentAccess = true
         settings.loadsImagesAutomatically = true
+
+        // Configure System Cookie Manager for Shared Browser Cookies & Login Access
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            cookieManager.setAcceptThirdPartyCookies(webView, true)
+        }
 
         // Configure WebView Force Dark / Algorithmic Darkening matching System Dark Mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -204,6 +224,7 @@ class MainActivity : ComponentActivity() {
 
         val webViewConfig = config?.optJSONObject("webViewConfig")
         val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
+        val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
 
         if (isDesktopMode) {
             val desktopUA = webViewConfig?.optString("userAgent")
@@ -215,7 +236,7 @@ class MainActivity : ComponentActivity() {
             settings.loadWithOverviewMode = true
             settings.defaultTextEncodingName = "utf-8"
         } else {
-            settings.userAgentString = null
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
             settings.useWideViewPort = false
             settings.loadWithOverviewMode = false
         }
@@ -239,6 +260,9 @@ class MainActivity : ComponentActivity() {
                         """.trimIndent(), null
                     )
                 }
+                if (!allowCopying) {
+                    injectCopyProtection(view)
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -255,6 +279,10 @@ class MainActivity : ComponentActivity() {
                         })();
                         """.trimIndent(), null
                     )
+                }
+
+                if (!allowCopying) {
+                    injectCopyProtection(view)
                 }
 
                 // Inject Autofill & Password Manager helper logic into login forms
@@ -308,8 +336,47 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Enable HTML5 File Input Chooser & Sync System Bar Colors Continuously
+        // Enable HTML5 File Input Chooser, WebRTC Camera/Microphone, Geolocation & Theme Color Sync
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+                if (request != null) {
+                    val requestedResources = request.resources
+                    val permissionsToRequest = mutableListOf<String>()
+
+                    for (resource in requestedResources) {
+                        if (resource == android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE) {
+                            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+                        } else if (resource == android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
+                            permissionsToRequest.add(Manifest.permission.CAMERA)
+                        }
+                    }
+
+                    if (permissionsToRequest.isNotEmpty()) {
+                        ActivityCompat.requestPermissions(
+                            this@MainActivity,
+                            permissionsToRequest.toTypedArray(),
+                            1001
+                        )
+                    }
+                    request.grant(requestedResources)
+                }
+            }
+
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: android.webkit.GeolocationPermissions.Callback?
+            ) {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    1002
+                )
+                callback?.invoke(origin, true, false)
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -364,6 +431,34 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(applicationContext, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         })
+    }
+
+    private fun injectCopyProtection(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    var style = document.getElementById('packora-copy-protection');
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = 'packora-copy-protection';
+                        style.innerHTML = '* { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; } input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; }';
+                        (document.head || document.documentElement).appendChild(style);
+                    }
+                    document.addEventListener('copy', function(e) {
+                        var target = e.target;
+                        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+                        e.preventDefault();
+                    }, true);
+                    document.addEventListener('contextmenu', function(e) {
+                        var target = e.target;
+                        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+                        e.preventDefault();
+                    }, true);
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
     }
 
     private fun syncWebPageThemeColor(view: WebView?) {

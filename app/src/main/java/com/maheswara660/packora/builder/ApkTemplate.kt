@@ -92,7 +92,7 @@ class ApkTemplate(private val context: Context) {
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), radius, radius, bgPaint)
 
         // 85% safe zone for crisp, clear visual visibility
-        val safeZoneSize = (size * 0.50f).toInt()
+        val safeZoneSize = (size * 0.70f).toInt()
         val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {

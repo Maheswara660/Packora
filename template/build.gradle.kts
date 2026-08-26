@@ -37,4 +37,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.webkit:webkit:1.12.0")
+    implementation("androidx.browser:browser:1.8.0")
 }

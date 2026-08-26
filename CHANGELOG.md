@@ -2,6 +2,19 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [2.2.0] - 2026-08-26
+### Added & Enhanced
+- **Modern BottomSheet Selection Dialogs**: Redesigned selection menus for App Theme, Color Accent, and Browser Engine with glassmorphic cards, glowing active selection outlines, checkmark badges (`CheckCircle`), and bold `CANCEL` / `OK` action buttons.
+- **Ported Chronora AboutScreen Architecture**: Rebuilt `AboutScreen.kt` featuring dynamic app icon extraction (`packageManager.getApplicationIcon`), `DeveloperCard` (`Developed by Maheswara660`), grouped `AboutActionItem` cards with adaptive corner rounding, and community footer.
+- **Standalone App Window (`SYSTEM_DEFAULT` Engine)**: Generated WebAPKs load target URLs directly inside their own standalone activity window, combining mobile Chrome User-Agent header, system cookie sync, and Android Password Manager Autofill (`IMPORTANT_FOR_AUTOFILL_YES`).
+- **Smart Build History & Auto-Versioning**: Automatically matches target URLs against previous build history on entry/autofill and auto-increments `versionCode` (`+1`) and `versionName` (`1.0.0` ➔ `1.0.1`), resolving `INSTALL_FAILED_UPDATE_INCOMPATIBLE` package update conflicts.
+- **Optimized Gesture Navigation Inset Padding**: Dynamic bottom padding calculation reduces empty bottom space to `4.dp` when gesture navigation mode is enabled, while retaining full `navigationBars` protection for 3-button navigation mode.
+- **WebRTC Camera, Microphone, Geolocation & Biometrics Permissions**:
+  - Injected `CAMERA`, `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `VIBRATE`, and `USE_BIOMETRIC` permissions.
+  - Implemented `WebChromeClient.onPermissionRequest` and `onGeolocationPermissionsShowPrompt` for WebRTC video/audio streams and maps.
+- **Navigation BackStack & System BackHandler**: Integrated Jetpack Compose `BackHandler` and backstack array (`navigationStack`), providing seamless system back gesture navigation between `DASHBOARD`, `SETTINGS`, `HISTORY`, and `ABOUT`.
+- **Package Installer Extra Flags**: Added `EXTRA_NOT_UNKNOWN_SOURCE`, `EXTRA_ALLOW_REPLACE`, and `EXTRA_INSTALLER_PACKAGE_NAME` to APK installation intents for smoother package updates.
+
 ## [2.1.0] - 2026-08-14
 ### Added & Enhanced
 - **Dynamic Status Bar & Navigation Bar Contrast**: System status bar and navigation bar background colors dynamically sync with the web app header/theme color in real-time. Status bar font and system navigation buttons automatically adapt between **BLACK** (for light backgrounds) and **WHITE** (for dark backgrounds).

@@ -42,6 +42,10 @@ class ApkBuilder(private val context: Context) {
         customExportUri: String? = null,
         customDownloadFolder: String? = null,
         isDesktopMode: Boolean = false,
+        browserEngine: String = "SYSTEM_DEFAULT",
+        selectedDns: String = "SYSTEM",
+        customDnsUrl: String? = null,
+        allowCopying: Boolean = false,
         keystorePassword: String?,
         keyAlias: String?,
         commonName: String?,
@@ -57,7 +61,7 @@ class ApkBuilder(private val context: Context) {
         }
 
         val sanitizedAppName = appName.replace(Regex("[^\\w\\s\\-]"), "").replace(" ", "_")
-        val relativeFolder = "Packora/$sanitizedAppName"
+        val relativeFolder = "Packora"
 
         // Handle Custom Keystore Generation if password and alias are provided
         var isCustomSigningActive = false
@@ -231,6 +235,14 @@ class ApkBuilder(private val context: Context) {
                             put("webViewConfig", JSONObject().apply {
                                 put("openExternalLinks", true)
                                 put("desktopMode", isDesktopMode)
+                                put("browserEngine", browserEngine)
+                                put("allowCopying", allowCopying)
+                                put("dnsConfig", JSONObject().apply {
+                                    put("provider", selectedDns)
+                                    if (!customDnsUrl.isNullOrBlank()) {
+                                        put("customDnsUrl", customDnsUrl)
+                                    }
+                                })
                                 if (isDesktopMode) {
                                     put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
                                 }
@@ -238,7 +250,7 @@ class ApkBuilder(private val context: Context) {
                                     put("downloadLocation", customDownloadFolder)
                                     put("customDownloadFolder", customDownloadFolder)
                                 } else {
-                                    put("downloadLocation", "Downloads/$sanitizedAppName")
+                                    put("downloadLocation", "Downloads/Packora")
                                 }
                             })
                             if (isDesktopMode) {

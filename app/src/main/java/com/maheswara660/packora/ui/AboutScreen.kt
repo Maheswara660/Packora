@@ -69,9 +69,6 @@ fun AboutScreen(
             // Glassmorphic Hero App Card
             HeroAppCard()
 
-            // Bento Quick Metrics Grid
-            BentoMetricsRow()
-
             // Developer Showcase Card
             DeveloperCard()
 
@@ -147,9 +144,9 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "2.2.0"
+            pInfo.versionName ?: "2.3.0"
         } catch (e: Exception) {
-            "2.2.0"
+            "2.3.0"
         }
     }
 
@@ -182,27 +179,22 @@ fun HeroAppCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(26.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (appIconBitmap != null) {
-                    Image(
-                        bitmap = appIconBitmap,
-                        contentDescription = "Packora Logo",
-                        modifier = Modifier.size(72.dp)
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.mipmap.ic_launcher),
-                        contentDescription = "Packora Logo",
-                        modifier = Modifier.size(72.dp)
-                    )
-                }
+            if (appIconBitmap != null) {
+                Image(
+                    bitmap = appIconBitmap,
+                    contentDescription = "Packora Logo",
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_launcher),
+                    contentDescription = "Packora Logo",
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                )
             }
 
             Text(
@@ -278,13 +270,13 @@ fun BentoMetricCard(
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(6.dp))
-            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Start)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Start)
         }
     }
 }

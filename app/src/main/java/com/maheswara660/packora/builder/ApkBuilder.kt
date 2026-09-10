@@ -42,9 +42,7 @@ class ApkBuilder(private val context: Context) {
         customExportUri: String? = null,
         customDownloadFolder: String? = null,
         isDesktopMode: Boolean = false,
-        browserEngine: String = "SYSTEM_DEFAULT",
-        selectedDns: String = "SYSTEM",
-        customDnsUrl: String? = null,
+        browserEngine: String = "INDIVIDUAL",
         allowCopying: Boolean = false,
         keystorePassword: String?,
         keyAlias: String?,
@@ -180,7 +178,14 @@ class ApkBuilder(private val context: Context) {
                             }
 
                             isIconEntry(entry.name) || discoveredOldIconPaths.contains(entry.name) -> {
-                                val size = getIconSize(entry.name)
+                                val originalData = zipIn.getInputStream(entry).readBytes()
+                                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                                android.graphics.BitmapFactory.decodeByteArray(originalData, 0, originalData.size, opts)
+                                val origWidth = opts.outWidth
+                                val origHeight = opts.outHeight
+                                val fallbackSize = getIconSize(entry.name)
+                                val size = if (origWidth > 0 && origHeight > 0) maxOf(origWidth, origHeight, fallbackSize) else fallbackSize
+
                                 val lower = entry.name.lowercase()
                                 val iconBytes = if (lower.contains("foreground") || lower.contains("monochrome")) {
                                     template.createAdaptiveForegroundIcon(finalIconBitmap, size)
@@ -237,12 +242,6 @@ class ApkBuilder(private val context: Context) {
                                 put("desktopMode", isDesktopMode)
                                 put("browserEngine", browserEngine)
                                 put("allowCopying", allowCopying)
-                                put("dnsConfig", JSONObject().apply {
-                                    put("provider", selectedDns)
-                                    if (!customDnsUrl.isNullOrBlank()) {
-                                        put("customDnsUrl", customDnsUrl)
-                                    }
-                                })
                                 if (isDesktopMode) {
                                     put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
                                 }
@@ -410,13 +409,15 @@ class ApkBuilder(private val context: Context) {
         if (pathMatch != null) return pathMatch.second
 
         val lower = name.lowercase()
+        val isAdaptive = lower.contains("foreground") || lower.contains("background") || lower.contains("monochrome")
+
         return when {
-            lower.contains("xxxhdpi") || lower.contains("480") || lower.contains("640") -> 192
-            lower.contains("xxhdpi") || lower.contains("360") || lower.contains("320") -> 144
-            lower.contains("xhdpi") || lower.contains("240") -> 96
-            lower.contains("hdpi") || lower.contains("180") -> 72
-            lower.contains("mdpi") || lower.contains("120") -> 48
-            else -> 192
+            lower.contains("xxxhdpi") || lower.contains("480") || lower.contains("640") -> if (isAdaptive) 432 else 192
+            lower.contains("xxhdpi") || lower.contains("360") || lower.contains("320") -> if (isAdaptive) 324 else 144
+            lower.contains("xhdpi") || lower.contains("240") -> if (isAdaptive) 216 else 96
+            lower.contains("hdpi") || lower.contains("180") -> if (isAdaptive) 162 else 72
+            lower.contains("mdpi") || lower.contains("120") -> if (isAdaptive) 108 else 48
+            else -> if (isAdaptive) 432 else 192
         }
     }
 

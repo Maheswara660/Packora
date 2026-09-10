@@ -5,6 +5,7 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 -keep class com.maheswara660.packora.template.MainActivity$AutofillBridge { *; }
+-keep class com.maheswara660.packora.template.MainActivity$NotificationBridge { *; }
 
 # Keep WebView client classes & WebChromeClient handlers
 -keep class * extends android.webkit.WebViewClient { *; }

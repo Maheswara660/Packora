@@ -91,8 +91,8 @@ class ApkTemplate(private val context: Context) {
         }
         canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), radius, radius, bgPaint)
 
-        // 85% safe zone for crisp, clear visual visibility
-        val safeZoneSize = (size * 0.70f).toInt()
+        // 88% safe zone for crisp, clear high-resolution visual visibility
+        val safeZoneSize = (size * 0.88f).toInt()
         val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {
@@ -136,8 +136,8 @@ class ApkTemplate(private val context: Context) {
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
-        // 72% safe zone for adaptive foreground icons according to Android spec
-        val safeZoneSize = (size * 0.72f).toInt()
+        // 76% safe zone for adaptive foreground icons according to Android spec
+        val safeZoneSize = (size * 0.76f).toInt()
         val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {
@@ -184,8 +184,8 @@ class ApkTemplate(private val context: Context) {
         val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
         canvas.drawOval(rect, bgPaint)
 
-        // 84% safe zone for round launcher icons
-        val safeZoneSize = (size * 0.84f).toInt()
+        // 88% safe zone for round launcher icons
+        val safeZoneSize = (size * 0.88f).toInt()
         val padding = (size - safeZoneSize) / 2f
 
         val paint = Paint().apply {

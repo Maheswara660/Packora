@@ -19,6 +19,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -120,8 +123,7 @@ fun MainAppNavigation(
     var versionCode by remember { mutableStateOf("1") }
     var versionName by remember { mutableStateOf("1.0.0") }
     var isDesktopMode by remember { mutableStateOf(false) }
-    var selectedBrowserEngine by remember { mutableStateOf("SYSTEM_DEFAULT") }
-    var selectedDns by remember { mutableStateOf("SYSTEM") }
+    var selectedBrowserEngine by remember { mutableStateOf("INDIVIDUAL") }
     var allowCopying by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -143,8 +145,6 @@ fun MainAppNavigation(
                 onDesktopModeChange = { isDesktopMode = it },
                 selectedBrowserEngine = selectedBrowserEngine,
                 onBrowserEngineChange = { selectedBrowserEngine = it },
-                selectedDns = selectedDns,
-                onDnsChange = { selectedDns = it },
                 allowCopying = allowCopying,
                 onAllowCopyingChange = { allowCopying = it },
                 onNavigateHistory = { navigateTo(Screen.HISTORY) },
@@ -162,7 +162,6 @@ fun MainAppNavigation(
                     versionName = incrementVersionString(item.versionName)
                     isDesktopMode = item.isDesktopMode
                     selectedBrowserEngine = item.browserEngine
-                    selectedDns = item.dnsProvider
                     allowCopying = item.allowCopying
                     Toast.makeText(context, "Loaded config for ${item.appName} (v${versionCode})", Toast.LENGTH_SHORT).show()
                     navigationStack.clear()
@@ -213,8 +212,6 @@ fun PackoraDashboard(
     onDesktopModeChange: (Boolean) -> Unit,
     selectedBrowserEngine: String,
     onBrowserEngineChange: (String) -> Unit,
-    selectedDns: String,
-    onDnsChange: (String) -> Unit,
     allowCopying: Boolean,
     onAllowCopyingChange: (Boolean) -> Unit,
     onNavigateHistory: () -> Unit,
@@ -225,7 +222,6 @@ fun PackoraDashboard(
     val sharedPrefs = context.getSharedPreferences("packora_prefs", Context.MODE_PRIVATE)
     val historyManager = remember { BuildHistoryManager(context) }
 
-    var customDnsUrl by remember { mutableStateOf("") }
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
 
@@ -247,9 +243,11 @@ fun PackoraDashboard(
 
     var isAdvancedExpanded by remember { mutableStateOf(false) }
     var showClearConfirmSheet by remember { mutableStateOf(false) }
-    var showBrowserEngineSheet by remember { mutableStateOf(false) }
 
-    // Direct site HTML icon fetching first on URL entry
+    var showZoomDialog by remember { mutableStateOf(false) }
+    var showMultiIconSheet by remember { mutableStateOf(false) }
+    var fetchedIconsList by remember { mutableStateOf<List<FetchedIconItem>>(emptyList()) }
+
     LaunchedEffect(url) {
         autoFetchedIconBitmap = null
         iconUri = null
@@ -258,7 +256,6 @@ fun PackoraDashboard(
         if (url.isNotBlank()) {
             val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
 
-            // Smart Version Auto-Increment based on History for this URL to avoid parsing update errors
             val historyList = historyManager.getHistoryItems()
             val normTarget = fetchUrl.lowercase().trimEnd('/')
             val matching = historyList.filter { it.targetUrl.lowercase().trimEnd('/') == normTarget }
@@ -353,7 +350,6 @@ fun PackoraDashboard(
                 .padding(bottom = dynamicBottomPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Live Preview Hero Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -410,49 +406,100 @@ fun PackoraDashboard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    // Interactive Icon Retry & Remove Buttons
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 10.dp)
+                    // Interactive Icon Retry, Zoom, Sources & Remove Buttons in 2x2 Matrix
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 10.dp).fillMaxWidth()
                     ) {
-                        AssistChip(
-                            onClick = {
-                                if (url.isNotBlank()) {
-                                    coroutineScope.launch {
-                                        isFetchingIcon = true
-                                        val nextSource = (iconSourceIndex + 1) % 5
-                                        iconSourceIndex = nextSource
-                                        val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
-                                        val (fetched, sourceName) = fetchPremiumIconWithSource(fetchUrl, nextSource)
-                                        if (fetched != null) {
-                                            iconUri = null
-                                            iconName = null
-                                            autoFetchedIconBitmap = fetched
-                                            Toast.makeText(context, "Fetched via $sourceName", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, "No icon found via $sourceName", Toast.LENGTH_SHORT).show()
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = {
+                                    if (url.isNotBlank()) {
+                                        coroutineScope.launch {
+                                            isFetchingIcon = true
+                                            val nextSource = (iconSourceIndex + 1) % 7
+                                            iconSourceIndex = nextSource
+                                            val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                                            val (fetched, sourceName) = fetchPremiumIconWithSource(fetchUrl, nextSource)
+                                            if (fetched != null) {
+                                                iconUri = null
+                                                iconName = null
+                                                autoFetchedIconBitmap = fetched
+                                                Toast.makeText(context, "Fetched via $sourceName", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "No icon found via $sourceName", Toast.LENGTH_SHORT).show()
+                                            }
+                                            isFetchingIcon = false
                                         }
-                                        isFetchingIcon = false
+                                    } else {
+                                        Toast.makeText(context, "Enter a website URL first", Toast.LENGTH_SHORT).show()
                                     }
-                                } else {
-                                    Toast.makeText(context, "Enter a website URL first", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            label = { Text("Retry Icon", style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = { Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                        )
+                                },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Retry Icon", style = MaterialTheme.typography.labelSmall)
+                            }
 
-                        AssistChip(
-                            onClick = {
-                                iconUri = null
-                                iconName = null
-                                autoFetchedIconBitmap = null
-                                Toast.makeText(context, "Icon removed (using default Mascot)", Toast.LENGTH_SHORT).show()
-                            },
-                            label = { Text("Remove", style = MaterialTheme.typography.labelSmall) },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                        )
+                            OutlinedButton(
+                                onClick = { showZoomDialog = true },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Outlined.ZoomIn, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Zoom", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = {
+                                    if (url.isNotBlank()) {
+                                        coroutineScope.launch {
+                                            isFetchingIcon = true
+                                            val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                                            fetchedIconsList = fetchAllAvailableIcons(fetchUrl)
+                                            isFetchingIcon = false
+                                            if (fetchedIconsList.isNotEmpty()) {
+                                                showMultiIconSheet = true
+                                            } else {
+                                                Toast.makeText(context, "No icons found for this site", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Enter a website URL first", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Outlined.Collections, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Sources", style = MaterialTheme.typography.labelSmall)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    iconUri = null
+                                    iconName = null
+                                    autoFetchedIconBitmap = null
+                                    Toast.makeText(context, "Icon removed (using default Mascot)", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Remove", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     }
                 }
             }
@@ -494,36 +541,6 @@ fun PackoraDashboard(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
                     )
-                }
-            }
-
-            // Browser Engine Selection Card (Opens Bottom Sheet Menu with OK & CANCEL)
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                    .clickable { showBrowserEngineSheet = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Browser Engine", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        val engineLabel = when (selectedBrowserEngine) {
-                            "SYSTEM_DEFAULT" -> "System Default (Custom Tabs)"
-                            "BUILT_IN" -> "Built-in Shell"
-                            "INDIVIDUAL" -> "Individual Standalone"
-                            else -> selectedBrowserEngine
-                        }
-                        Text(engineLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -599,8 +616,8 @@ fun PackoraDashboard(
                         Icon(Icons.Outlined.Security, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Advanced Network & Identity", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("DNS, Text Copy Protection, Keystore, Versioning", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Advanced Identity & Security", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Text Copy Protection, Keystore, Versioning", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(
                             if (isAdvancedExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
@@ -611,44 +628,6 @@ fun PackoraDashboard(
 
                     AnimatedVisibility(visible = isAdvancedExpanded) {
                         Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            // DNS Provider Selector
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("DNS Provider", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    val dnsProviders = listOf(
-                                        "SYSTEM" to "System Default",
-                                        "CLOUDFLARE" to "Cloudflare (1.1.1.1)",
-                                        "GOOGLE" to "Google DNS",
-                                        "ADGUARD" to "AdGuard Ad-Block",
-                                        "QUAD9" to "Quad9",
-                                        "CONTROLD" to "ControlD",
-                                        "OPENDNS" to "OpenDNS",
-                                        "NEXTDNS" to "NextDNS",
-                                        "CUSTOM" to "Custom DoH"
-                                    )
-                                    dnsProviders.forEach { (key, label) ->
-                                        FilterChip(
-                                            selected = selectedDns == key,
-                                            onClick = { onDnsChange(key) },
-                                            label = { Text(label) }
-                                        )
-                                    }
-                                }
-                                if (selectedDns == "CUSTOM") {
-                                    OutlinedTextField(
-                                        value = customDnsUrl,
-                                        onValueChange = { customDnsUrl = it },
-                                        label = { Text("Custom DoH / DNS URL") },
-                                        placeholder = { Text("https://dns.example.com/dns-query") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                            // Text Copy Prevention Toggle (Default: OFF)
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Allow Text Copying", fontWeight = FontWeight.Bold)
@@ -659,10 +638,10 @@ fun PackoraDashboard(
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                            OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, label = { Text("Custom Package Name") }, placeholder = { Text("com.maheswara660.packora.app") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
+                            OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, label = { Text("Custom Package Name") }, placeholder = { Text("com.example.myapp") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 OutlinedTextField(value = versionCode, onValueChange = onVersionCodeChange, label = { Text("Version Code") }, placeholder = { Text("1") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
-                                OutlinedTextField(value = versionName, onValueChange = onVersionNameChange, label = { Text("Version Name") }, placeholder = { Text("2.2.0") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
+                                OutlinedTextField(value = versionName, onValueChange = onVersionNameChange, label = { Text("Version Name") }, placeholder = { Text("1.0.0") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -682,11 +661,11 @@ fun PackoraDashboard(
                 }
             }
 
-            // Compile Button
+            // Compile Button Container (Edge-to-Edge Compact Padding)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp)
+                    .padding(top = 2.dp, bottom = 4.dp)
             ) {
                 Button(
                     onClick = {
@@ -699,7 +678,7 @@ fun PackoraDashboard(
                                     "com.maheswara660.packora." + (appName.ifBlank { "app" }).trim().lowercase().replace(Regex("[^a-z0-9]"), "")
                                 } else packageName.trim()
                                 val finalCode = versionCode.toIntOrNull() ?: 1
-                                val finalName = versionName.ifBlank { "2.2.0" }
+                                val finalName = versionName.ifBlank { "1.0.0" }
 
                                 val inputBitmap: Bitmap? = if (iconUri != null) {
                                     context.contentResolver.openInputStream(iconUri!!).use {
@@ -726,8 +705,6 @@ fun PackoraDashboard(
                                     customDownloadFolder = effectiveFolder,
                                     isDesktopMode = isDesktopMode,
                                     browserEngine = selectedBrowserEngine,
-                                    selectedDns = selectedDns,
-                                    customDnsUrl = customDnsUrl,
                                     allowCopying = allowCopying,
                                     keystorePassword = if (useCustomKeystore) keystorePassword else null,
                                     keyAlias = if (useCustomKeystore) keyAlias else null,
@@ -742,7 +719,6 @@ fun PackoraDashboard(
                                         lastBuiltApkPath = resultPath
                                         showSuccessDialog = true
 
-                                        // Record generated app into Build History
                                         historyManager.addHistoryItem(
                                             HistoryItem(
                                                 appName = appName.ifBlank { "My App" },
@@ -752,7 +728,6 @@ fun PackoraDashboard(
                                                 versionName = finalName,
                                                 isDesktopMode = isDesktopMode,
                                                 browserEngine = selectedBrowserEngine,
-                                                dnsProvider = selectedDns,
                                                 allowCopying = allowCopying,
                                                 apkPath = resultPath
                                             )
@@ -766,8 +741,8 @@ fun PackoraDashboard(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
-                    shape = RoundedCornerShape(20.dp),
+                        .height(58.dp),
+                    shape = RoundedCornerShape(18.dp),
                     enabled = !isBuilding && url.isNotBlank()
                 ) {
                     if (isBuilding) {
@@ -781,31 +756,43 @@ fun PackoraDashboard(
                     }
                 }
             }
-        } // End of Column
+        }
 
-        // Browser Engine Selection Bottom Sheet Selector
-        if (showBrowserEngineSheet) {
-            com.maheswara660.packora.ui.SelectionBottomSheetDialog(
-                title = "Select Browser Engine",
-                subtitle = "Choose web runtime engine for your generated standalone WebAPK",
-                icon = Icons.Outlined.Language,
-                options = listOf(
-                    "SYSTEM_DEFAULT" to "System Default (Chrome Custom Tabs — Shares device logins & cookies)",
-                    "BUILT_IN" to "Built-in Shell (Standalone embedded WebView)",
-                    "INDIVIDUAL" to "Individual Standalone (Private isolated container per app)"
-                ),
-                initialSelection = selectedBrowserEngine,
-                onDismiss = { showBrowserEngineSheet = false },
-                onConfirm = { selected ->
-                    onBrowserEngineChange(selected)
-                    showBrowserEngineSheet = false
+        if (showZoomDialog) {
+            val displayBitmap = remember(iconUri, autoFetchedIconBitmap) {
+                if (iconUri != null) {
+                    try {
+                        context.contentResolver.openInputStream(iconUri!!).use { android.graphics.BitmapFactory.decodeStream(it) }
+                    } catch (e: Exception) { null }
+                } else autoFetchedIconBitmap
+            }
+            IconZoomerBottomSheet(
+                currentBitmap = displayBitmap,
+                onDismiss = { showZoomDialog = false },
+                onApply = { editedBitmap ->
+                    iconUri = null
+                    iconName = null
+                    autoFetchedIconBitmap = editedBitmap
+                    Toast.makeText(context, "Zoomed icon applied", Toast.LENGTH_SHORT).show()
                 }
             )
         }
 
-        // Clear Details Confirmation Bottom Sheet
+        if (showMultiIconSheet) {
+            MultiIconPickerSheet(
+                icons = fetchedIconsList,
+                onDismiss = { showMultiIconSheet = false },
+                onSelectIcon = { selectedBmp ->
+                    iconUri = null
+                    iconName = null
+                    autoFetchedIconBitmap = selectedBmp
+                    Toast.makeText(context, "Selected icon applied", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
         if (showClearConfirmSheet) {
-            val sheetState = rememberModalBottomSheetState()
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showClearConfirmSheet = false },
                 sheetState = sheetState
@@ -813,30 +800,48 @@ fun PackoraDashboard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DeleteSweep,
-                        contentDescription = "Clear",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Text("Clear Filled Details?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(
-                        "Are you sure you want to clear all entered URL, App Name, and Package Name fields?",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.errorContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.RestartAlt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Reset Form Details?",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Are you sure you want to clear current website URL, app name, package details, and selected icon?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                         OutlinedButton(
                             onClick = { showClearConfirmSheet = false },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text("CANCEL")
+                            Text("CANCEL", fontWeight = FontWeight.Bold)
                         }
                         Button(
                             onClick = {
@@ -855,7 +860,9 @@ fun PackoraDashboard(
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text("CLEAR DETAILS")
+                            Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("CLEAR DETAILS", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -863,7 +870,7 @@ fun PackoraDashboard(
         }
 
         if (showSuccessDialog && lastBuiltApkPath != null) {
-            val sheetState = rememberModalBottomSheetState()
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showSuccessDialog = false },
                 sheetState = sheetState
@@ -871,45 +878,117 @@ fun PackoraDashboard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp)
-                        .padding(bottom = 32.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = "Success",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text("App Generated Successfully!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-
-                    Text("Your app is ready. What would you like to do?", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            val cachedApk = File(context.cacheDir, "built_app.apk")
-                            if (cachedApk.exists()) {
-                                installApkFile(context, cachedApk.absolutePath)
-                            } else {
-                                installApkFile(context, lastBuiltApkPath!!)
-                            }
-                            showSuccessDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("INSTALL", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
 
-                    OutlinedButton(
-                        onClick = { showSuccessDialog = false },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "App Generated Successfully!",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Your custom WebAPK has been compiled, aligned, and signed.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
                     ) {
-                        Text("CLOSE")
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val activeIconBitmap = remember(autoFetchedIconBitmap, iconUri) {
+                                autoFetchedIconBitmap ?: ApkBuilder.getDefaultMascotIcon(context)
+                            }
+                            Image(
+                                bitmap = activeIconBitmap.asImageBitmap(),
+                                contentDescription = "App Icon",
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = appName.ifBlank { "Web App" },
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = packageName.ifBlank { "com.web.app" },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AssistChip(
+                                        onClick = { },
+                                        label = { Text("v${versionName.ifBlank { "1.0.0" }} (${versionCode.ifBlank { "1" }})", style = MaterialTheme.typography.labelSmall) }
+                                    )
+                                    AssistChip(
+                                        onClick = { },
+                                        label = { Text("Ready to Install", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) },
+                                        leadingIcon = { Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        Button(
+                            onClick = {
+                                val cachedApk = File(context.cacheDir, "built_app.apk")
+                                if (cachedApk.exists()) {
+                                    installApkFile(context, cachedApk.absolutePath)
+                                } else {
+                                    installApkFile(context, lastBuiltApkPath!!)
+                                }
+                                showSuccessDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Outlined.Android, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("INSTALL APK", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = { showSuccessDialog = false },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("CLOSE", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -948,6 +1027,11 @@ fun getAppNameFromUrl(url: String): String {
     }
 }
 
+data class FetchedIconItem(
+    val sourceName: String,
+    val bitmap: Bitmap
+)
+
 suspend fun fetchPremiumIcon(urlString: String): Bitmap? = withContext(Dispatchers.IO) {
     val (bmp, _) = fetchPremiumIconWithSource(urlString, 0)
     bmp
@@ -957,15 +1041,16 @@ suspend fun fetchPremiumIconWithSource(urlString: String, sourceIndex: Int = 0):
     try {
         val uri = Uri.parse(urlString)
         val host = uri.host ?: return@withContext Pair(null, "Unknown")
+        val scheme = uri.scheme ?: "https"
 
-        when (sourceIndex % 5) {
+        when (sourceIndex % 7) {
             0 -> {
                 // Direct Website HTML Icon scraping
                 try {
                     val url = java.net.URL(urlString)
                     val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 5000
+                    connection.connectTimeout = 4000
+                    connection.readTimeout = 4000
                     connection.instanceFollowRedirects = true
                     connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                     val html = connection.inputStream.bufferedReader().use { it.readText() }
@@ -976,24 +1061,24 @@ suspend fun fetchPremiumIconWithSource(urlString: String, sourceIndex: Int = 0):
                     for (match in matches) {
                         var iconUrl = match.groupValues[1].trim()
                         if (iconUrl.startsWith("//")) {
-                            iconUrl = "${uri.scheme ?: "https"}:$iconUrl"
+                            iconUrl = "$scheme:$iconUrl"
                         } else if (!iconUrl.startsWith("http")) {
                             iconUrl = if (iconUrl.startsWith("/")) {
-                                "${uri.scheme ?: "https"}://$host$iconUrl"
+                                "$scheme://$host$iconUrl"
                             } else {
-                                "${uri.scheme ?: "https"}://$host/$iconUrl"
+                                "$scheme://$host/$iconUrl"
                             }
                         }
                         val bmp = downloadAndValidate1To1Bitmap(iconUrl)
                         if (bmp != null) return@withContext Pair(bmp, "Direct Website HTML")
                     }
-                    val rootFavicon = downloadAndValidate1To1Bitmap("${uri.scheme ?: "https"}://$host/favicon.ico")
+                    val rootFavicon = downloadAndValidate1To1Bitmap("$scheme://$host/favicon.ico")
                     if (rootFavicon != null) return@withContext Pair(rootFavicon, "Direct /favicon.ico")
                 } catch (e: Exception) {}
                 Pair(null, "Direct Website HTML")
             }
             1 -> {
-                val appleTouch = downloadAndValidate1To1Bitmap("https://$host/apple-touch-icon.png")
+                val appleTouch = downloadAndValidate1To1Bitmap("$scheme://$host/apple-touch-icon.png")
                 Pair(appleTouch, "Apple Touch Icon")
             }
             2 -> {
@@ -1001,17 +1086,421 @@ suspend fun fetchPremiumIconWithSource(urlString: String, sourceIndex: Int = 0):
                 Pair(googleBmp, "Google Favicon API")
             }
             3 -> {
+                val clearbit = downloadAndValidate1To1Bitmap("https://logo.clearbit.com/$host")
+                Pair(clearbit, "Clearbit Logo API")
+            }
+            4 -> {
                 val ddgBmp = downloadAndValidate1To1Bitmap("https://icons.duckduckgo.com/ip3/$host.ico")
                 Pair(ddgBmp, "DuckDuckGo Icon API")
             }
-            4 -> {
-                val rootFavicon = downloadAndValidate1To1Bitmap("https://$host/favicon.ico")
-                Pair(rootFavicon, "Root Favicon")
+            5 -> {
+                val applePrecomposed = downloadAndValidate1To1Bitmap("$scheme://$host/apple-touch-icon-precomposed.png")
+                Pair(applePrecomposed, "Apple Touch Precomposed")
+            }
+            6 -> {
+                val rootFavicon = downloadAndValidate1To1Bitmap("$scheme://$host/favicon.ico")
+                Pair(rootFavicon, "Root Favicon.ico")
             }
             else -> Pair(null, "Unknown Source")
         }
     } catch (e: Exception) {
         Pair(null, "Failed")
+    }
+}
+
+suspend fun fetchAllAvailableIcons(urlString: String): List<FetchedIconItem> = withContext(Dispatchers.IO) {
+    val results = mutableListOf<FetchedIconItem>()
+    try {
+        val uri = Uri.parse(urlString)
+        val host = uri.host ?: return@withContext emptyList()
+        val scheme = uri.scheme ?: "https"
+
+        // 1. HTML Link & Meta icons (no limit)
+        try {
+            val url = java.net.URL(urlString)
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 4000
+            connection.readTimeout = 4000
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            val html = connection.inputStream.bufferedReader().use { it.readText() }
+
+            val iconRegex = Regex("<link[^>]+rel=\"[^\"]*(?:icon|shortcut|apple-touch-icon)[^\"]*\"[^>]+href=\"([^\"]+)\"", RegexOption.IGNORE_CASE)
+            val matches = iconRegex.findAll(html).toList()
+
+            for ((index, match) in matches.withIndex()) {
+                var iconUrl = match.groupValues[1].trim()
+                if (iconUrl.startsWith("//")) {
+                    iconUrl = "$scheme:$iconUrl"
+                } else if (!iconUrl.startsWith("http")) {
+                    iconUrl = if (iconUrl.startsWith("/")) "$scheme://$host$iconUrl" else "$scheme://$host/$iconUrl"
+                }
+                val bmp = downloadAndValidate1To1Bitmap(iconUrl)
+                if (bmp != null) {
+                    results.add(FetchedIconItem("Website Link #${index + 1}", bmp))
+                }
+            }
+
+            // OG / Meta Images
+            val ogRegex = Regex("<meta[^>]+property=\"[^\"]*og:image[^\"]*\"[^>]+content=\"([^\"]+)\"", RegexOption.IGNORE_CASE)
+            val ogMatch = ogRegex.find(html)
+            if (ogMatch != null) {
+                var ogUrl = ogMatch.groupValues[1].trim()
+                if (ogUrl.startsWith("//")) ogUrl = "$scheme:$ogUrl"
+                else if (!ogUrl.startsWith("http")) ogUrl = if (ogUrl.startsWith("/")) "$scheme://$host$ogUrl" else "$scheme://$host/$ogUrl"
+                val ogBmp = downloadAndValidate1To1Bitmap(ogUrl)
+                if (ogBmp != null) results.add(FetchedIconItem("OpenGraph Meta Image", ogBmp))
+            }
+        } catch (e: Exception) {}
+
+        // 2. Apple Touch Icons
+        val appleTouch = downloadAndValidate1To1Bitmap("$scheme://$host/apple-touch-icon.png")
+        if (appleTouch != null) results.add(FetchedIconItem("Apple Touch Icon", appleTouch))
+        val applePrecomposed = downloadAndValidate1To1Bitmap("$scheme://$host/apple-touch-icon-precomposed.png")
+        if (applePrecomposed != null) results.add(FetchedIconItem("Apple Touch Precomposed", applePrecomposed))
+
+        // 3. Google High Res Favicon
+        val googleBmp = downloadAndValidate1To1Bitmap("https://www.google.com/s2/favicons?domain=$host&sz=256")
+        if (googleBmp != null) results.add(FetchedIconItem("Google High-Res API", googleBmp))
+
+        // 4. Clearbit Logo API
+        val clearbit = downloadAndValidate1To1Bitmap("https://logo.clearbit.com/$host")
+        if (clearbit != null) results.add(FetchedIconItem("Clearbit Logo API", clearbit))
+
+        // 5. DuckDuckGo Icon
+        val ddgBmp = downloadAndValidate1To1Bitmap("https://icons.duckduckgo.com/ip3/$host.ico")
+        if (ddgBmp != null) results.add(FetchedIconItem("DuckDuckGo Icon", ddgBmp))
+
+        // 6. Yandex Favicon API
+        val yandexBmp = downloadAndValidate1To1Bitmap("https://favicon.yandex.net/favicon/$host?size=120")
+        if (yandexBmp != null) results.add(FetchedIconItem("Yandex Favicon API", yandexBmp))
+
+        // 7. Unavatar API
+        val unavatarBmp = downloadAndValidate1To1Bitmap("https://unavatar.io/$host")
+        if (unavatarBmp != null) results.add(FetchedIconItem("Unavatar API", unavatarBmp))
+
+        // 8. Root Favicon
+        val rootFavicon = downloadAndValidate1To1Bitmap("$scheme://$host/favicon.ico")
+        if (rootFavicon != null) results.add(FetchedIconItem("Root Favicon.ico", rootFavicon))
+
+    } catch (e: Exception) {}
+    return@withContext results.distinctBy { "${it.bitmap.width}x${it.bitmap.height}" }
+}
+
+fun zoomAndProcessBitmap(
+    source: Bitmap,
+    scaleFactor: Float,
+    bgColor: Color
+): Bitmap {
+    val targetSize = 512
+    val output = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(output)
+
+    if (bgColor != Color.Transparent) {
+        canvas.drawColor(bgColor.toArgb())
+    }
+
+    val paint = android.graphics.Paint().apply {
+        isAntiAlias = true
+        isFilterBitmap = true
+    }
+
+    val scaledWidth = (targetSize * scaleFactor).toInt()
+    val scaledHeight = (targetSize * scaleFactor).toInt()
+    val left = (targetSize - scaledWidth) / 2
+    val top = (targetSize - scaledHeight) / 2
+
+    val destRect = android.graphics.Rect(left, top, left + scaledWidth, top + scaledHeight)
+    canvas.drawBitmap(source, null, destRect, paint)
+
+    return output
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IconZoomerBottomSheet(
+    currentBitmap: Bitmap?,
+    onDismiss: () -> Unit,
+    onApply: (Bitmap) -> Unit
+) {
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var scaleFactor by remember { mutableFloatStateOf(1.0f) }
+
+    val colorOptions = remember {
+        listOf(
+            "Transparent" to Color.Transparent,
+            "White" to Color.White,
+            "Black" to Color.Black,
+            "Dark Gray" to Color(0xFF1E1E1E),
+            "Charcoal" to Color(0xFF262626),
+            "Slate Gray" to Color(0xFF334155),
+            "Navy Blue" to Color(0xFF0F172A),
+            "Deep Indigo" to Color(0xFF312E81),
+            "Midnight Blue" to Color(0xFF172554),
+            "Ocean Blue" to Color(0xFF0284C7),
+            "Sky Blue" to Color(0xFF38BDF8),
+            "Forest Green" to Color(0xFF14532D),
+            "Emerald Green" to Color(0xFF059669),
+            "Teal" to Color(0xFF0D9488),
+            "Deep Teal" to Color(0xFF042F2E),
+            "Crimson Red" to Color(0xFFBE123C),
+            "Ruby Red" to Color(0xFFDC2626),
+            "Burgundy" to Color(0xFF4C0519),
+            "Vibrant Orange" to Color(0xFFEA580C),
+            "Warm Amber" to Color(0xFFD97706),
+            "Royal Purple" to Color(0xFF7E22CE),
+            "Deep Purple" to Color(0xFF3B0764),
+            "Hot Pink" to Color(0xFFDB2777),
+            "Rose Pink" to Color(0xFFF43F5E),
+            "Chocolate Brown" to Color(0xFF451A03),
+            "Light Gray" to Color(0xFFF1F5F9),
+            "Pastel Blue" to Color(0xFFE0F2FE),
+            "Pastel Mint" to Color(0xFFD1FAE5),
+            "Pastel Pink" to Color(0xFFFCE7F3),
+            "Pastel Purple" to Color(0xFFF3E8FF),
+            "Pastel Yellow" to Color(0xFFFEF3C7)
+        )
+    }
+    var selectedColorIndex by remember { mutableIntStateOf(0) }
+
+    val baseBitmap = remember(currentBitmap) {
+        currentBitmap ?: ApkBuilder.getDefaultMascotIcon(context)
+    }
+
+    val previewBitmap = remember(scaleFactor, selectedColorIndex, baseBitmap) {
+        zoomAndProcessBitmap(
+            source = baseBitmap,
+            scaleFactor = scaleFactor,
+            bgColor = colorOptions[selectedColorIndex].second
+        )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ZoomIn,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Icon Zoomer",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Scale icon size and choose background color fill for transparent icons.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(130.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colorOptions[selectedColorIndex].second)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = previewBitmap.asImageBitmap(),
+                    contentDescription = "Zoomed Preview",
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Zoom Scale", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text("${(scaleFactor * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = scaleFactor,
+                    onValueChange = { scaleFactor = it },
+                    valueRange = 0.4f..2.0f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Background Color Fill", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(colorOptions.size) { idx ->
+                        val (name, colorVal) = colorOptions[idx]
+                        FilterChip(
+                            selected = selectedColorIndex == idx,
+                            onClick = { selectedColorIndex = idx },
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (colorVal != Color.Transparent) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .background(colorVal)
+                                                .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(name, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = {
+                        onApply(previewBitmap)
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("APPLY ICON", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MultiIconPickerSheet(
+    icons: List<FetchedIconItem>,
+    onDismiss: () -> Unit,
+    onSelectIcon: (Bitmap) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Collections,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Select App Icon",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Choose from highest quality icons fetched from website sources and APIs.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                items(icons.size) { idx ->
+                    val item = icons[idx]
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                        modifier = Modifier
+                            .size(110.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                            .clickable {
+                                onSelectIcon(item.bitmap)
+                                onDismiss()
+                            }
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                bitmap = item.bitmap.asImageBitmap(),
+                                contentDescription = item.sourceName,
+                                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp))
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = item.sourceName,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("CLOSE", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -1051,9 +1540,9 @@ suspend fun isUrlReachable(url: String): Boolean = withContext(Dispatchers.IO) {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "2.2.0"
+        pInfo.versionName ?: "2.3.0"
     } catch (e: Exception) {
-        "2.2.0"
+        "2.3.0"
     }
 }
 

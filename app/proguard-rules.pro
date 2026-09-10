@@ -14,7 +14,9 @@
 -keep class com.android.apksig.** { *; }
 -dontwarn com.android.apksig.**
 
-# 3. Binary Rebuilders (AXML & ARSC)
+# 3. Binary Rebuilders & Builder Engine
+-keep class com.maheswara660.packora.builder.ApkBuilder { *; }
+-keep class com.maheswara660.packora.builder.ApkTemplate { *; }
 -keep class com.maheswara660.packora.builder.AxmlRebuilder { *; }
 -keep class com.maheswara660.packora.builder.ArscRebuilder { *; }
 -keep class com.maheswara660.packora.builder.ElfAligner16k { *; }

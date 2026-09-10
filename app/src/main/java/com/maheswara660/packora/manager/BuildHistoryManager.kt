@@ -17,7 +17,6 @@ data class HistoryItem(
     val versionName: String,
     val isDesktopMode: Boolean,
     val browserEngine: String,
-    val dnsProvider: String,
     val allowCopying: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null
@@ -55,7 +54,6 @@ class BuildHistoryManager(context: Context) {
                         versionName = obj.optString("versionName", "1.0.0"),
                         isDesktopMode = obj.optBoolean("isDesktopMode", false),
                         browserEngine = obj.optString("browserEngine", "SYSTEM_DEFAULT"),
-                        dnsProvider = obj.optString("dnsProvider", "SYSTEM"),
                         allowCopying = obj.optBoolean("allowCopying", false),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null
@@ -90,7 +88,6 @@ class BuildHistoryManager(context: Context) {
                 put("versionName", item.versionName)
                 put("isDesktopMode", item.isDesktopMode)
                 put("browserEngine", item.browserEngine)
-                put("dnsProvider", item.dnsProvider)
                 put("allowCopying", item.allowCopying)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)

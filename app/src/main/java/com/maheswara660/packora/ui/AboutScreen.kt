@@ -144,9 +144,18 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "2.3.0"
+            pInfo.versionName ?: "2.4.0"
         } catch (e: Exception) {
-            "2.3.0"
+            "2.4.0"
+        }
+    }
+
+    val appCode = remember {
+        try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pInfo).toString()
+        } catch (e: Exception) {
+            "24"
         }
     }
 
@@ -210,7 +219,7 @@ fun HeroAppCard() {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "v$appVersion • Build 22",
+                    text = "v$appVersion • Build $appCode",
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,

@@ -70,7 +70,7 @@ jobs:
 
       - name: Sign Android Release
         if: github.event_name != 'pull_request' && env.SIGNING_KEY != null
-        uses: r0adkll/sign-android-release@v1
+        uses: r0adkll/sign-android-release@v2
         id: sign_app
         with:
           releaseDirectory: app/build/outputs/apk/release
@@ -80,7 +80,7 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          BUILD_TOOLS_VERSION: "34.0.0"
+          BUILD_TOOLS_VERSION: "35.0.0"
 
       - name: Upload Signed APKs
         if: steps.sign_app.outcome == 'success'
@@ -94,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-unsigned-apks
-          path: app/build/outputs/apk/release/*-unsigned.apk
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 7
 
   release:

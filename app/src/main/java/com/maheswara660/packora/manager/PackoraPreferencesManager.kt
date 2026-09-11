@@ -7,7 +7,8 @@ enum class AppThemeMode {
 }
 
 enum class AppColorAccent {
-    SYSTEM, EMERALD, OCEAN, PURPLE, AMBER
+    SYSTEM, EMERALD, OCEAN, PURPLE, AMBER, CRIMSON, ROSE, CYAN, ORANGE, INDIGO, TEAL, LIME, CORAL,
+    NEON_GREEN, ELECTRIC_BLUE, DEEP_VIOLET, MAGENTA, GOLD, MINT, PEACH, RUBY, SAPPHIRE
 }
 
 class PackoraPreferencesManager(context: Context) {

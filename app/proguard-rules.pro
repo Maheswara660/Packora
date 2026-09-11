@@ -1,6 +1,7 @@
 # Packora App Module ProGuard / R8 Rules
 
 # 1. Gson & Serialization Rules
+-keep class com.maheswara660.packora.builder.JarSigner { *; }
 -keep class com.maheswara660.packora.builder.JarSigner$SigningSchemeOptions { *; }
 -keep class com.maheswara660.packora.manager.HistoryItem { *; }
 -keep class com.maheswara660.packora.manager.PackoraPreferencesManager { *; }
@@ -20,8 +21,17 @@
 -keep class com.maheswara660.packora.builder.AxmlRebuilder { *; }
 -keep class com.maheswara660.packora.builder.ArscRebuilder { *; }
 -keep class com.maheswara660.packora.builder.ElfAligner16k { *; }
+-keep class com.maheswara660.packora.builder.ElfAligner16k$* { *; }
+-keep class com.maheswara660.packora.builder.ZipAligner { *; }
+-keep class com.maheswara660.packora.builder.ZipUtils { *; }
+-keep class com.maheswara660.packora.builder.AppLogger { *; }
 
-# 4. Android Core & Jetpack Compose
+# 4. Data classes — preserve field names for serialization/reflection safety
+-keepclassmembers class com.maheswara660.packora.** {
+    public <init>(...);
+}
+
+# 5. Android Core & Jetpack Compose
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 

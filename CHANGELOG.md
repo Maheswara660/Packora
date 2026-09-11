@@ -2,6 +2,28 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [2.4.0] - 2026-09-11
+### Added & Enhanced
+- **Smooth 0–100% Compiling Progress Engine**: Replaced jumpy discrete progress steps (`0 -> 20 -> 60 -> 80 -> 100`) with a smooth, granular step-by-step counter (`0, 1, 2, 3... 100`) for a perfect real-time compilation feel.
+- **Multiple ABI Splits & Universal Installer**: Configured Android Gradle splits to produce individual CPU architecture APKs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) alongside the universal installer APK.
+- **Enhanced Ad-Blocker Fallbacks & Real-Time Cleanup**: Added `DOMContentLoaded` and periodic interval cleanup fallbacks to purge dynamic ad scripts. Expanded ad network domain blacklist (`monetag`, `admaven`, `hilltopads`, `juicyads`, `clickadu`, `popmyads`, etc.) and refined CSS selectors so web app modals (Credly, Forage, Eduskills) render without touch freezing or screen dimming.
+- **Discovered & Respected Native Website Dark Mode**: Disabled forced algorithmic darkening by default (`forceDarkMode` flag, default `Off`). WebAPKs now respect the website's native theme styling by default, while allowing users to enable forced dark mode if desired.
+- **Fixed Eduskills & Flexbox Vertical Stretching**: Corrected WebView layout constraints and window inset padding in `:template` to prevent 100vh flexbox containers and page layouts from stretching vertically on sites like Eduskills Academy.
+- **Persistent Login Sessions & Disk Sync**: Added explicit calls to `CookieManager.getInstance().flush()` during `onPageFinished()`, `onPause()`, `onStop()`, and cookie modifications, ensuring login credentials and session tokens persist reliably across app restarts.
+- **Google OAuth & Device Google Accounts Sync**: Integrated `AccountManager` account picker and Google Play Services Auth sync in `:template`. WebAPKs for Google AI Studio, Google Skills, Google Play Academy, and Google Stitch now detect logged-in Google Accounts on device for direct 1-tap Google SSO sign-in.
+- **Enable Zoom Toggle Control**: Added `enableZoom` configuration support (default `Off` to maintain native app feel, optional toggle in builder dashboard for full multi-touch zoom).
+- **Smart Website Footer Hider Default Enabled**: Updated `hideWebFooter` configuration to default **ON (`true`)** across template runtime and builder settings. Removed the `Switch` component from the Bento card, converting it into a 1-tap click-to-toggle card matching Desktop Mode, Force Dark, Enable Zoom, and Text Copying. Intelligently detects and hides site informational footers (copyright notices, legal policy links, terms, privacy, security, cookies, contact) while preserving web app tab bars and bottom navigation docks.
+- **Redesigned 3-Tier Dashboard Bento Layout**: Organized dashboard options into **Website Details Hero Card**, 5-card **Quick Toggles Bento Grid** (Desktop Mode, Force Dark Mode, Enable Zoom, Allow Text Copying, Hide Web Footer), and 3 clickable **Feature Option Cards** (Package Identity, Storage Folder, Keystore).
+- **Inline Expandable Feature Cards (Pop-Under Design)**: Replaced Modal BottomSheets for Package Identity, Storage Folder, and Custom Signing Keystore with smooth `AnimatedVisibility` inline expansion cards that pop open directly beneath each Feature Card — consistent with how the Storage Folder card previously worked.
+- **Extended Custom Keystore Generation Fields**: Expanded the Signing Keystore card with 5 additional PKCS12 certificate fields — **Common Name (Author)**, **Organization**, **Organizational Unit**, **Validity Years**, and a separate **Key Password** — for complete, production-grade certificate identity control.
+- **Full Factory Reset**: Reset Details button now wipes everything — all form inputs (URL, App Name, Package, Version), all Quick Toggle states (Desktop Mode, Force Dark, Zoom, Text Copy, Hide Footer), all Feature Card details (Package Identity, Storage Folder, Keystore), and restores all `SharedPreferences` to default values in a single confirmation action.
+- **22+ Color Accents Palette & Compact Scrollable Menu**: Expanded `AppColorAccent` to 22 Material 3 color accents. Redesigned the Accent menu with a scrollable selection container capped at `300.dp` max height while keeping the Theme menu compact and non-scrollable.
+- **Redesigned Expandable History Search Bar**: Search icon in the header toggles an expandable search bar directly *under* the header using smooth `AnimatedVisibility`, replacing the top search icon with an 'X' button to close/clear search.
+
+### Maintenance
+- **ProGuard Coverage Expansion**: Added explicit keep rules for `JarSigner`, `ZipAligner`, `ZipUtils`, `AppLogger`, `ElfAligner16k$*` data classes, and a `keepclassmembers` rule for all data class constructors in the Packora package. Template module updated with `MainActivity$*` wildcard and `androidx.webkit.**` keep rules for `WebSettingsCompat` reflection calls.
+- **Build Workflow Updates**: Upgraded `r0adkll/sign-android-release` from `v1` → `v2`, updated `BUILD_TOOLS_VERSION` from `34.0.0` → `35.0.0` to match `compileSdk = 35`, and broadened unsigned APK upload glob from `*-unsigned.apk` to `*.apk` for all release variants.
+
 ## [2.3.0] - 2026-09-10
 ### Added & Enhanced
 - **Ad & Gambling Redirect Link Blocker**: Injected real-time URL interceptor (`isAdOrGamblingUrl`) in WebAPK shell (`shouldOverrideUrlLoading` & `onCreateWindow`) to automatically block ad popunder redirects, tracking URLs, and gambling networks (Parimatch, 1xBet, Bet365, PopAds, PopCash, Adsterra, PropellerAds, ExoClick, DoubleClick, etc.).

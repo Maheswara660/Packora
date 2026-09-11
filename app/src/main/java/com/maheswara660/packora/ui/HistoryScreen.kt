@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,26 +70,7 @@ fun HistoryScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search apps...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(0.9f),
-                            shape = RoundedCornerShape(16.dp),
-                            trailingIcon = {
-                                IconButton(onClick = {
-                                    searchQuery = ""
-                                    isSearchActive = false
-                                }) {
-                                    Icon(Icons.Outlined.Close, contentDescription = "Close Search")
-                                }
-                            }
-                        )
-                    } else {
-                        Text("Build History", fontWeight = FontWeight.Bold)
-                    }
+                    Text("Build History", fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -96,10 +78,20 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
-                    if (!isSearchActive) {
-                        IconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Outlined.Search, contentDescription = "Search")
+                    IconButton(
+                        onClick = {
+                            if (isSearchActive) {
+                                isSearchActive = false
+                                searchQuery = ""
+                            } else {
+                                isSearchActive = true
+                            }
                         }
+                    ) {
+                        Icon(
+                            imageVector = if (isSearchActive) Icons.Outlined.Close else Icons.Outlined.Search,
+                            contentDescription = if (isSearchActive) "Close Search" else "Open Search"
+                        )
                     }
 
                     var showSortMenu by remember { mutableStateOf(false) }
@@ -131,10 +123,43 @@ fun HistoryScreen(
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+        ) {
+            AnimatedVisibility(visible = isSearchActive) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search built apps or URLs...") },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Outlined.Clear, contentDescription = "Clear search text")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    )
+                }
+            }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
         ) {
             if (filteredList.isEmpty()) {
                 Column(
@@ -169,24 +194,55 @@ fun HistoryScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(filteredList, key = { it.id }) { item ->
+                        val savedBitmap = remember(item.iconPath) {
+                            if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
+                                try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
+                            } else null
+                        }
+
                         Card(
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
                                 .clickable { onReuseConfig(item) }
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(14.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (savedBitmap != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = savedBitmap.asImageBitmap(),
+                                                contentDescription = "App Icon",
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Outlined.Android,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(30.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = item.appName,
@@ -196,10 +252,11 @@ fun HistoryScreen(
                                         )
                                         Text(
                                             text = item.packageName,
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
+
                                     IconButton(
                                         onClick = {
                                             historyManager.deleteHistoryItem(item.id)
@@ -207,9 +264,11 @@ fun HistoryScreen(
                                             Toast.makeText(context, "Item deleted", Toast.LENGTH_SHORT).show()
                                         }
                                     ) {
-                                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
                                     }
                                 }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -217,18 +276,21 @@ fun HistoryScreen(
                                 ) {
                                     AssistChip(
                                         onClick = { },
-                                        label = { Text("v${item.versionName} (${item.versionCode})") }
+                                        label = { Text("v${item.versionName} (${item.versionCode})", fontSize = 11.sp) },
+                                        leadingIcon = { Icon(Icons.Outlined.Tag, contentDescription = null, modifier = Modifier.size(14.dp)) }
                                     )
                                     AssistChip(
                                         onClick = { },
-                                        label = { Text(item.browserEngine) }
+                                        label = { Text(if (item.isDesktopMode) "Desktop" else "Mobile", fontSize = 11.sp) },
+                                        leadingIcon = { Icon(if (item.isDesktopMode) Icons.Outlined.DesktopMac else Icons.Outlined.Smartphone, contentDescription = null, modifier = Modifier.size(14.dp)) }
                                     )
                                 }
 
                                 Text(
                                     text = item.targetUrl,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
                                 )
 
                                 Text(
@@ -239,26 +301,27 @@ fun HistoryScreen(
 
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(top = 4.dp)
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                                 ) {
                                     Button(
                                         onClick = { onReuseConfig(item) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.weight(1f)
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.weight(1f).height(40.dp)
                                     ) {
                                         Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Reuse & Bump Version", fontSize = 12.sp)
+                                        Text("Rebuild & Reuse", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
 
                                     if (!item.apkPath.isNullOrBlank() && File(item.apkPath).exists()) {
                                         OutlinedButton(
                                             onClick = { installApkFile(context, item.apkPath) },
-                                            shape = RoundedCornerShape(12.dp)
+                                            shape = RoundedCornerShape(14.dp),
+                                            modifier = Modifier.height(40.dp)
                                         ) {
                                             Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Install", fontSize = 12.sp)
+                                            Text("Install", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -371,3 +434,6 @@ fun HistoryScreen(
         }
     }
 }
+}
+
+

@@ -135,6 +135,23 @@ fun SettingsScreen(
                             AppColorAccent.OCEAN -> "Ocean Blue"
                             AppColorAccent.PURPLE -> "Deep Purple"
                             AppColorAccent.AMBER -> "Warm Amber"
+                            AppColorAccent.CRIMSON -> "Crimson Red"
+                            AppColorAccent.ROSE -> "Rose Pink"
+                            AppColorAccent.CYAN -> "Cyan Breeze"
+                            AppColorAccent.ORANGE -> "Sunset Orange"
+                            AppColorAccent.INDIGO -> "Midnight Indigo"
+                            AppColorAccent.TEAL -> "Teal Mint"
+                            AppColorAccent.LIME -> "Lime Gold"
+                            AppColorAccent.CORAL -> "Coral Flame"
+                            AppColorAccent.NEON_GREEN -> "Neon Green"
+                            AppColorAccent.ELECTRIC_BLUE -> "Electric Blue"
+                            AppColorAccent.DEEP_VIOLET -> "Deep Violet"
+                            AppColorAccent.MAGENTA -> "Magenta Pink"
+                            AppColorAccent.GOLD -> "Pure Gold"
+                            AppColorAccent.MINT -> "Fresh Mint"
+                            AppColorAccent.PEACH -> "Soft Peach"
+                            AppColorAccent.RUBY -> "Ruby Red"
+                            AppColorAccent.SAPPHIRE -> "Royal Sapphire"
                         }
                         Text(accentLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
@@ -223,6 +240,7 @@ fun SettingsScreen(
                     AppThemeMode.AMOLED to "AMOLED Pitch Dark"
                 ),
                 initialSelection = currentTheme,
+                isScrollable = false,
                 onDismiss = { showThemeSheet = false },
                 onConfirm = { selected ->
                     currentTheme = selected
@@ -244,9 +262,27 @@ fun SettingsScreen(
                     AppColorAccent.EMERALD to "Emerald Green",
                     AppColorAccent.OCEAN to "Ocean Blue",
                     AppColorAccent.PURPLE to "Deep Purple",
-                    AppColorAccent.AMBER to "Warm Amber"
+                    AppColorAccent.AMBER to "Warm Amber",
+                    AppColorAccent.CRIMSON to "Crimson Red",
+                    AppColorAccent.ROSE to "Rose Pink",
+                    AppColorAccent.CYAN to "Cyan Breeze",
+                    AppColorAccent.ORANGE to "Sunset Orange",
+                    AppColorAccent.INDIGO to "Midnight Indigo",
+                    AppColorAccent.TEAL to "Teal Mint",
+                    AppColorAccent.LIME to "Lime Gold",
+                    AppColorAccent.CORAL to "Coral Flame",
+                    AppColorAccent.NEON_GREEN to "Neon Green",
+                    AppColorAccent.ELECTRIC_BLUE to "Electric Blue",
+                    AppColorAccent.DEEP_VIOLET to "Deep Violet",
+                    AppColorAccent.MAGENTA to "Magenta Pink",
+                    AppColorAccent.GOLD to "Pure Gold",
+                    AppColorAccent.MINT to "Fresh Mint",
+                    AppColorAccent.PEACH to "Soft Peach",
+                    AppColorAccent.RUBY to "Ruby Red",
+                    AppColorAccent.SAPPHIRE to "Royal Sapphire"
                 ),
                 initialSelection = currentAccent,
+                isScrollable = true,
                 onDismiss = { showAccentSheet = false },
                 onConfirm = { selected ->
                     currentAccent = selected
@@ -267,6 +303,7 @@ fun <T> SelectionBottomSheetDialog(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     options: List<Pair<T, String>>,
     initialSelection: T,
+    isScrollable: Boolean = true,
     onDismiss: () -> Unit,
     onConfirm: (T) -> Unit
 ) {
@@ -317,7 +354,19 @@ fun <T> SelectionBottomSheetDialog(
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            val listModifier = if (isScrollable) {
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+                    .verticalScroll(rememberScrollState())
+            } else {
+                Modifier.fillMaxWidth()
+            }
+
+            Column(
+                modifier = listModifier,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 options.forEach { (value, label) ->
                     val isSelected = tempSelection == value
                     Card(

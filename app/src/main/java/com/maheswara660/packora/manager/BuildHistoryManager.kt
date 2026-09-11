@@ -19,7 +19,8 @@ data class HistoryItem(
     val browserEngine: String,
     val allowCopying: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
-    val apkPath: String? = null
+    val apkPath: String? = null,
+    val iconPath: String? = null
 ) {
     fun formattedDate(): String {
         val sdf = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
@@ -56,7 +57,8 @@ class BuildHistoryManager(context: Context) {
                         browserEngine = obj.optString("browserEngine", "SYSTEM_DEFAULT"),
                         allowCopying = obj.optBoolean("allowCopying", false),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
-                        apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null
+                        apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
+                        iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null
                     )
                 )
             }
@@ -91,6 +93,7 @@ class BuildHistoryManager(context: Context) {
                 put("allowCopying", item.allowCopying)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)
+                if (item.iconPath != null) put("iconPath", item.iconPath)
             }
             array.put(obj)
         }

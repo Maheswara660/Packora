@@ -44,9 +44,16 @@ class ApkBuilder(private val context: Context) {
         isDesktopMode: Boolean = false,
         browserEngine: String = "INDIVIDUAL",
         allowCopying: Boolean = false,
+        isForceDarkMode: Boolean = false,
+        enableZoom: Boolean = false,
+        hideWebFooter: Boolean = false,
         keystorePassword: String?,
         keyAlias: String?,
         commonName: String?,
+        organization: String? = null,
+        organizationalUnit: String? = null,
+        validityYears: Int = 25,
+        keyPassword: String? = null,
         onProgress: (Int, String) -> Unit = { _, _ -> }
     ): String? {
         cleanTempFiles()
@@ -69,11 +76,20 @@ class ApkBuilder(private val context: Context) {
                 val tempKeystore = File(tempDir, "${sanitizedAppName}_keystore.p12")
                 
                 val cn = if (commonName.isNullOrBlank()) "Packora Publisher" else commonName
+                val org = if (organization.isNullOrBlank()) "Packora" else organization
+                val ou = if (organizationalUnit.isNullOrBlank()) "Mobile" else organizationalUnit
+                val validYears = if (validityYears > 0) validityYears else 25
+                val kPass = keyPassword?.takeIf { it.isNotBlank() }?.toCharArray()
+
                 val genSuccess = signer.generateAndLoadCustomKeystore(
                     outputFile = tempKeystore,
                     password = keystorePassword.toCharArray(),
                     alias = keyAlias,
-                    commonName = cn
+                    commonName = cn,
+                    organization = org,
+                    organizationalUnit = ou,
+                    validityYears = validYears,
+                    keyPassword = kPass
                 )
                 
                 if (genSuccess) {
@@ -153,6 +169,11 @@ class ApkBuilder(private val context: Context) {
                                     put("webViewConfig", JSONObject().apply {
                                         put("openExternalLinks", true)
                                         put("desktopMode", isDesktopMode)
+                                        put("browserEngine", browserEngine)
+                                        put("allowCopying", allowCopying)
+                                        put("forceDarkMode", isForceDarkMode)
+                                        put("enableZoom", enableZoom)
+                                        put("hideWebFooter", hideWebFooter)
                                         if (isDesktopMode) {
                                             put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
                                         }
@@ -242,6 +263,8 @@ class ApkBuilder(private val context: Context) {
                                 put("desktopMode", isDesktopMode)
                                 put("browserEngine", browserEngine)
                                 put("allowCopying", allowCopying)
+                                put("forceDarkMode", isForceDarkMode)
+                                put("enableZoom", enableZoom)
                                 if (isDesktopMode) {
                                     put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
                                 }

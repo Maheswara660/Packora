@@ -62,6 +62,23 @@ fun PackoraTheme(
             AppColorAccent.OCEAN -> Color(0xFF0077BE)
             AppColorAccent.PURPLE -> Color(0xFF673AB7)
             AppColorAccent.AMBER -> Color(0xFFFF8F00)
+            AppColorAccent.CRIMSON -> Color(0xFFE53935)
+            AppColorAccent.ROSE -> Color(0xFFEC407A)
+            AppColorAccent.CYAN -> Color(0xFF00ACC1)
+            AppColorAccent.ORANGE -> Color(0xFFFB8C00)
+            AppColorAccent.INDIGO -> Color(0xFF3F51B5)
+            AppColorAccent.TEAL -> Color(0xFF00BFA5)
+            AppColorAccent.LIME -> Color(0xFFC0CA33)
+            AppColorAccent.CORAL -> Color(0xFFFF7043)
+            AppColorAccent.NEON_GREEN -> Color(0xFF39FF14)
+            AppColorAccent.ELECTRIC_BLUE -> Color(0xFF00E5FF)
+            AppColorAccent.DEEP_VIOLET -> Color(0xFF8E24AA)
+            AppColorAccent.MAGENTA -> Color(0xFFD81B60)
+            AppColorAccent.GOLD -> Color(0xFFFFD700)
+            AppColorAccent.MINT -> Color(0xFFA8E6CF)
+            AppColorAccent.PEACH -> Color(0xFFFF8B94)
+            AppColorAccent.RUBY -> Color(0xFFC62828)
+            AppColorAccent.SAPPHIRE -> Color(0xFF0D47A1)
             else -> baseScheme.primary
         }
         baseScheme = baseScheme.copy(

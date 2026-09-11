@@ -573,20 +573,30 @@ class JarSigner(private val context: Context) {
         outputFile: File,
         password: CharArray,
         alias: String,
-        commonName: String = "Packora Publisher"
+        commonName: String = "Packora Publisher",
+        organization: String = "Packora",
+        organizationalUnit: String = "Mobile",
+        validityYears: Int = 25,
+        keyPassword: CharArray? = null
     ): Boolean {
         return try {
-            AppLogger.d(TAG, "Generating custom keystore to ${outputFile.absolutePath} with alias=$alias CN=$commonName")
+            val cn = if (commonName.isBlank()) "Packora Publisher" else commonName
+            val org = if (organization.isBlank()) "Packora" else organization
+            val ou = if (organizationalUnit.isBlank()) "Mobile" else organizationalUnit
+            val years = if (validityYears > 0) validityYears.toLong() else 25L
+            val actualKeyPass = keyPassword?.takeIf { it.isNotEmpty() } ?: password
+
+            AppLogger.d(TAG, "Generating custom keystore to ${outputFile.absolutePath} with alias=$alias CN=$cn O=$org OU=$ou validity=${years}y")
 
             val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
             keyPairGenerator.initialize(KEY_SIZE, SecureRandom())
             val keyPair = keyPairGenerator.generateKeyPair()
 
-            val subjectName = "CN=${commonName.replace(",", "\\,")}, O=Packora, C=IN"
+            val subjectName = "CN=${cn.replace(",", "\\,")}, O=${org.replace(",", "\\,")}, OU=${ou.replace(",", "\\,")}, C=IN"
             val subject = X500Principal(subjectName)
             val now = System.currentTimeMillis()
             val notBefore = Date(now)
-            val notAfter = Date(now + VALIDITY_YEARS * 365L * 24L * 60L * 60L * 1000L)
+            val notAfter = Date(now + years * 365L * 24L * 60L * 60L * 1000L)
             val serialNumber = BigInteger.valueOf(now)
 
             val cert = createX509Certificate(

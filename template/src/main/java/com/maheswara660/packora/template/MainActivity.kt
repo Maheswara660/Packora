@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private var config: JSONObject? = null
     private lateinit var insetsController: WindowInsetsControllerCompat
     private var isNightMode: Boolean = false
+    private var hideWebFooter: Boolean = false
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -245,6 +246,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+    }
+
     private fun showErrorOverlay() {
         runOnUiThread {
             val bg = if (isNightMode) Color.parseColor("#121212") else Color.parseColor("#F8FAFC")
@@ -294,31 +305,27 @@ class MainActivity : ComponentActivity() {
         settings.databaseEnabled = true
         settings.allowFileAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.setSupportZoom(true)
-        settings.builtInZoomControls = true
+        val webViewConfig = config?.optJSONObject("webViewConfig")
+        val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
+        val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
+        val forceDarkMode = webViewConfig?.optBoolean("forceDarkMode", false) ?: false
+        val enableZoom = webViewConfig?.optBoolean("enableZoom", false) ?: false
+        hideWebFooter = webViewConfig?.optBoolean("hideWebFooter", true) ?: true
+
+        settings.setSupportZoom(enableZoom)
+        settings.builtInZoomControls = enableZoom
         settings.displayZoomControls = false
-        settings.allowContentAccess = true
-        settings.loadsImagesAutomatically = true
-        settings.javaScriptCanOpenWindowsAutomatically = true
-        settings.setSupportMultipleWindows(true)
 
-        // Configure Cookie Manager
-        val cookieManager = CookieManager.getInstance()
-        cookieManager.setAcceptCookie(true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            cookieManager.setAcceptThirdPartyCookies(webView, true)
-        }
-
-        // Force Dark / Algorithmic Darkening
+        // Force Dark / Algorithmic Darkening (Only if explicitly enabled by user)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isNightMode)
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDarkMode && isNightMode)
                 } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                     @Suppress("DEPRECATION")
                     WebSettingsCompat.setForceDark(
                         settings,
-                        if (isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                        if (forceDarkMode && isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
                     )
                 }
             } catch (e: Exception) { }
@@ -330,10 +337,6 @@ class MainActivity : ComponentActivity() {
         }
         webView.addJavascriptInterface(AutofillBridge(), "AndroidAutofill")
         webView.addJavascriptInterface(NotificationBridge(), "AndroidNotification")
-
-        val webViewConfig = config?.optJSONObject("webViewConfig")
-        val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
-        val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
 
         if (isDesktopMode) {
             val desktopUA = webViewConfig?.optString("userAgent")
@@ -420,6 +423,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                try { CookieManager.getInstance().flush() } catch (e: Exception) {}
                 syncWebPageThemeColor(view)
                 injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
@@ -439,6 +443,10 @@ class MainActivity : ComponentActivity() {
 
                 if (!allowCopying) {
                     injectCopyProtection(view)
+                }
+
+                if (hideWebFooter) {
+                    injectWebFooterHider(view)
                 }
 
                 // Inject Autofill & Password Manager helper logic into login forms
@@ -764,8 +772,8 @@ class MainActivity : ComponentActivity() {
                         var style = document.createElement('style');
                         style.id = styleId;
                         style.innerHTML = `
-                            ins.adsbygoogle, [class*="ad-"], [id*="ad-"], [class*="banner"], [id*="banner"],
-                            iframe[src*="doubleclick"], iframe[src*="googlesyndication"], iframe[src*="taboola"], iframe[src*="outbrain"], iframe[src*="adsterra"],
+                            ins.adsbygoogle, .adsbygoogle, iframe[src*="doubleclick"], iframe[src*="googlesyndication"],
+                            iframe[src*="taboola"], iframe[src*="outbrain"], iframe[src*="adsterra"],
                             .ad-container, .ad-wrapper, .ad-slot, .ad-unit, .sponsored-content, .pubnation-ad, .adbox, #adbox, .ad_box, #ad_box {
                                 display: none !important;
                                 height: 0 !important;
@@ -784,7 +792,7 @@ class MainActivity : ComponentActivity() {
 
                     var cleanAdElements = function() {
                         var selectors = [
-                            'ins.adsbygoogle', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+                            'ins.adsbygoogle', '.adsbygoogle', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
                             'iframe[src*="taboola"]', 'iframe[src*="outbrain"]', 'iframe[src*="adsterra"]',
                             '.ad-container', '.ad-wrapper', '.ad-slot', '.ad-unit', '.sponsored-content'
                         ];
@@ -859,6 +867,63 @@ class MainActivity : ComponentActivity() {
                         if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
                         e.preventDefault();
                     }, true);
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
+    }
+
+    private fun injectWebFooterHider(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    var hideInfoFooters = function() {
+                        var selectors = [
+                            'footer', '#footer', '[id*="footer"]', '[id*="Footer"]',
+                            '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.footer',
+                            '[class*="footer"]', '[class*="Footer"]', 'div[role="contentinfo"]', 'section[role="contentinfo"]',
+                            'div[class*="copyright"]', 'div[class*="site-info"]', 'div[class*="legal"]', 'div[class*="policy"]',
+                            'section[class*="copyright"]', 'section[class*="legal"]', 'section[class*="policy"]',
+                            'div[data-component*="footer"]', 'div[data-test-id*="footer"]'
+                        ];
+                        
+                        var keywords = [
+                            '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
+                            'terms', 'privacy', 'cookie', 'cookies', 'security', 'status', 'legal', 'disclaimer', 'imprint', 'impressum',
+                            'privacy policy', 'terms of service', 'terms of use', 'terms & conditions', 'site policy', 'code of conduct',
+                            'content policy', 'user agreement', 'manage cookies', 'cookie preferences', 'cookie choices',
+                            'do not share my personal', 'do not sell', 'privacy notice', 'refund policy', 'shipping policy',
+                            'powered by', 'built with', 'proudly powered by', 'published with', 'sitemap', 'site map',
+                            'contact us', 'about us', 'help center', 'documentation', 'editorial guidelines', 'ad choices',
+                            'system status', 'footer navigation', 'trust center', 'compliance', 'interest-based ads'
+                        ];
+                        
+                        var footerCandidates = document.querySelectorAll(selectors.join(', '));
+                        footerCandidates.forEach(function(el) {
+                            var text = (el.innerText || el.textContent || '').toLowerCase();
+                            var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
+                            
+                            // Protection safeguard: Do NOT hide if element contains tab bars, chat inputs, or app controls
+                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i]');
+                            
+                            if (hasInfoKeyword && !isAppNav) {
+                                el.style.setProperty('display', 'none', 'important');
+                                el.style.setProperty('height', '0px', 'important');
+                                el.style.setProperty('min-height', '0px', 'important');
+                                el.style.setProperty('max-height', '0px', 'important');
+                                el.style.setProperty('margin', '0px', 'important');
+                                el.style.setProperty('padding', '0px', 'important');
+                                el.style.setProperty('visibility', 'hidden', 'important');
+                                el.style.setProperty('opacity', '0', 'important');
+                                el.style.setProperty('overflow', 'hidden', 'important');
+                            }
+                        });
+                    };
+                    hideInfoFooters();
+                    var observer = new MutationObserver(hideInfoFooters);
+                    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                    setInterval(hideInfoFooters, 1500);
                 } catch(e) {}
             })();
             """.trimIndent(), null

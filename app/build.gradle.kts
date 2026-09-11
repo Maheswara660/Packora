@@ -11,15 +11,18 @@ android {
         applicationId = "com.maheswara660.packora"
         minSdk = 24
         targetSdk = 35
-        versionCode = 23
-        versionName = "2.3.0"
+        versionCode = 24
+        versionName = "2.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     splits {
         abi {
-            isEnable = false
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 

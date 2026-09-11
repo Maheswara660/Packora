@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,11 +121,14 @@ fun MainAppNavigation(
     var url by remember { mutableStateOf("") }
     var appName by remember { mutableStateOf("") }
     var packageName by remember { mutableStateOf("") }
-    var versionCode by remember { mutableStateOf("1") }
-    var versionName by remember { mutableStateOf("1.0.0") }
+    var versionCode by remember { mutableStateOf("") }
+    var versionName by remember { mutableStateOf("") }
     var isDesktopMode by remember { mutableStateOf(false) }
+    var isForceDarkMode by remember { mutableStateOf(false) }
+    var enableZoom by remember { mutableStateOf(false) }
     var selectedBrowserEngine by remember { mutableStateOf("INDIVIDUAL") }
     var allowCopying by remember { mutableStateOf(false) }
+    var autoFetchedIconBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     val context = LocalContext.current
 
@@ -143,10 +147,16 @@ fun MainAppNavigation(
                 onVersionNameChange = { versionName = it },
                 isDesktopMode = isDesktopMode,
                 onDesktopModeChange = { isDesktopMode = it },
+                isForceDarkMode = isForceDarkMode,
+                onForceDarkModeChange = { isForceDarkMode = it },
+                enableZoom = enableZoom,
+                onEnableZoomChange = { enableZoom = it },
                 selectedBrowserEngine = selectedBrowserEngine,
                 onBrowserEngineChange = { selectedBrowserEngine = it },
                 allowCopying = allowCopying,
                 onAllowCopyingChange = { allowCopying = it },
+                autoFetchedIconBitmap = autoFetchedIconBitmap,
+                onAutoFetchedIconBitmapChange = { autoFetchedIconBitmap = it },
                 onNavigateHistory = { navigateTo(Screen.HISTORY) },
                 onNavigateSettings = { navigateTo(Screen.SETTINGS) }
             )
@@ -163,6 +173,11 @@ fun MainAppNavigation(
                     isDesktopMode = item.isDesktopMode
                     selectedBrowserEngine = item.browserEngine
                     allowCopying = item.allowCopying
+                    if (!item.iconPath.isNullOrBlank() && java.io.File(item.iconPath).exists()) {
+                        try {
+                            autoFetchedIconBitmap = android.graphics.BitmapFactory.decodeFile(item.iconPath)
+                        } catch (e: Exception) {}
+                    }
                     Toast.makeText(context, "Loaded config for ${item.appName} (v${versionCode})", Toast.LENGTH_SHORT).show()
                     navigationStack.clear()
                     navigationStack.add(Screen.DASHBOARD)
@@ -210,10 +225,16 @@ fun PackoraDashboard(
     onVersionNameChange: (String) -> Unit,
     isDesktopMode: Boolean,
     onDesktopModeChange: (Boolean) -> Unit,
+    isForceDarkMode: Boolean,
+    onForceDarkModeChange: (Boolean) -> Unit,
+    enableZoom: Boolean,
+    onEnableZoomChange: (Boolean) -> Unit,
     selectedBrowserEngine: String,
     onBrowserEngineChange: (String) -> Unit,
     allowCopying: Boolean,
     onAllowCopyingChange: (Boolean) -> Unit,
+    autoFetchedIconBitmap: Bitmap?,
+    onAutoFetchedIconBitmapChange: (Bitmap?) -> Unit,
     onNavigateHistory: () -> Unit,
     onNavigateSettings: () -> Unit
 ) {
@@ -224,24 +245,45 @@ fun PackoraDashboard(
 
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
+    var isHideWebFooter by remember { mutableStateOf(sharedPrefs.getBoolean("hide_web_footer", true)) }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
     var iconName by remember { mutableStateOf<String?>(null) }
-    var autoFetchedIconBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isFetchingIcon by remember { mutableStateOf(false) }
     var iconSourceIndex by remember { mutableStateOf(0) }
 
     var useCustomKeystore by remember { mutableStateOf(false) }
     var keystorePassword by remember { mutableStateOf("") }
     var keyAlias by remember { mutableStateOf("") }
+    var keyPassword by remember { mutableStateOf("") }
     var commonName by remember { mutableStateOf("") }
+    var organization by remember { mutableStateOf("") }
+    var organizationalUnit by remember { mutableStateOf("") }
+    var validityYears by remember { mutableStateOf("25") }
+
+    var isPackageIdentityExpanded by remember { mutableStateOf(false) }
+    var isStorageFolderExpanded by remember { mutableStateOf(false) }
+    var isKeystoreExpanded by remember { mutableStateOf(false) }
 
     var isBuilding by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
+    var targetProgressPercent by remember { mutableIntStateOf(0) }
+    var animatedProgressPercent by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isBuilding, targetProgressPercent) {
+        if (isBuilding) {
+            while (animatedProgressPercent < targetProgressPercent && animatedProgressPercent <= 100) {
+                animatedProgressPercent++
+                delay(12)
+            }
+        } else {
+            animatedProgressPercent = 0
+            targetProgressPercent = 0
+        }
+    }
+
     var showSuccessDialog by remember { mutableStateOf(false) }
     var lastBuiltApkPath by remember { mutableStateOf<String?>(null) }
 
-    var isAdvancedExpanded by remember { mutableStateOf(false) }
     var showClearConfirmSheet by remember { mutableStateOf(false) }
 
     var showZoomDialog by remember { mutableStateOf(false) }
@@ -249,40 +291,24 @@ fun PackoraDashboard(
     var fetchedIconsList by remember { mutableStateOf<List<FetchedIconItem>>(emptyList()) }
 
     LaunchedEffect(url) {
-        autoFetchedIconBitmap = null
+        onAutoFetchedIconBitmapChange(null)
         iconUri = null
         iconName = null
         iconSourceIndex = 0
         if (url.isNotBlank()) {
             val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
-
-            val historyList = historyManager.getHistoryItems()
-            val normTarget = fetchUrl.lowercase().trimEnd('/')
-            val matching = historyList.filter { it.targetUrl.lowercase().trimEnd('/') == normTarget }
-            if (matching.isNotEmpty()) {
-                val maxCode = matching.maxOf { item -> item.versionCode }
-                onVersionCodeChange((maxCode + 1).toString())
-                val latestVer = matching.first().versionName
-                onVersionNameChange(incrementVersionString(latestVer))
-            } else {
-                onVersionCodeChange("1")
-                onVersionNameChange("1.0.0")
-            }
-
             isFetchingIcon = true
             delay(500)
             try {
                 val (fetched, _) = fetchPremiumIconWithSource(fetchUrl, 0)
-                autoFetchedIconBitmap = fetched
+                onAutoFetchedIconBitmapChange(fetched)
             } catch (e: Exception) {
-                autoFetchedIconBitmap = null
+                onAutoFetchedIconBitmapChange(null)
             } finally {
                 isFetchingIcon = false
             }
         } else {
             isFetchingIcon = false
-            onVersionCodeChange("1")
-            onVersionNameChange("1.0.0")
         }
     }
 
@@ -424,7 +450,7 @@ fun PackoraDashboard(
                                             if (fetched != null) {
                                                 iconUri = null
                                                 iconName = null
-                                                autoFetchedIconBitmap = fetched
+                                                onAutoFetchedIconBitmapChange(fetched)
                                                 Toast.makeText(context, "Fetched via $sourceName", Toast.LENGTH_SHORT).show()
                                             } else {
                                                 Toast.makeText(context, "No icon found via $sourceName", Toast.LENGTH_SHORT).show()
@@ -488,7 +514,7 @@ fun PackoraDashboard(
                                 onClick = {
                                     iconUri = null
                                     iconName = null
-                                    autoFetchedIconBitmap = null
+                                    onAutoFetchedIconBitmapChange(null)
                                     Toast.makeText(context, "Icon removed (using default Mascot)", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f).height(38.dp),
@@ -544,117 +570,431 @@ fun PackoraDashboard(
                 }
             }
 
-            // Quick Toggles (Desktop & Storage)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (isDesktopMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDesktopMode) 8.dp else 4.dp),
-                    modifier = Modifier.weight(1f).aspectRatio(1f).border(1.dp, if (isDesktopMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)).clickable {
-                        onDesktopModeChange(!isDesktopMode)
-                        sharedPrefs.edit().putBoolean("desktop_mode", !isDesktopMode).apply()
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+            // Quick Toggles Bento Grid (Desktop Mode, Force Dark, Enable Zoom, Allow Copying, Hide Web Footer)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (isDesktopMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDesktopMode) 6.dp else 2.dp),
+                        modifier = Modifier.weight(1f).border(1.dp, if (isDesktopMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            onDesktopModeChange(!isDesktopMode)
+                            sharedPrefs.edit().putBoolean("desktop_mode", !isDesktopMode).apply()
+                        }
                     ) {
-                        Icon(Icons.Outlined.DesktopMac, contentDescription = null, modifier = Modifier.size(36.dp), tint = if (isDesktopMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                        Column {
-                            Text("Desktop", fontWeight = FontWeight.Bold, color = if (isDesktopMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
-                            Text(if (isDesktopMode) "Enabled" else "Disabled", style = MaterialTheme.typography.labelSmall, color = if (isDesktopMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.DesktopMac, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (isDesktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Desktop Mode", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = if (isDesktopMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text(if (isDesktopMode) "Desktop UA" else "Mobile UA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (isForceDarkMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isForceDarkMode) 6.dp else 2.dp),
+                        modifier = Modifier.weight(1f).border(1.dp, if (isForceDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            onForceDarkModeChange(!isForceDarkMode)
+                            sharedPrefs.edit().putBoolean("force_dark_mode", !isForceDarkMode).apply()
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.DarkMode, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (isForceDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Force Dark", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = if (isForceDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text(if (isForceDarkMode) "Forced Dark" else "Web Theme", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (enableZoom) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (enableZoom) 6.dp else 2.dp),
+                        modifier = Modifier.weight(1f).border(1.dp, if (enableZoom) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            onEnableZoomChange(!enableZoom)
+                            sharedPrefs.edit().putBoolean("enable_zoom", !enableZoom).apply()
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.ZoomIn, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (enableZoom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Enable Zoom", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = if (enableZoom) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text(if (enableZoom) "Pinch Zoom" else "Disabled", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (allowCopying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (allowCopying) 6.dp else 2.dp),
+                        modifier = Modifier.weight(1f).border(1.dp, if (allowCopying) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            onAllowCopyingChange(!allowCopying)
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (allowCopying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Text Copying", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = if (allowCopying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text(if (allowCopying) "Allowed" else "Protected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
 
                 Card(
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (useCustomDownloadFolder) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (useCustomDownloadFolder) 8.dp else 4.dp),
-                    modifier = Modifier.weight(1f).aspectRatio(1f).border(1.dp, if (useCustomDownloadFolder) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)).clickable {
-                        useCustomDownloadFolder = !useCustomDownloadFolder
-                        sharedPrefs.edit().putBoolean("use_custom_download", useCustomDownloadFolder).apply()
+                    colors = CardDefaults.cardColors(containerColor = if (isHideWebFooter) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isHideWebFooter) 6.dp else 2.dp),
+                    modifier = Modifier.fillMaxWidth().border(1.dp, if (isHideWebFooter) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                        isHideWebFooter = !isHideWebFooter
+                        sharedPrefs.edit().putBoolean("hide_web_footer", isHideWebFooter).apply()
                     }
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Icon(Icons.Outlined.FolderZip, contentDescription = null, modifier = Modifier.size(36.dp), tint = if (useCustomDownloadFolder) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                        Column {
-                            Text("Storage", fontWeight = FontWeight.Bold, color = if (useCustomDownloadFolder) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
-                            Text(if (useCustomDownloadFolder) "Custom Path" else "Downloads", style = MaterialTheme.typography.labelSmall, color = if (useCustomDownloadFolder) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            if (useCustomDownloadFolder) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(24.dp)).clickable { folderPickerLauncher.launch(null) }
-                ) {
-                    Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(if (customDownloadFolder.isBlank()) "Tap to select folder" else customDownloadFolder, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-            }
-
-            // Advanced Options Expandable
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)).clickable { isAdvancedExpanded = !isAdvancedExpanded }
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Security, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(16.dp))
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.CallToAction, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (isHideWebFooter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Advanced Identity & Security", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Text Copy Protection, Keystore, Versioning", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Hide Web Footer", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = if (isHideWebFooter) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                            Text(if (isHideWebFooter) "Enabled (Hiding Footers)" else "Disabled (Website Default)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(
-                            if (isAdvancedExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
+                }
+            }
+
+            // Clickable Feature Option Cards (Package Identity, Storage Folder, Keystore)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                // 1. Package Identity & Versioning Card + Inline Pop-Under
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (packageName.isNotBlank() || versionCode.isNotBlank() || versionName.isNotBlank()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            isPackageIdentityExpanded = !isPackageIdentityExpanded
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Dns, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Package Identity & Versioning", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                val identitySummary = if (packageName.isNotBlank()) {
+                                    "$packageName (${if (versionName.isNotBlank()) "v$versionName" else "v1.0.0"})"
+                                } else {
+                                    "Auto-Generated Package & Version"
+                                }
+                                Text(identitySummary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Icon(if (isPackageIdentityExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
 
-                    AnimatedVisibility(visible = isAdvancedExpanded) {
-                        Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Allow Text Copying", fontWeight = FontWeight.Bold)
-                                    Text("Off by default to prevent web content selection & copying", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AnimatedVisibility(visible = isPackageIdentityExpanded) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Package Identity & Versioning", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                OutlinedTextField(
+                                    value = packageName,
+                                    onValueChange = onPackageNameChange,
+                                    label = { Text("Custom Package Name") },
+                                    placeholder = { Text("com.example.myapp") },
+                                    leadingIcon = { Icon(Icons.Outlined.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                    )
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedTextField(
+                                        value = versionCode,
+                                        onValueChange = onVersionCodeChange,
+                                        label = { Text("Version Code") },
+                                        placeholder = { Text("1") },
+                                        leadingIcon = { Icon(Icons.Outlined.Tag, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    OutlinedTextField(
+                                        value = versionName,
+                                        onValueChange = onVersionNameChange,
+                                        label = { Text("Version Name") },
+                                        placeholder = { Text("1.0.0") },
+                                        leadingIcon = { Icon(Icons.Outlined.Numbers, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
                                 }
-                                Switch(checked = allowCopying, onCheckedChange = onAllowCopyingChange)
+
+                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                    TextButton(onClick = {
+                                        onPackageNameChange("")
+                                        onVersionCodeChange("")
+                                        onVersionNameChange("")
+                                    }) {
+                                        Text("RESET TO AUTO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
+                        }
+                    }
+                }
 
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                            OutlinedTextField(value = packageName, onValueChange = onPackageNameChange, label = { Text("Custom Package Name") }, placeholder = { Text("com.example.myapp") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                OutlinedTextField(value = versionCode, onValueChange = onVersionCodeChange, label = { Text("Version Code") }, placeholder = { Text("1") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
-                                OutlinedTextField(value = versionName, onValueChange = onVersionNameChange, label = { Text("Version Name") }, placeholder = { Text("1.0.0") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp))
+                // 2. Storage Folder Card + Inline Pop-Under
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            isStorageFolderExpanded = !isStorageFolderExpanded
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Storage Folder", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                val pathText = if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) customDownloadFolder else "Downloads/Packora (Default)"
+                                Text(pathText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             }
+                            Icon(if (isStorageFolderExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
 
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Text("Inject Custom Keystore", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Switch(checked = useCustomKeystore, onCheckedChange = { useCustomKeystore = it })
+                    AnimatedVisibility(visible = isStorageFolderExpanded) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("APK Output Storage Folder", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) customDownloadFolder else "Downloads/Packora (Public Downloads Folder)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    Button(
+                                        onClick = { folderPickerLauncher.launch(null) },
+                                        modifier = Modifier.weight(1f).height(44.dp),
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("CHOOSE FOLDER", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (useCustomDownloadFolder) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                useCustomDownloadFolder = false
+                                                customDownloadFolder = ""
+                                                sharedPrefs.edit().putBoolean("use_custom_download", false).remove("custom_download_folder").apply()
+                                            },
+                                            modifier = Modifier.height(44.dp),
+                                            shape = RoundedCornerShape(14.dp)
+                                        ) {
+                                            Text("RESET DEFAULT", style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
+                                }
                             }
+                        }
+                    }
+                }
 
-                            if (useCustomKeystore) {
-                                OutlinedTextField(value = keystorePassword, onValueChange = { keystorePassword = it }, label = { Text("Keystore Password") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), visualTransformation = PasswordVisualTransformation())
-                                OutlinedTextField(value = keyAlias, onValueChange = { keyAlias = it }, label = { Text("Key Alias") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-                                OutlinedTextField(value = commonName, onValueChange = { commonName = it }, label = { Text("Common Name (CN)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
+                // 3. Signing Keystore Card + Inline Pop-Under
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (useCustomKeystore) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceContainerHigh),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(24.dp)).clickable {
+                            isKeystoreExpanded = !isKeystoreExpanded
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Security, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Signing Keystore", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                val keyText = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else "Packora Default Key"
+                                Text(keyText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Icon(if (isKeystoreExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    AnimatedVisibility(visible = isKeystoreExpanded) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Custom PKCS12 / JKS Signing Keystore", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedTextField(
+                                        value = keystorePassword,
+                                        onValueChange = { 
+                                            keystorePassword = it
+                                            useCustomKeystore = it.isNotBlank() || keyAlias.isNotBlank()
+                                        },
+                                        label = { Text("Store Password") },
+                                        placeholder = { Text("Required") },
+                                        leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    OutlinedTextField(
+                                        value = keyAlias,
+                                        onValueChange = { 
+                                            keyAlias = it
+                                            useCustomKeystore = it.isNotBlank() || keystorePassword.isNotBlank()
+                                        },
+                                        label = { Text("Key Alias") },
+                                        placeholder = { Text("Required") },
+                                        leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedTextField(
+                                        value = keyPassword,
+                                        onValueChange = { keyPassword = it },
+                                        label = { Text("Key Pass (Opt)") },
+                                        placeholder = { Text("Same as store") },
+                                        leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    OutlinedTextField(
+                                        value = validityYears,
+                                        onValueChange = { validityYears = it },
+                                        label = { Text("Validity (Years)") },
+                                        placeholder = { Text("25") },
+                                        leadingIcon = { Icon(Icons.Outlined.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                }
+
+                                OutlinedTextField(
+                                    value = commonName,
+                                    onValueChange = { commonName = it },
+                                    label = { Text("Common Name (CN / Author)") },
+                                    placeholder = { Text("Packora Publisher") },
+                                    leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                    )
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedTextField(
+                                        value = organization,
+                                        onValueChange = { organization = it },
+                                        label = { Text("Organization (O)") },
+                                        placeholder = { Text("Packora Studio") },
+                                        leadingIcon = { Icon(Icons.Outlined.Business, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    OutlinedTextField(
+                                        value = organizationalUnit,
+                                        onValueChange = { organizationalUnit = it },
+                                        label = { Text("Org Unit (OU)") },
+                                        placeholder = { Text("Mobile Division") },
+                                        leadingIcon = { Icon(Icons.Outlined.WorkOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(14.dp),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                    TextButton(onClick = {
+                                        useCustomKeystore = false
+                                        keystorePassword = ""
+                                        keyAlias = ""
+                                        keyPassword = ""
+                                        commonName = ""
+                                        organization = ""
+                                        organizationalUnit = ""
+                                        validityYears = "25"
+                                    }) {
+                                        Text("RESET TO DEFAULT KEY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
                         }
                     }
@@ -670,15 +1010,21 @@ fun PackoraDashboard(
                 Button(
                     onClick = {
                         isBuilding = true
-                        progress = 0f
+                        targetProgressPercent = 0
+                        animatedProgressPercent = 0
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
                                 val builder = ApkBuilder(context)
                                 val finalPackage = if (packageName.isBlank()) {
                                     "com.maheswara660.packora." + (appName.ifBlank { "app" }).trim().lowercase().replace(Regex("[^a-z0-9]"), "")
                                 } else packageName.trim()
-                                val finalCode = versionCode.toIntOrNull() ?: 1
-                                val finalName = versionName.ifBlank { "1.0.0" }
+                                val historyList = historyManager.getHistoryItems()
+                                val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                                val normTarget = fetchUrl.lowercase().trimEnd('/')
+                                val matching = historyList.filter { it.targetUrl.lowercase().trimEnd('/') == normTarget }
+
+                                val finalCode = versionCode.toIntOrNull() ?: if (matching.isNotEmpty()) (matching.maxOf { it.versionCode } + 1) else 1
+                                val finalName = versionName.ifBlank { if (matching.isNotEmpty()) incrementVersionString(matching.first().versionName) else "1.0.0" }
 
                                 val inputBitmap: Bitmap? = if (iconUri != null) {
                                     context.contentResolver.openInputStream(iconUri!!).use {
@@ -706,32 +1052,62 @@ fun PackoraDashboard(
                                     isDesktopMode = isDesktopMode,
                                     browserEngine = selectedBrowserEngine,
                                     allowCopying = allowCopying,
-                                    keystorePassword = if (useCustomKeystore) keystorePassword else null,
-                                    keyAlias = if (useCustomKeystore) keyAlias else null,
-                                    commonName = if (useCustomKeystore) commonName else null,
+                                    isForceDarkMode = isForceDarkMode,
+                                    enableZoom = enableZoom,
+                                    hideWebFooter = isHideWebFooter,
+                                    keystorePassword = if (useCustomKeystore && keystorePassword.isNotBlank()) keystorePassword else null,
+                                    keyAlias = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else null,
+                                    commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,
+                                    organization = if (useCustomKeystore && organization.isNotBlank()) organization else null,
+                                    organizationalUnit = if (useCustomKeystore && organizationalUnit.isNotBlank()) organizationalUnit else null,
+                                    validityYears = validityYears.toIntOrNull() ?: 25,
+                                    keyPassword = if (useCustomKeystore && keyPassword.isNotBlank()) keyPassword else null,
                                     onProgress = { p, _ ->
-                                        Handler(Looper.getMainLooper()).post { progress = p / 100f }
+                                        Handler(Looper.getMainLooper()).post {
+                                            targetProgressPercent = maxOf(targetProgressPercent, p)
+                                        }
                                     }
                                 )
                                 Handler(Looper.getMainLooper()).post {
-                                    isBuilding = false
-                                    if (resultPath != null) {
-                                        lastBuiltApkPath = resultPath
-                                        showSuccessDialog = true
+                                    targetProgressPercent = 100
+                                    coroutineScope.launch {
+                                        while (animatedProgressPercent < 100) {
+                                            kotlinx.coroutines.delay(12)
+                                        }
+                                        isBuilding = false
+                                        if (resultPath != null) {
+                                            lastBuiltApkPath = resultPath
+                                            showSuccessDialog = true
 
-                                        historyManager.addHistoryItem(
-                                            HistoryItem(
-                                                appName = appName.ifBlank { "My App" },
-                                                packageName = finalPackage,
-                                                targetUrl = url,
-                                                versionCode = finalCode,
-                                                versionName = finalName,
-                                                isDesktopMode = isDesktopMode,
-                                                browserEngine = selectedBrowserEngine,
-                                                allowCopying = allowCopying,
-                                                apkPath = resultPath
+                                            val itemId = java.util.UUID.randomUUID().toString()
+                                            var savedIconPath: String? = null
+                                            if (inputBitmap != null) {
+                                                try {
+                                                    val iconsDir = java.io.File(context.filesDir, "history_icons").apply { mkdirs() }
+                                                    val iconFile = java.io.File(iconsDir, "${itemId}.png")
+                                                    java.io.FileOutputStream(iconFile).use { out ->
+                                                        inputBitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                                    }
+                                                    savedIconPath = iconFile.absolutePath
+                                                } catch (e: Exception) {}
+                                            }
+
+                                            historyManager.addHistoryItem(
+                                                HistoryItem(
+                                                    id = itemId,
+                                                    appName = appName.ifBlank { "My App" },
+                                                    packageName = finalPackage,
+                                                    targetUrl = url,
+                                                    versionCode = finalCode,
+                                                    versionName = finalName,
+                                                    isDesktopMode = isDesktopMode,
+                                                    browserEngine = selectedBrowserEngine,
+                                                    allowCopying = allowCopying,
+                                                    apkPath = resultPath,
+                                                    iconPath = savedIconPath
+                                                )
                                             )
-                                        )
+                                        }
                                     }
                                 }
                             } catch (e: Exception) {
@@ -748,7 +1124,7 @@ fun PackoraDashboard(
                     if (isBuilding) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
                         Spacer(modifier = Modifier.width(16.dp))
-                        Text("COMPILING ${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        Text("COMPILING ${animatedProgressPercent}%", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     } else {
                         Icon(Icons.Outlined.Build, contentDescription = null)
                         Spacer(modifier = Modifier.width(12.dp))
@@ -772,7 +1148,7 @@ fun PackoraDashboard(
                 onApply = { editedBitmap ->
                     iconUri = null
                     iconName = null
-                    autoFetchedIconBitmap = editedBitmap
+                    onAutoFetchedIconBitmapChange(editedBitmap)
                     Toast.makeText(context, "Zoomed icon applied", Toast.LENGTH_SHORT).show()
                 }
             )
@@ -785,11 +1161,13 @@ fun PackoraDashboard(
                 onSelectIcon = { selectedBmp ->
                     iconUri = null
                     iconName = null
-                    autoFetchedIconBitmap = selectedBmp
+                    onAutoFetchedIconBitmapChange(selectedBmp)
                     Toast.makeText(context, "Selected icon applied", Toast.LENGTH_SHORT).show()
                 }
             )
         }
+
+
 
         if (showClearConfirmSheet) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -828,7 +1206,7 @@ fun PackoraDashboard(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Are you sure you want to clear current website URL, app name, package details, and selected icon?",
+                            text = "Are you sure you want to reset all form inputs, website details, custom package settings, keystores, and quick toggles to default?",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -852,17 +1230,50 @@ fun PackoraDashboard(
                                 onVersionNameChange("")
                                 iconUri = null
                                 iconName = null
-                                autoFetchedIconBitmap = null
+                                onAutoFetchedIconBitmapChange(null)
+
+                                onDesktopModeChange(false)
+                                onForceDarkModeChange(false)
+                                onEnableZoomChange(false)
+                                onAllowCopyingChange(false)
+                                isHideWebFooter = true
+
+                                useCustomDownloadFolder = false
+                                customDownloadFolder = ""
+
+                                useCustomKeystore = false
+                                keystorePassword = ""
+                                keyAlias = ""
+                                keyPassword = ""
+                                commonName = ""
+                                organization = ""
+                                organizationalUnit = ""
+                                validityYears = "25"
+
+                                isPackageIdentityExpanded = false
+                                isStorageFolderExpanded = false
+                                isKeystoreExpanded = false
+
+                                sharedPrefs.edit()
+                                    .putBoolean("desktop_mode", false)
+                                    .putBoolean("force_dark_mode", false)
+                                    .putBoolean("enable_zoom", false)
+                                    .putBoolean("allow_copying", false)
+                                    .putBoolean("hide_web_footer", true)
+                                    .putBoolean("use_custom_download", false)
+                                    .remove("custom_download_folder")
+                                    .apply()
+
                                 showClearConfirmSheet = false
-                                Toast.makeText(context, "Details cleared", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "All form details and toggles reset to default", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("CLEAR DETAILS", fontWeight = FontWeight.Bold)
+                            Text("RESET EVERYTHING", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1186,6 +1597,21 @@ suspend fun fetchAllAvailableIcons(urlString: String): List<FetchedIconItem> = w
     return@withContext results.distinctBy { "${it.bitmap.width}x${it.bitmap.height}" }
 }
 
+fun extractDominantCornerColor(bitmap: Bitmap?): Color {
+    if (bitmap == null) return Color.Transparent
+    return try {
+        val w = bitmap.width
+        val h = bitmap.height
+        val c1 = bitmap.getPixel(minOf(4, w - 1), minOf(4, h - 1))
+        val alpha = android.graphics.Color.alpha(c1)
+        if (alpha > 180) {
+            Color(c1)
+        } else Color.Transparent
+    } catch (e: Exception) {
+        Color.Transparent
+    }
+}
+
 fun zoomAndProcessBitmap(
     source: Bitmap,
     scaleFactor: Float,
@@ -1226,52 +1652,68 @@ fun IconZoomerBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var scaleFactor by remember { mutableFloatStateOf(1.0f) }
 
-    val colorOptions = remember {
-        listOf(
-            "Transparent" to Color.Transparent,
-            "White" to Color.White,
-            "Black" to Color.Black,
-            "Dark Gray" to Color(0xFF1E1E1E),
-            "Charcoal" to Color(0xFF262626),
-            "Slate Gray" to Color(0xFF334155),
-            "Navy Blue" to Color(0xFF0F172A),
-            "Deep Indigo" to Color(0xFF312E81),
-            "Midnight Blue" to Color(0xFF172554),
-            "Ocean Blue" to Color(0xFF0284C7),
-            "Sky Blue" to Color(0xFF38BDF8),
-            "Forest Green" to Color(0xFF14532D),
-            "Emerald Green" to Color(0xFF059669),
-            "Teal" to Color(0xFF0D9488),
-            "Deep Teal" to Color(0xFF042F2E),
-            "Crimson Red" to Color(0xFFBE123C),
-            "Ruby Red" to Color(0xFFDC2626),
-            "Burgundy" to Color(0xFF4C0519),
-            "Vibrant Orange" to Color(0xFFEA580C),
-            "Warm Amber" to Color(0xFFD97706),
-            "Royal Purple" to Color(0xFF7E22CE),
-            "Deep Purple" to Color(0xFF3B0764),
-            "Hot Pink" to Color(0xFFDB2777),
-            "Rose Pink" to Color(0xFFF43F5E),
-            "Chocolate Brown" to Color(0xFF451A03),
-            "Light Gray" to Color(0xFFF1F5F9),
-            "Pastel Blue" to Color(0xFFE0F2FE),
-            "Pastel Mint" to Color(0xFFD1FAE5),
-            "Pastel Pink" to Color(0xFFFCE7F3),
-            "Pastel Purple" to Color(0xFFF3E8FF),
-            "Pastel Yellow" to Color(0xFFFEF3C7)
-        )
-    }
-    var selectedColorIndex by remember { mutableIntStateOf(0) }
-
     val baseBitmap = remember(currentBitmap) {
         currentBitmap ?: ApkBuilder.getDefaultMascotIcon(context)
     }
 
-    val previewBitmap = remember(scaleFactor, selectedColorIndex, baseBitmap) {
+    val autoCornerColor = remember(baseBitmap) { extractDominantCornerColor(baseBitmap) }
+
+    var customColor by remember { mutableStateOf<Color?>(null) }
+    var showCustomHexDialog by remember { mutableStateOf(false) }
+
+    val colorOptions = remember(autoCornerColor, customColor) {
+        val list = mutableListOf<Pair<String, Color>>()
+        if (autoCornerColor != Color.Transparent) {
+            list.add("✨ Auto Match" to autoCornerColor)
+        }
+        if (customColor != null) {
+            list.add("🎨 Eyedropper Color" to customColor!!)
+        }
+        list.addAll(
+            listOf(
+                "Transparent" to Color.Transparent,
+                "White" to Color.White,
+                "Black" to Color.Black,
+                "Dark Gray" to Color(0xFF1E1E1E),
+                "Charcoal" to Color(0xFF262626),
+                "Slate Gray" to Color(0xFF334155),
+                "Navy Blue" to Color(0xFF0F172A),
+                "Deep Indigo" to Color(0xFF312E81),
+                "Midnight Blue" to Color(0xFF172554),
+                "Ocean Blue" to Color(0xFF0284C7),
+                "Sky Blue" to Color(0xFF38BDF8),
+                "Forest Green" to Color(0xFF14532D),
+                "Emerald Green" to Color(0xFF059669),
+                "Teal" to Color(0xFF0D9488),
+                "Deep Teal" to Color(0xFF042F2E),
+                "Crimson Red" to Color(0xFFBE123C),
+                "Ruby Red" to Color(0xFFDC2626),
+                "Burgundy" to Color(0xFF4C0519),
+                "Vibrant Orange" to Color(0xFFEA580C),
+                "Warm Amber" to Color(0xFFD97706),
+                "Royal Purple" to Color(0xFF7E22CE),
+                "Deep Purple" to Color(0xFF3B0764),
+                "Hot Pink" to Color(0xFFDB2777),
+                "Rose Pink" to Color(0xFFF43F5E),
+                "Chocolate Brown" to Color(0xFF451A03),
+                "Light Gray" to Color(0xFFF1F5F9),
+                "Pastel Blue" to Color(0xFFE0F2FE),
+                "Pastel Mint" to Color(0xFFD1FAE5),
+                "Pastel Pink" to Color(0xFFFCE7F3),
+                "Pastel Purple" to Color(0xFFF3E8FF),
+                "Pastel Yellow" to Color(0xFFFEF3C7)
+            )
+        )
+        list
+    }
+    var selectedColorIndex by remember { mutableIntStateOf(0) }
+
+    val previewBitmap = remember(scaleFactor, selectedColorIndex, colorOptions, baseBitmap) {
+        val selectedColor = if (selectedColorIndex < colorOptions.size) colorOptions[selectedColorIndex].second else Color.Transparent
         zoomAndProcessBitmap(
             source = baseBitmap,
             scaleFactor = scaleFactor,
-            bgColor = colorOptions[selectedColorIndex].second
+            bgColor = selectedColor
         )
     }
 
@@ -1304,13 +1746,13 @@ fun IconZoomerBottomSheet(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Icon Zoomer",
+                    text = "Icon Zoomer & Color Eyedropper",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Scale icon size and choose background color fill for transparent icons.",
+                    text = "Scale icon size, auto-match background, or pick exact hex colors.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -1321,7 +1763,7 @@ fun IconZoomerBottomSheet(
                 modifier = Modifier
                     .size(130.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(colorOptions[selectedColorIndex].second)
+                    .background(if (selectedColorIndex < colorOptions.size) colorOptions[selectedColorIndex].second else Color.Transparent)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -1346,7 +1788,19 @@ fun IconZoomerBottomSheet(
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Background Color Fill", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Background Color Fill", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    TextButton(onClick = { showCustomHexDialog = true }) {
+                        Icon(Icons.Outlined.Colorize, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Custom Hex", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()

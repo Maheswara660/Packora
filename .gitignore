@@ -69,3 +69,7 @@ google-services.json
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Runtime-generated app data (history icons saved by Packora at build time)
+history_icons/
+generated_keystores/

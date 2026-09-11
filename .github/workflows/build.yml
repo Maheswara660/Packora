@@ -70,7 +70,7 @@ jobs:
 
       - name: Sign Android Release
         if: github.event_name != 'pull_request' && env.SIGNING_KEY != null
-        uses: r0adkll/sign-android-release@v2
+        uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
           releaseDirectory: app/build/outputs/apk/release

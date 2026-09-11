@@ -22,7 +22,7 @@ All notable changes to the **Packora** project will be documented in this file.
 
 ### Maintenance
 - **ProGuard Coverage Expansion**: Added explicit keep rules for `JarSigner`, `ZipAligner`, `ZipUtils`, `AppLogger`, `ElfAligner16k$*` data classes, and a `keepclassmembers` rule for all data class constructors in the Packora package. Template module updated with `MainActivity$*` wildcard and `androidx.webkit.**` keep rules for `WebSettingsCompat` reflection calls.
-- **Build Workflow Updates**: Upgraded `r0adkll/sign-android-release` from `v1` → `v2`, updated `BUILD_TOOLS_VERSION` from `34.0.0` → `35.0.0` to match `compileSdk = 35`, and broadened unsigned APK upload glob from `*-unsigned.apk` to `*.apk` for all release variants.
+- **Build Workflow Updates**: Updated `BUILD_TOOLS_VERSION` from `34.0.0` → `35.0.0` to match `compileSdk = 35`, and broadened unsigned APK upload glob from `*-unsigned.apk` to `*.apk` for all release variants.
 
 ## [2.3.0] - 2026-09-10
 ### Added & Enhanced

@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var insetsController: WindowInsetsControllerCompat
     private var isNightMode: Boolean = false
     private var hideWebFooter: Boolean = false
+    private lateinit var webView: WebView
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -220,6 +221,7 @@ class MainActivity : ComponentActivity() {
 
         config = loadConfig()
         setupWebView()
+        webView = binding.webView
 
         binding.btnRetry.setOnClickListener {
             hideErrorOverlay()
@@ -254,6 +256,16 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+    }
+
+    // Handle OAuth redirect callbacks (e.g. https://app.example.com/callback)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val redirectUrl = intent.data?.toString()
+        if (!redirectUrl.isNullOrBlank() && ::webView.isInitialized) {
+            webView.loadUrl(redirectUrl)
+        }
     }
 
     private fun showErrorOverlay() {
@@ -537,13 +549,77 @@ class MainActivity : ComponentActivity() {
                     val currentHost = uri.host?.lowercase()
 
                     val isAuthOrRedirect = currentHost != null && (
+                        // Google, Apple, Microsoft
                         currentHost.contains("accounts.google") ||
-                        currentHost.contains("login") ||
+                        currentHost.contains("login.microsoftonline") ||
+                        currentHost.contains("appleid.apple") ||
+                        currentHost.contains("auth.apple") ||
+                        currentHost.contains("signin.aws") ||
+                        // Enterprise SSO / Identity platforms
+                        currentHost.contains("cognito") ||
+                        currentHost.contains("auth0") ||
+                        currentHost.contains("okta") ||
+                        currentHost.contains("onelogin") ||
+                        currentHost.contains("pingidentity") ||
+                        currentHost.contains("ping.identity") ||
+                        currentHost.contains("sailpoint") ||
+                        currentHost.contains("forgerock") ||
+                        currentHost.contains("keycloak") ||
+                        // Clerk (used by Notion, Linear, Loom, etc.)
+                        currentHost.contains("clerk.") ||
+                        currentHost.contains("clerkstage") ||
+                        currentHost.contains("clerkdev") ||
+                        // Auth keywords in subdomain or path
+                        currentHost.contains(".auth.") ||
+                        currentHost.startsWith("auth.") ||
                         currentHost.contains("oauth") ||
-                        currentHost.contains("auth") ||
+                        currentHost.contains("openid") ||
+                        currentHost.contains("oidc") ||
+                        currentHost.startsWith("login.") ||
+                        currentHost.startsWith("signin.") ||
+                        currentHost.startsWith("signup.") ||
+                        currentHost.startsWith("register.") ||
+                        currentHost.startsWith("sso.") ||
+                        currentHost.contains("saml") ||
+                        currentHost.contains("ldap") ||
+                        currentHost.startsWith("identity.") ||
+                        currentHost.startsWith("id.") ||
+                        currentHost.contains(".iam.") ||
+                        currentHost.contains("federat") ||
+                        currentHost.startsWith("connect.") ||
+                        currentHost.startsWith("token.") ||
+                        currentHost.startsWith("authorize.") ||
+                        currentHost.startsWith("callback.") ||
+                        currentHost.contains("redirect") ||
+                        // Modern auth-as-a-service
+                        currentHost.contains("firebaseapp") ||
+                        currentHost.contains("supabase.co") ||
+                        currentHost.contains("workos") ||
+                        currentHost.contains("stytch") ||
+                        currentHost.contains("descope") ||
+                        currentHost.contains("magic.link") ||
+                        currentHost.contains("passwordless") ||
+                        // MFA / OTP / Security verification
+                        currentHost.contains("duo.com") ||
+                        currentHost.contains("recaptcha") ||
+                        currentHost.contains("hcaptcha") ||
+                        currentHost.contains("turnstile") ||
+                        currentHost.startsWith("verify.") ||
+                        currentHost.startsWith("2fa.") ||
+                        currentHost.startsWith("mfa.") ||
+                        currentHost.startsWith("otp.") ||
+                        currentHost.startsWith("secure.") ||
+                        // Popular platform OAuth endpoints
+                        (currentHost.contains("github.com") && url.contains("/login")) ||
+                        (currentHost.contains("gitlab.com") && url.contains("/sign_in")) ||
+                        (currentHost.contains("linkedin.com") && url.contains("/oauth")) ||
+                        (currentHost.contains("facebook.com") && url.contains("/dialog")) ||
+                        (currentHost.contains("twitter.com") && url.contains("/oauth")) ||
+                        (currentHost.contains("discord.com") && url.contains("/oauth2")) ||
+                        (currentHost.contains("slack.com") && url.contains("/oauth")) ||
+                        (currentHost.contains("atlassian") && url.contains("/login")) ||
                         currentHost.contains("sso") ||
-                        currentHost.contains("identity") ||
-                        currentHost.contains("recaptcha")
+                        currentHost.contains("identity")
                     )
 
                     val isSameDomainFamily = targetHost != null && currentHost != null && (
@@ -688,23 +764,83 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Enable Download Manager with System Download Notifications
+        // Universal Download: cookies, correct filename, blob/data URL support
         webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
+            // Handle blob: URLs via injected JS bridge
+            if (url.startsWith("blob:") || url.startsWith("data:")) {
+                webView.evaluateJavascript(
+                    """(function() {
+                        var url = '$url';
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'download';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    })();""", null
+                )
+                return@DownloadListener
+            }
             try {
+                // Parse real filename from Content-Disposition (RFC 6266 + RFC 5987)
+                val fileName: String = run {
+                    // Try filename*=UTF-8''encoded (RFC 5987)
+                    val rfc5987 = Regex("""filename\*\s*=\s*UTF-8''([^;\r\n]+)""", RegexOption.IGNORE_CASE)
+                        .find(contentDisposition)?.groupValues?.get(1)
+                        ?.let { java.net.URLDecoder.decode(it.trim(), "UTF-8") }
+                    if (!rfc5987.isNullOrBlank()) return@run rfc5987
+                    // Try filename="..."
+                    val quoted = Regex("""filename\s*=\s*"([^"]+)"""", RegexOption.IGNORE_CASE)
+                        .find(contentDisposition)?.groupValues?.get(1)?.trim()
+                    if (!quoted.isNullOrBlank()) return@run quoted
+                    // Try filename=... (unquoted)
+                    val unquoted = Regex("""filename\s*=\s*([^;\r\n"\s]+)""", RegexOption.IGNORE_CASE)
+                        .find(contentDisposition)?.groupValues?.get(1)?.trim()
+                    if (!unquoted.isNullOrBlank() && !unquoted.equals("index.php", true)) return@run unquoted
+                    // Last resort: URLUtil (will avoid index.php via URL path)
+                    val guessed = URLUtil.guessFileName(url, contentDisposition, mimetype)
+                    if (guessed.equals("index.php", true) || guessed.equals("downloadfile.php", true)) {
+                        // Fallback: use domain + timestamp
+                        val host = Uri.parse(url).host?.replace(".", "_") ?: "file"
+                        val ext = when {
+                            mimetype.contains("pdf") -> ".pdf"
+                            mimetype.contains("zip") -> ".zip"
+                            mimetype.contains("image") -> ".jpg"
+                            mimetype.contains("video") -> ".mp4"
+                            mimetype.contains("audio") -> ".mp3"
+                            else -> ""
+                        }
+                        return@run "${host}_${System.currentTimeMillis()}$ext"
+                    }
+                    guessed
+                }
+
+                val cookies = CookieManager.getInstance().getCookie(url)
                 val request = DownloadManager.Request(Uri.parse(url)).apply {
                     setMimeType(mimetype)
                     addRequestHeader("User-Agent", userAgent)
-                    setDescription("Downloading file...")
-                    val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
+                    if (!cookies.isNullOrBlank()) addRequestHeader("Cookie", cookies)
+                    val referer = webView.url
+                    if (!referer.isNullOrBlank()) addRequestHeader("Referer", referer)
+                    addRequestHeader("Accept", "*/*")
                     setTitle(fileName)
+                    setDescription("Downloading $fileName")
                     setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                    setAllowedOverMetered(true)
+                    setAllowedOverRoaming(true)
                 }
                 val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(request)
-                Toast.makeText(applicationContext, "Download started...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, "Downloading $fileName", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(applicationContext, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                // Last fallback: open in browser
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (ex: Exception) {
+                    Toast.makeText(applicationContext, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         })
     }

@@ -78,6 +78,14 @@ class BuildHistoryManager(context: Context) {
         prefs.edit().remove("history_items_json").apply()
     }
 
+    /** Returns the most recent HistoryItem for a given package name, or null if not found. */
+    fun getLatestForPackage(packageName: String): HistoryItem? =
+        getHistoryItems().firstOrNull { it.packageName == packageName }
+
+    /** Returns all package names ever built with Packora. */
+    fun getAllPackageNames(): Set<String> =
+        getHistoryItems().map { it.packageName }.toSet()
+
     private fun saveHistoryItems(items: List<HistoryItem>) {
         val array = JSONArray()
         items.forEach { item ->

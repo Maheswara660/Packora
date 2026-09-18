@@ -54,6 +54,13 @@ import com.maheswara660.packora.ui.HistoryScreen
 import com.maheswara660.packora.ui.SettingsScreen
 import com.maheswara660.packora.ui.AboutScreen
 import com.maheswara660.packora.ui.theme.PackoraTheme
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+
+import com.maheswara660.packora.ui.MyAppsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,7 +68,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 enum class Screen {
-    DASHBOARD, HISTORY, SETTINGS, ABOUT
+    BUILD, MY_APPS, HISTORY, SETTINGS, ABOUT
 }
 
 class MainActivity : ComponentActivity() {
@@ -99,24 +106,10 @@ fun MainAppNavigation(
     appColorAccent: AppColorAccent,
     onColorAccentChange: (AppColorAccent) -> Unit
 ) {
-    val navigationStack = remember { mutableStateListOf(Screen.DASHBOARD) }
-    val currentScreen = navigationStack.lastOrNull() ?: Screen.DASHBOARD
-
-    fun navigateTo(screen: Screen) {
-        if (navigationStack.lastOrNull() != screen) {
-            navigationStack.add(screen)
-        }
-    }
-
-    fun navigateBack() {
-        if (navigationStack.size > 1) {
-            navigationStack.removeAt(navigationStack.lastIndex)
-        }
-    }
-
-    BackHandler(enabled = navigationStack.size > 1) {
-        navigateBack()
-    }
+    // Primary tab: BUILD | MY_APPS | HISTORY | SETTINGS
+    var selectedTab by remember { mutableStateOf(Screen.BUILD) }
+    // Secondary overlay (About screen opened from Settings)
+    var showAbout by remember { mutableStateOf(false) }
 
     var url by remember { mutableStateOf("") }
     var appName by remember { mutableStateOf("") }
@@ -132,70 +125,111 @@ fun MainAppNavigation(
 
     val context = LocalContext.current
 
-    when (currentScreen) {
-        Screen.DASHBOARD -> {
-            PackoraDashboard(
-                url = url,
-                onUrlChange = { url = it },
-                appName = appName,
-                onAppNameChange = { appName = it },
-                packageName = packageName,
-                onPackageNameChange = { packageName = it },
-                versionCode = versionCode,
-                onVersionCodeChange = { versionCode = it },
-                versionName = versionName,
-                onVersionNameChange = { versionName = it },
-                isDesktopMode = isDesktopMode,
-                onDesktopModeChange = { isDesktopMode = it },
-                isForceDarkMode = isForceDarkMode,
-                onForceDarkModeChange = { isForceDarkMode = it },
-                enableZoom = enableZoom,
-                onEnableZoomChange = { enableZoom = it },
-                selectedBrowserEngine = selectedBrowserEngine,
-                onBrowserEngineChange = { selectedBrowserEngine = it },
-                allowCopying = allowCopying,
-                onAllowCopyingChange = { allowCopying = it },
-                autoFetchedIconBitmap = autoFetchedIconBitmap,
-                onAutoFetchedIconBitmapChange = { autoFetchedIconBitmap = it },
-                onNavigateHistory = { navigateTo(Screen.HISTORY) },
-                onNavigateSettings = { navigateTo(Screen.SETTINGS) }
-            )
-        }
-        Screen.HISTORY -> {
-            HistoryScreen(
-                onBack = { navigateBack() },
-                onReuseConfig = { item ->
-                    url = item.targetUrl
-                    appName = item.appName
-                    packageName = item.packageName
-                    versionCode = (item.versionCode + 1).toString()
-                    versionName = incrementVersionString(item.versionName)
-                    isDesktopMode = item.isDesktopMode
-                    selectedBrowserEngine = item.browserEngine
-                    allowCopying = item.allowCopying
-                    if (!item.iconPath.isNullOrBlank() && java.io.File(item.iconPath).exists()) {
-                        try {
-                            autoFetchedIconBitmap = android.graphics.BitmapFactory.decodeFile(item.iconPath)
-                        } catch (e: Exception) {}
-                    }
-                    Toast.makeText(context, "Loaded config for ${item.appName} (v${versionCode})", Toast.LENGTH_SHORT).show()
-                    navigationStack.clear()
-                    navigationStack.add(Screen.DASHBOARD)
+    // Back: About → Settings → hold (let system handle app exit from Build)
+    BackHandler(enabled = showAbout) { showAbout = false }
+    BackHandler(enabled = !showAbout && selectedTab != Screen.BUILD) { selectedTab = Screen.BUILD }
+
+    if (showAbout) {
+        AboutScreen(onBack = { showAbout = false })
+        return
+    }
+
+    // Tab items for the bottom bar
+    data class TabItem(val screen: Screen, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector)
+    val tabs = listOf(
+        TabItem(Screen.BUILD, "Build", Icons.Outlined.Build, Icons.Outlined.Build),
+        TabItem(Screen.MY_APPS, "My Apps", Icons.Outlined.Inventory2, Icons.Outlined.Inventory2),
+        TabItem(Screen.HISTORY, "History", Icons.Outlined.History, Icons.Outlined.History),
+        TabItem(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Outlined.Settings)
+    )
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
+            ) {
+                tabs.forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab.screen,
+                        onClick = { selectedTab = tab.screen },
+                        icon = {
+                            Icon(
+                                imageVector = if (selectedTab == tab.screen) tab.selectedIcon else tab.icon,
+                                contentDescription = tab.label
+                            )
+                        },
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selectedTab == tab.screen) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
                 }
-            )
+            }
         }
-        Screen.SETTINGS -> {
-            SettingsScreen(
-                onBack = { navigateBack() },
-                onNavigateAbout = { navigateTo(Screen.ABOUT) },
-                onThemeModeChange = onThemeModeChange,
-                onColorAccentChange = onColorAccentChange
-            )
-        }
-        Screen.ABOUT -> {
-            AboutScreen(
-                onBack = { navigateBack() }
-            )
+    ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn(tween(220)) togetherWith fadeOut(tween(180))
+                },
+                label = "tab_transition"
+            ) { tab ->
+                when (tab) {
+                    Screen.BUILD -> PackoraDashboard(
+                        url = url, onUrlChange = { url = it },
+                        appName = appName, onAppNameChange = { appName = it },
+                        packageName = packageName, onPackageNameChange = { packageName = it },
+                        versionCode = versionCode, onVersionCodeChange = { versionCode = it },
+                        versionName = versionName, onVersionNameChange = { versionName = it },
+                        isDesktopMode = isDesktopMode, onDesktopModeChange = { isDesktopMode = it },
+                        isForceDarkMode = isForceDarkMode, onForceDarkModeChange = { isForceDarkMode = it },
+                        enableZoom = enableZoom, onEnableZoomChange = { enableZoom = it },
+                        selectedBrowserEngine = selectedBrowserEngine, onBrowserEngineChange = { selectedBrowserEngine = it },
+                        allowCopying = allowCopying, onAllowCopyingChange = { allowCopying = it },
+                        autoFetchedIconBitmap = autoFetchedIconBitmap, onAutoFetchedIconBitmapChange = { autoFetchedIconBitmap = it },
+                        onNavigateHistory = { selectedTab = Screen.HISTORY },
+                        onNavigateSettings = { selectedTab = Screen.SETTINGS }
+                    )
+                    Screen.MY_APPS -> MyAppsScreen()
+                    Screen.HISTORY -> HistoryScreen(
+                        onBack = { selectedTab = Screen.BUILD },
+                        onReuseConfig = { item ->
+                            url = item.targetUrl
+                            appName = item.appName
+                            packageName = item.packageName
+                            versionCode = (item.versionCode + 1).toString()
+                            versionName = incrementVersionString(item.versionName)
+                            isDesktopMode = item.isDesktopMode
+                            selectedBrowserEngine = item.browserEngine
+                            allowCopying = item.allowCopying
+                            if (!item.iconPath.isNullOrBlank() && java.io.File(item.iconPath).exists()) {
+                                try { autoFetchedIconBitmap = android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) {}
+                            }
+                            Toast.makeText(context, "Loaded config for ${item.appName}", Toast.LENGTH_SHORT).show()
+                            selectedTab = Screen.BUILD
+                        }
+                    )
+                    Screen.SETTINGS -> SettingsScreen(
+                        onBack = { selectedTab = Screen.BUILD },
+                        onNavigateAbout = { showAbout = true },
+                        onThemeModeChange = onThemeModeChange,
+                        onColorAccentChange = onColorAccentChange
+                    )
+                    Screen.ABOUT -> {} // handled above as overlay
+                }
+            }
         }
     }
 }
@@ -245,7 +279,7 @@ fun PackoraDashboard(
 
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
-    var isHideWebFooter by remember { mutableStateOf(sharedPrefs.getBoolean("hide_web_footer", true)) }
+    var isHideWebFooter by remember { mutableStateOf(sharedPrefs.getBoolean("hide_web_footer", false)) }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
     var iconName by remember { mutableStateOf<String?>(null) }
@@ -1236,7 +1270,7 @@ fun PackoraDashboard(
                                 onForceDarkModeChange(false)
                                 onEnableZoomChange(false)
                                 onAllowCopyingChange(false)
-                                isHideWebFooter = true
+                                isHideWebFooter = false
 
                                 useCustomDownloadFolder = false
                                 customDownloadFolder = ""
@@ -1259,7 +1293,7 @@ fun PackoraDashboard(
                                     .putBoolean("force_dark_mode", false)
                                     .putBoolean("enable_zoom", false)
                                     .putBoolean("allow_copying", false)
-                                    .putBoolean("hide_web_footer", true)
+                                    .putBoolean("hide_web_footer", false)
                                     .putBoolean("use_custom_download", false)
                                     .remove("custom_download_folder")
                                     .apply()

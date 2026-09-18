@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.net.Uri
 import androidx.core.content.res.ResourcesCompat
 import org.json.JSONObject
 import java.io.File
@@ -46,7 +47,8 @@ class ApkBuilder(private val context: Context) {
         allowCopying: Boolean = false,
         isForceDarkMode: Boolean = false,
         enableZoom: Boolean = false,
-        hideWebFooter: Boolean = false,
+        enableWebFooter: Boolean = false,
+        hideWebFooter: Boolean = !enableWebFooter,
         keystorePassword: String?,
         keyAlias: String?,
         commonName: String?,
@@ -137,13 +139,30 @@ class ApkBuilder(private val context: Context) {
 
                             entry.name == "AndroidManifest.xml" -> {
                                 val originalData = zipIn.getInputStream(entry).readBytes()
+                                val targetUri = try { Uri.parse(targetUrl) } catch (e: Exception) { null }
+                                val targetHost = targetUri?.host?.lowercase()
+                                val deepLinkHosts = if (!targetHost.isNullOrBlank()) {
+                                    val clean = targetHost.removePrefix("www.")
+                                    listOf(clean, "www.$clean")
+                                } else emptyList()
+
                                 val modifiedData = axmlRebuilder.expandAndModifyFull(
                                     axmlData = originalData,
                                     originalPackage = "com.maheswara660.packora.template",
                                     newPackage = packageName,
                                     versionCode = versionCode,
                                     versionName = versionName,
-                                    permissions = listOf("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE")
+                                    deepLinkHosts = deepLinkHosts,
+                                    deepLinkSchemes = if (deepLinkHosts.isNotEmpty()) listOf("https", "http") else emptyList(),
+                                    permissions = listOf(
+                                        "android.permission.INTERNET",
+                                        "android.permission.ACCESS_NETWORK_STATE",
+                                        "android.permission.POST_NOTIFICATIONS",
+                                        "android.permission.CAMERA",
+                                        "android.permission.RECORD_AUDIO",
+                                        "android.permission.ACCESS_FINE_LOCATION",
+                                        "android.permission.ACCESS_COARSE_LOCATION"
+                                    )
                                 )
                                 ZipUtils.writeEntryDeflated(zipOut, entry.name, modifiedData)
                             }
@@ -173,6 +192,7 @@ class ApkBuilder(private val context: Context) {
                                         put("allowCopying", allowCopying)
                                         put("forceDarkMode", isForceDarkMode)
                                         put("enableZoom", enableZoom)
+                                        put("enableWebFooter", enableWebFooter)
                                         put("hideWebFooter", hideWebFooter)
                                         if (isDesktopMode) {
                                             put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")

@@ -3,6 +3,7 @@ package com.maheswara660.packora.template
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Dialog
 import android.app.DownloadManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +18,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.KeyEvent
 import android.view.View
 import android.view.autofill.AutofillManager
 import android.webkit.CookieManager
@@ -27,6 +29,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -38,6 +41,17 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.credentials.CreateCredentialResponse
+import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.CreatePublicKeyCredentialResponse
+import androidx.credentials.CredentialManager
+import androidx.credentials.CredentialManagerCallback
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.GetPublicKeyCredentialOption
+import androidx.credentials.PublicKeyCredential
+import androidx.credentials.exceptions.CreateCredentialException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -92,6 +106,86 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    // JavaScript Bridge for Passkey (WebAuthn / FIDO2) via Android CredentialManager
+    inner class PasskeyBridge {
+        private val credentialManager by lazy { CredentialManager.create(this@MainActivity) }
+
+        @JavascriptInterface
+        fun isSupported(): Boolean = true
+
+        @JavascriptInterface
+        fun getCredential(requestId: String, requestJson: String) {
+            runOnUiThread {
+                try {
+                    val getOption = GetPublicKeyCredentialOption(requestJson)
+                    val getRequest = GetCredentialRequest(listOf(getOption))
+                    credentialManager.getCredentialAsync(
+                        context = this@MainActivity,
+                        request = getRequest,
+                        cancellationSignal = null,
+                        executor = ContextCompat.getMainExecutor(this@MainActivity),
+                        callback = object : CredentialManagerCallback<GetCredentialResponse, GetCredentialException> {
+                            override fun onResult(result: GetCredentialResponse) {
+                                val cred = result.credential
+                                if (cred is PublicKeyCredential) {
+                                    resolvePasskey(requestId, cred.authenticationResponseJson)
+                                } else {
+                                    rejectPasskey(requestId, "Unsupported credential type")
+                                }
+                            }
+
+                            override fun onError(e: GetCredentialException) {
+                                rejectPasskey(requestId, e.message ?: "Authentication failed")
+                            }
+                        }
+                    )
+                } catch (e: Exception) {
+                    rejectPasskey(requestId, e.message ?: "Passkey error")
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun createCredential(requestId: String, requestJson: String) {
+            runOnUiThread {
+                try {
+                    val createRequest = CreatePublicKeyCredentialRequest(requestJson)
+                    credentialManager.createCredentialAsync(
+                        context = this@MainActivity,
+                        request = createRequest,
+                        cancellationSignal = null,
+                        executor = ContextCompat.getMainExecutor(this@MainActivity),
+                        callback = object : CredentialManagerCallback<CreateCredentialResponse, CreateCredentialException> {
+                            override fun onResult(result: CreateCredentialResponse) {
+                                if (result is CreatePublicKeyCredentialResponse) {
+                                    resolvePasskey(requestId, result.registrationResponseJson)
+                                } else {
+                                    rejectPasskey(requestId, "Unsupported registration result")
+                                }
+                            }
+
+                            override fun onError(e: CreateCredentialException) {
+                                rejectPasskey(requestId, e.message ?: "Registration failed")
+                            }
+                        }
+                    )
+                } catch (e: Exception) {
+                    rejectPasskey(requestId, e.message ?: "Passkey creation error")
+                }
+            }
+        }
+
+        private fun resolvePasskey(requestId: String, responseJson: String) {
+            val escaped = JSONObject.quote(responseJson)
+            binding.webView.evaluateJavascript("window.__packoraPasskeyResolve && window.__packoraPasskeyResolve('$requestId', $escaped);", null)
+        }
+
+        private fun rejectPasskey(requestId: String, errorMsg: String) {
+            val escaped = JSONObject.quote(errorMsg)
+            binding.webView.evaluateJavascript("window.__packoraPasskeyReject && window.__packoraPasskeyReject('$requestId', $escaped);", null)
         }
     }
 
@@ -233,7 +327,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val targetUrl = config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
+        val deepLinkUrl = intent.data?.toString()?.takeIf { it.isNotBlank() }
+        val targetUrl = deepLinkUrl ?: config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
 
         if (targetUrl != null) {
             binding.webView.loadUrl(targetUrl)
@@ -317,12 +412,23 @@ class MainActivity : ComponentActivity() {
         settings.databaseEnabled = true
         settings.allowFileAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
+        settings.setSupportMultipleWindows(true)
+        settings.javaScriptCanOpenWindowsAutomatically = true
+
+        // Universal Cookie & Session Acceptance (First-party + Third-party)
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        }
+
         val webViewConfig = config?.optJSONObject("webViewConfig")
         val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
         val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
         val forceDarkMode = webViewConfig?.optBoolean("forceDarkMode", false) ?: false
         val enableZoom = webViewConfig?.optBoolean("enableZoom", false) ?: false
-        hideWebFooter = webViewConfig?.optBoolean("hideWebFooter", true) ?: true
+        hideWebFooter = webViewConfig?.optBoolean("hideWebFooter", false) ?: false
 
         settings.setSupportZoom(enableZoom)
         settings.builtInZoomControls = enableZoom
@@ -349,6 +455,7 @@ class MainActivity : ComponentActivity() {
         }
         webView.addJavascriptInterface(AutofillBridge(), "AndroidAutofill")
         webView.addJavascriptInterface(NotificationBridge(), "AndroidNotification")
+        webView.addJavascriptInterface(PasskeyBridge(), "AndroidPasskey")
 
         if (isDesktopMode) {
             val desktopUA = webViewConfig?.optString("userAgent")
@@ -388,6 +495,8 @@ class MainActivity : ComponentActivity() {
                 super.onPageStarted(view, url, favicon)
                 hideErrorOverlay()
                 syncWebPageThemeColor(view)
+                injectPasskeyPolyfill(view)
+                injectAutoAcceptCookies(view)
                 injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
 
@@ -437,6 +546,8 @@ class MainActivity : ComponentActivity() {
                 super.onPageFinished(view, url)
                 try { CookieManager.getInstance().flush() } catch (e: Exception) {}
                 syncWebPageThemeColor(view)
+                injectPasskeyPolyfill(view)
+                injectAutoAcceptCookies(view)
                 injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
 
@@ -525,7 +636,23 @@ class MainActivity : ComponentActivity() {
                 val uri = Uri.parse(url)
                 val scheme = uri.scheme?.lowercase() ?: ""
 
-                // Handle non-http(s) custom URI schemes (mailto, tel, whatsapp, intent)
+                // Handle payment gateways and non-http(s) custom URI schemes
+                val paymentSchemes = setOf("upi", "tez", "phonepe", "paytmmp", "bhim", "gpay", "paypal", "swish", "venmo", "cred")
+                if (scheme in paymentSchemes) {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                            return true
+                        } else {
+                            Toast.makeText(this@MainActivity, "No payment app found for $scheme", Toast.LENGTH_SHORT).show()
+                            return true
+                        }
+                    } catch (e: Exception) {
+                        return true
+                    }
+                }
+
                 if (scheme != "http" && scheme != "https") {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, uri)
@@ -659,24 +786,76 @@ class MainActivity : ComponentActivity() {
                     return false // Intercept & block ad/gambling popup windows
                 }
 
-                // Route intra-site or popup windows into main WebView
-                val transport = resultMsg?.obj as? WebView.WebViewTransport
-                val tempWebView = WebView(this@MainActivity)
-                tempWebView.webViewClient = object : WebViewClient() {
+                val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+
+                val popupWebView = WebView(this@MainActivity).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    @Suppress("DEPRECATION")
+                    settings.databaseEnabled = true
+                    settings.setSupportMultipleWindows(true)
+                    settings.javaScriptCanOpenWindowsAutomatically = true
+                    CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                }
+
+                val popupDialog = Dialog(this@MainActivity, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen).apply {
+                    setContentView(popupWebView)
+                    setOnDismissListener {
+                        try {
+                            popupWebView.stopLoading()
+                            popupWebView.destroy()
+                        } catch (e: Exception) {}
+                    }
+                    setOnKeyListener { _, keyCode, event ->
+                        if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                            if (popupWebView.canGoBack()) {
+                                popupWebView.goBack()
+                                true
+                            } else {
+                                dismiss()
+                                true
+                            }
+                        } else false
+                    }
+                }
+
+                popupWebView.webChromeClient = object : WebChromeClient() {
+                    override fun onCloseWindow(window: WebView?) {
+                        try { popupDialog.dismiss() } catch (e: Exception) {}
+                    }
+                }
+
+                popupWebView.webViewClient = object : WebViewClient() {
+                    override fun onPageStarted(v: WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(v, url, favicon)
+                        injectPasskeyPolyfill(v)
+                        injectAutoAcceptCookies(v)
+                    }
+
+                    override fun onPageFinished(v: WebView?, url: String?) {
+                        super.onPageFinished(v, url)
+                        try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+                        injectPasskeyPolyfill(v)
+                        injectAutoAcceptCookies(v)
+                    }
+
                     override fun shouldOverrideUrlLoading(v: WebView?, req: WebResourceRequest?): Boolean {
                         val target = req?.url?.toString() ?: return false
                         if (isAdOrGamblingUrl(target)) {
                             return true
                         }
                         if (tryLaunchInInstalledNativeApp(target)) {
+                            try { popupDialog.dismiss() } catch (e: Exception) {}
                             return true
                         }
-                        binding.webView.loadUrl(target)
-                        return true
+                        return false // Let popupWebView navigate internally
                     }
                 }
-                transport?.webView = tempWebView
-                resultMsg?.sendToTarget()
+
+                transport.webView = popupWebView
+                resultMsg.sendToTarget()
+                try { popupDialog.show() } catch (e: Exception) {}
                 return true
             }
 
@@ -870,10 +1049,35 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
+            // Handle Payment Gateway Schemes (UPI, Google Pay, PhonePe, Paytm, BHIM, PayPal, etc.)
+            val paymentSchemes = setOf(
+                "upi", "tez", "phonepe", "paytmmp", "bhim", "gpay", "paypal", "swish", "venmo", "cred"
+            )
+            if (scheme in paymentSchemes) {
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return true
+                } else {
+                    Toast.makeText(this@MainActivity, "No payment app found for $scheme", Toast.LENGTH_SHORT).show()
+                    return true
+                }
+            }
+
             // Check if ANY installed native app or Packora-created WebAPK handles this link/domain
             if (scheme == "http" || scheme == "https") {
                 val intent = Intent(Intent.ACTION_VIEW, uri)
-                val resolveInfoList = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                val resolveInfoList = try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageManager.queryIntentActivities(intent, 0)
+                    }
+                } catch (e: Exception) {
+                    @Suppress("DEPRECATION")
+                    packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                }
 
                 val browserPackages = setOf(
                     "com.android.chrome", "org.mozilla.firefox", "com.sec.android.app.sbrowser",
@@ -883,11 +1087,12 @@ class MainActivity : ComponentActivity() {
 
                 val matchingApp = resolveInfoList.firstOrNull { info ->
                     val pkg = info.activityInfo.packageName
-                    pkg !in browserPackages && !pkg.contains("browser")
+                    pkg != packageName && pkg !in browserPackages && !pkg.contains("browser")
                 }
 
                 if (matchingApp != null) {
                     intent.setPackage(matchingApp.activityInfo.packageName)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
                     return true
                 }
@@ -896,6 +1101,339 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun injectPasskeyPolyfill(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    if (!window.AndroidPasskey) return;
+
+                    if (!window.PublicKeyCredential) {
+                        window.PublicKeyCredential = function() {};
+                    }
+                    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = function() {
+                        return Promise.resolve(true);
+                    };
+                    window.PublicKeyCredential.isConditionalMediationAvailable = function() {
+                        return Promise.resolve(true);
+                    };
+
+                    window.__packoraPasskeyCallbacks = window.__packoraPasskeyCallbacks || {};
+                    window.__packoraPasskeyResolve = function(id, resJson) {
+                        var cb = window.__packoraPasskeyCallbacks[id];
+                        if (cb) {
+                            delete window.__packoraPasskeyCallbacks[id];
+                            try {
+                                var parsed = typeof resJson === 'string' ? JSON.parse(resJson) : resJson;
+                                cb.resolve(parsed);
+                            } catch(e) {
+                                cb.reject(e);
+                            }
+                        }
+                    };
+                    window.__packoraPasskeyReject = function(id, err) {
+                        var cb = window.__packoraPasskeyCallbacks[id];
+                        if (cb) {
+                            delete window.__packoraPasskeyCallbacks[id];
+                            cb.reject(new Error(err || 'Passkey failed'));
+                        }
+                    };
+
+                    if (navigator.credentials) {
+                        var origGet = navigator.credentials.get.bind(navigator.credentials);
+                        navigator.credentials.get = function(options) {
+                            if (options && options.publicKey && window.AndroidPasskey) {
+                                return new Promise(function(resolve, reject) {
+                                    var id = 'passkey_get_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                    window.__packoraPasskeyCallbacks[id] = { resolve: resolve, reject: reject };
+                                    try {
+                                        var jsonStr = JSON.stringify(options);
+                                        window.AndroidPasskey.getCredential(id, jsonStr);
+                                    } catch(e) {
+                                        delete window.__packoraPasskeyCallbacks[id];
+                                        reject(e);
+                                    }
+                                });
+                            }
+                            return origGet(options);
+                        };
+
+                        var origCreate = navigator.credentials.create.bind(navigator.credentials);
+                        navigator.credentials.create = function(options) {
+                            if (options && options.publicKey && window.AndroidPasskey) {
+                                return new Promise(function(resolve, reject) {
+                                    var id = 'passkey_create_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                    window.__packoraPasskeyCallbacks[id] = { resolve: resolve, reject: reject };
+                                    try {
+                                        var jsonStr = JSON.stringify(options);
+                                        window.AndroidPasskey.createCredential(id, jsonStr);
+                                    } catch(e) {
+                                        delete window.__packoraPasskeyCallbacks[id];
+                                        reject(e);
+                                    }
+                                });
+                            }
+                            return origCreate(options);
+                        };
+                    }
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
+    }
+
+    private fun injectAutoAcceptCookies(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    // 1. Pre-approve Global CMP / Consent framework APIs
+                    function triggerCmpApis() {
+                        try {
+                            if (window.OneTrust && typeof window.OneTrust.AllowAll === 'function') {
+                                window.OneTrust.AllowAll();
+                            }
+                            if (window.Optanon && typeof window.Optanon.AllowAll === 'function') {
+                                window.Optanon.AllowAll();
+                            }
+                            if (window.Cookiebot) {
+                                if (window.Cookiebot.dialog && typeof window.Cookiebot.dialog.submitConsent === 'function') {
+                                    window.Cookiebot.dialog.submitConsent(true, true, true);
+                                }
+                                if (window.Cookiebot.consent) {
+                                    window.Cookiebot.consent.preferences = true;
+                                    window.Cookiebot.consent.statistics = true;
+                                    window.Cookiebot.consent.marketing = true;
+                                }
+                            }
+                            if (typeof window.__tcfapi === 'function') {
+                                window.__tcfapi('acceptAll', 2, function(){});
+                                window.__tcfapi('saveAndExit', 2, function(){});
+                            }
+                            if (typeof window.__cmp === 'function') {
+                                window.__cmp('acceptAll');
+                                window.__cmp('saveAndExit');
+                            }
+                            if (window.Didomi && typeof window.Didomi.setUserAgreeToAll === 'function') {
+                                window.Didomi.setUserAgreeToAll();
+                            }
+                            if (window.UC_UI && typeof window.UC_UI.acceptAllConsents === 'function') {
+                                window.UC_UI.acceptAllConsents();
+                            }
+                            if (window.klaro && window.klaro.getManager) {
+                                var mgr = window.klaro.getManager();
+                                if (mgr && typeof mgr.changeAll === 'function') mgr.changeAll(true);
+                                if (mgr && typeof mgr.saveConsents === 'function') mgr.saveConsents();
+                            }
+                            if (typeof window.gtag === 'function') {
+                                window.gtag('consent', 'update', {
+                                    'ad_storage': 'granted',
+                                    'ad_user_data': 'granted',
+                                    'ad_personalization': 'granted',
+                                    'analytics_storage': 'granted',
+                                    'functionality_storage': 'granted',
+                                    'personalization_storage': 'granted',
+                                    'security_storage': 'granted'
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                    triggerCmpApis();
+
+                    // 2. Set common cookie consent tokens to preemptively satisfy checks
+                    function setConsentTokens() {
+                        try {
+                            var future = new Date(Date.now() + 365*24*60*60*1000).toUTCString();
+                            var host = location.hostname ? location.hostname.replace(/^www\./, '') : '';
+                            var domainPart = host ? ';domain=.' + host : '';
+                            var cEnd = ';expires=' + future + ';path=/' + domainPart + ';SameSite=Lax';
+
+                            var commonCookies = [
+                                'cookieconsent_status=dismiss',
+                                'cookieconsent_status=allow',
+                                'cookies_accepted=1',
+                                'cookie_accepted=true',
+                                'accept_cookies=1',
+                                'cookie_consent=1',
+                                'cookie_notice_accepted=true',
+                                'eu_consent=true',
+                                'gdpr_consent=1',
+                                'privacy_consent=1',
+                                'viewed_cookie_policy=yes'
+                            ];
+                            commonCookies.forEach(function(c) {
+                                try { document.cookie = c + cEnd; } catch(e) {}
+                            });
+
+                            var localItems = {
+                                'cookieconsent_status': 'allow',
+                                'cookies_accepted': 'true',
+                                'cookie-consent': 'accepted',
+                                'gdpr_consent': 'accepted',
+                                'accepted_cookies': 'true'
+                            };
+                            for (var key in localItems) {
+                                try {
+                                    if (!localStorage.getItem(key)) {
+                                        localStorage.setItem(key, localItems[key]);
+                                    }
+                                } catch(e) {}
+                            }
+                        } catch(e) {}
+                    }
+                    setConsentTokens();
+
+                    // 3. Known Cookie Banner Accept Button Selectors
+                    var knownSelectors = [
+                        '#onetrust-accept-btn-handler',
+                        '#accept-recommended-btn-handler',
+                        '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+                        '#CybotCookiebotDialogBodyButtonAccept',
+                        '#didomi-notice-agree-button',
+                        '.didomi-components-button--color-primary',
+                        '#cookie_action_close_header',
+                        '#cookie_action_close_header_accept',
+                        '.cookie-notice-button-accept',
+                        '#cookie-notice-accept',
+                        '.cc-btn.cc-allow',
+                        '.cc-allow',
+                        '.cc-accept',
+                        '.cc-dismiss',
+                        'button[data-cookiefirst-action="accept"]',
+                        'button[data-cy="accept-all-cookies"]',
+                        'button[data-testid*="cookie-accept"]',
+                        'button[data-testid*="accept-all"]',
+                        'button[data-testid*="accept-cookie"]',
+                        '[data-action="accept-all"]',
+                        '[data-action="accept-cookies"]',
+                        '[data-action="agree"]',
+                        '#gdpr-consent-accept-button',
+                        '.gdpr-consent-accept',
+                        '#gdpr-accept',
+                        '#consent_prompt_submit',
+                        'button.agree-button',
+                        'button.btn-accept-all',
+                        'button.accept-all-btn',
+                        'button.btn-agree',
+                        'a.cc-btn.cc-allow',
+                        'button[id*="accept"][id*="cookie"]',
+                        'button[id*="cookie"][id*="accept"]',
+                        'button[id*="accept"][id*="consent"]',
+                        'button[id*="consent"][id*="accept"]',
+                        'button[class*="cookie"][class*="accept"]',
+                        'button[class*="consent"][class*="accept"]',
+                        'button[aria-label*="accept all" i]',
+                        'button[aria-label*="allow all" i]',
+                        'button[aria-label*="accept cookies" i]',
+                        'button[aria-label*="allow cookies" i]',
+                        'button[aria-label*="agree" i]',
+                        'button[id*="accept-all" i]',
+                        'button[class*="accept-all" i]',
+                        'button[id*="allow-all" i]',
+                        'button[class*="allow-all" i]',
+                        'button[id="acceptAll"]',
+                        'button[id="accept-all"]',
+                        'button[id="accept"]',
+                        'button[id="agree"]',
+                        'button[id="allow"]'
+                    ];
+
+                    var acceptTextRegex = /^\s*(accept all cookies|accept all|allow all cookies|allow all|i accept|accept|agree and proceed|agree & close|agree & continue|agree|got it|allow cookies|allow|i agree|ok, got it|ok|understand & accept|akzeptieren|alle akzeptieren|cookies akzeptieren|zustimmen|verstanden|tout accepter|accepter tout|accepter les cookies|accepter|j'accepte|aceptar todas las cookies|aceptar todas|aceptar todo|aceptar cookies|aceptar|de acuerdo|accetta tutti i cookie|accetta tutti|accetta cookie|accetto|accetta|aceitar todos|aceitar cookies|aceitar|concordo|alles accepteren|accepteren|akkoord|akceptuj wszystkie|zaakceptuj wszystkie|akceptuję|zgadzam się|принять все|согласен|соглашаюсь|모두 동의|모두 수락|すべて同意する|すべて許可|同意して進む|同意|接受所有|全部接受|同意并继续)\s*${'$'}/i;
+
+                    function simulateClick(el) {
+                        if (!el) return false;
+                        try {
+                            el.click();
+                            return true;
+                        } catch(e) {
+                            try {
+                                var ev = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                                el.dispatchEvent(ev);
+                                return true;
+                            } catch(e2) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    function isVisible(el) {
+                        if (!el) return false;
+                        var style = window.getComputedStyle(el);
+                        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+                        var rect = el.getBoundingClientRect();
+                        return rect.width > 0 && rect.height > 0;
+                    }
+
+                    function findAndAcceptCookies() {
+                        triggerCmpApis();
+
+                        for (var i = 0; i < knownSelectors.length; i++) {
+                            try {
+                                var el = document.querySelector(knownSelectors[i]);
+                                if (el && isVisible(el)) {
+                                    if (simulateClick(el)) {
+                                        cleanupOverlays();
+                                        return true;
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+
+                        var candidates = document.querySelectorAll('button, a, div[role="button"], span[role="button"], input[type="button"], input[type="submit"]');
+                        for (var j = 0; j < candidates.length; j++) {
+                            var btn = candidates[j];
+                            try {
+                                if (!isVisible(btn)) continue;
+                                var text = (btn.innerText || btn.textContent || btn.value || '').trim();
+                                if (!text) continue;
+
+                                if (acceptTextRegex.test(text)) {
+                                    var parent = btn.closest('[id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i], [id*="gdpr" i], [class*="gdpr" i], [id*="notice" i], [class*="notice" i], [id*="banner" i], [class*="banner" i], [role="dialog"], [role="alertdialog"], aside, footer, header') || btn.parentElement;
+                                    if (parent) {
+                                        if (simulateClick(btn)) {
+                                            cleanupOverlays();
+                                            return true;
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                        return false;
+                    }
+
+                    function cleanupOverlays() {
+                        try {
+                            if (document.body && document.body.style.overflow === 'hidden') {
+                                document.body.style.overflow = '';
+                            }
+                            if (document.documentElement && document.documentElement.style.overflow === 'hidden') {
+                                document.documentElement.style.overflow = '';
+                            }
+                        } catch(e) {}
+                    }
+
+                    findAndAcceptCookies();
+
+                    var delays = [300, 800, 1500, 2500, 4000];
+                    delays.forEach(function(delay) {
+                        setTimeout(findAndAcceptCookies, delay);
+                    });
+
+                    var observer = new MutationObserver(function() {
+                        findAndAcceptCookies();
+                    });
+                    if (document.body || document.documentElement) {
+                        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                        setTimeout(function() {
+                            try { observer.disconnect(); } catch(e) {}
+                        }, 10000);
+                    }
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
     }
 
     private fun injectAdBlockerAndSpaceCollapsing(webView: WebView?) {

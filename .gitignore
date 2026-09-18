@@ -73,3 +73,17 @@ Desktop.ini
 # Runtime-generated app data (history icons saved by Packora at build time)
 history_icons/
 generated_keystores/
+
+# Profiler & Crash Dumps
+*.hprof
+hs_err_pid*
+
+# Build Reports & Diagnostics
+reports/
+lint/
+problems/
+compose_compiler/
+
+# Temporary IDE / Brain caches
+.tempmediaStorage/
+.system_generated/

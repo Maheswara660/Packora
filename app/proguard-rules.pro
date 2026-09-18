@@ -1,10 +1,11 @@
 # Packora App Module ProGuard / R8 Rules
 
-# 1. Gson & Serialization Rules
+# 1. Serialization & History Management Rules
 -keep class com.maheswara660.packora.builder.JarSigner { *; }
 -keep class com.maheswara660.packora.builder.JarSigner$SigningSchemeOptions { *; }
--keep class com.maheswara660.packora.manager.HistoryItem { *; }
--keep class com.maheswara660.packora.manager.PackoraPreferencesManager { *; }
+-keep class com.maheswara660.packora.manager.** { *; }
+-keep class com.maheswara660.packora.ui.InstalledPackoraApp { *; }
+-keep class com.maheswara660.packora.ui.AppSortMode { *; }
 
 # Standard Gson rules
 -keep class sun.misc.Unsafe { *; }
@@ -15,7 +16,7 @@
 -keep class com.android.apksig.** { *; }
 -dontwarn com.android.apksig.**
 
-# 3. Binary Rebuilders & Builder Engine
+# 3. Binary Rebuilders & WebAPK Generator Engine
 -keep class com.maheswara660.packora.builder.ApkBuilder { *; }
 -keep class com.maheswara660.packora.builder.ApkTemplate { *; }
 -keep class com.maheswara660.packora.builder.AxmlRebuilder { *; }
@@ -26,15 +27,17 @@
 -keep class com.maheswara660.packora.builder.ZipUtils { *; }
 -keep class com.maheswara660.packora.builder.AppLogger { *; }
 
-# 4. Data classes — preserve field names for serialization/reflection safety
+# 4. Data classes & Models — preserve field names for serialization/reflection safety
 -keepclassmembers class com.maheswara660.packora.** {
     public <init>(...);
 }
 
-# 5. Android Core & Jetpack Compose
--keepattributes SourceFile,LineNumberTable
+# 5. Android Core, FileProvider & Jetpack Compose
+-keep class androidx.core.content.FileProvider { *; }
+-keepattributes SourceFile,LineNumberTable,*Annotation*,InnerClasses,EnclosingMethod
 -renamesourcefileattribute SourceFile
 
 # Coroutines rules to prevent minification issues
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**

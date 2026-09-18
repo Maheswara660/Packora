@@ -22,7 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maheswara660.packora.manager.AppColorAccent
 import com.maheswara660.packora.manager.AppThemeMode
 import com.maheswara660.packora.manager.PackoraPreferencesManager
@@ -62,14 +64,30 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets.statusBars,
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                title = {
+                    Column {
+                        Text(
+                            "Settings",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp,
+                            letterSpacing = (-0.5).sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Preferences & Customization",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     ) { paddingValues ->
@@ -78,123 +96,268 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // App Theme Card
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                    .clickable { showThemeSheet = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.DarkMode, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("App Theme", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        val themeLabel = when (currentTheme) {
-                            AppThemeMode.SYSTEM -> "System Default"
-                            AppThemeMode.LIGHT -> "Light Theme"
-                            AppThemeMode.DARK -> "Dark Theme"
-                            AppThemeMode.AMOLED -> "AMOLED Pitch Dark"
-                        }
-                        Text(themeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            // 1. APPEARANCE & THEME SECTION
+            Text(
+                "APPEARANCE & THEME",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
 
-            // Color Accent Card
             Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                    .clickable { showAccentSheet = true }
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
             ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Color Accent", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        val accentLabel = when (currentAccent) {
-                            AppColorAccent.SYSTEM -> "System Default (Material You)"
-                            AppColorAccent.EMERALD -> "Emerald Green"
-                            AppColorAccent.OCEAN -> "Ocean Blue"
-                            AppColorAccent.PURPLE -> "Deep Purple"
-                            AppColorAccent.AMBER -> "Warm Amber"
-                            AppColorAccent.CRIMSON -> "Crimson Red"
-                            AppColorAccent.ROSE -> "Rose Pink"
-                            AppColorAccent.CYAN -> "Cyan Breeze"
-                            AppColorAccent.ORANGE -> "Sunset Orange"
-                            AppColorAccent.INDIGO -> "Midnight Indigo"
-                            AppColorAccent.TEAL -> "Teal Mint"
-                            AppColorAccent.LIME -> "Lime Gold"
-                            AppColorAccent.CORAL -> "Coral Flame"
-                            AppColorAccent.NEON_GREEN -> "Neon Green"
-                            AppColorAccent.ELECTRIC_BLUE -> "Electric Blue"
-                            AppColorAccent.DEEP_VIOLET -> "Deep Violet"
-                            AppColorAccent.MAGENTA -> "Magenta Pink"
-                            AppColorAccent.GOLD -> "Pure Gold"
-                            AppColorAccent.MINT -> "Fresh Mint"
-                            AppColorAccent.PEACH -> "Soft Peach"
-                            AppColorAccent.RUBY -> "Ruby Red"
-                            AppColorAccent.SAPPHIRE -> "Royal Sapphire"
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Theme Tile
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showThemeSheet = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.DarkMode,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
-                        Text(accentLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            // APK Download Location Card
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                    .clickable { folderPickerLauncher.launch(null) }
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("APK Output Location", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                "Theme Mode",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            val themeLabel = when (currentTheme) {
+                                AppThemeMode.SYSTEM -> "System Default"
+                                AppThemeMode.LIGHT -> "Light Theme"
+                                AppThemeMode.DARK -> "Dark Theme"
+                                AppThemeMode.AMOLED -> "AMOLED Pitch Dark"
+                            }
+                            Text(
+                                themeLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.padding(end = 6.dp)
+                        ) {
+                            Text(
+                                when (currentTheme) {
+                                    AppThemeMode.SYSTEM -> "System"
+                                    AppThemeMode.LIGHT -> "Light"
+                                    AppThemeMode.DARK -> "Dark"
+                                    AppThemeMode.AMOLED -> "AMOLED"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    // Accent Tile
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAccentSheet = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Palette,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Color Accent",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            val accentLabel = when (currentAccent) {
+                                AppColorAccent.SYSTEM -> "Material You (System)"
+                                AppColorAccent.EMERALD -> "Emerald Green"
+                                AppColorAccent.OCEAN -> "Ocean Blue"
+                                AppColorAccent.PURPLE -> "Deep Purple"
+                                AppColorAccent.AMBER -> "Warm Amber"
+                                AppColorAccent.CRIMSON -> "Crimson Red"
+                                AppColorAccent.ROSE -> "Rose Pink"
+                                AppColorAccent.CYAN -> "Cyan Breeze"
+                                AppColorAccent.ORANGE -> "Sunset Orange"
+                                AppColorAccent.INDIGO -> "Midnight Indigo"
+                                AppColorAccent.TEAL -> "Teal Mint"
+                                AppColorAccent.LIME -> "Lime Gold"
+                                AppColorAccent.CORAL -> "Coral Flame"
+                                AppColorAccent.NEON_GREEN -> "Neon Green"
+                                AppColorAccent.ELECTRIC_BLUE -> "Electric Blue"
+                                AppColorAccent.DEEP_VIOLET -> "Deep Violet"
+                                AppColorAccent.MAGENTA -> "Magenta Pink"
+                                AppColorAccent.GOLD -> "Pure Gold"
+                                AppColorAccent.MINT -> "Fresh Mint"
+                                AppColorAccent.PEACH -> "Soft Peach"
+                                AppColorAccent.RUBY -> "Ruby Red"
+                                AppColorAccent.SAPPHIRE -> "Royal Sapphire"
+                            }
+                            Text(
+                                accentLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        // Live Accent Color Preview Dot
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                                .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. STORAGE & BUILD OUTPUT SECTION
+            Text(
+                "STORAGE & BUILD OUTPUT",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { folderPickerLauncher.launch(null) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Folder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "APK Output Destination",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             val locationLabel = if (useCustomStorage && !customStorageFolder.isNullOrBlank()) {
                                 customStorageFolder!!
                             } else {
                                 "Downloads/Packora/* (Default)"
                             }
-                            Text(locationLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                locationLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                        Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        IconButton(onClick = { folderPickerLauncher.launch(null) }) {
+                            Icon(
+                                Icons.Outlined.FolderOpen,
+                                contentDescription = "Change Folder",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
 
                     if (useCustomStorage) {
-                        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.End,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             TextButton(
                                 onClick = {
                                     useCustomStorage = false
                                     customStorageFolder = null
                                     prefsManager.useCustomStorageFolder = false
                                     prefsManager.customStorageFolder = null
-                                }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                             ) {
+                                Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text("Reset to Default (Downloads/Packora)", style = MaterialTheme.typography.labelSmall)
                             }
                         }
@@ -202,27 +365,133 @@ fun SettingsScreen(
                 }
             }
 
-            // About Packora Card
+            // 3. ABOUT & SYSTEM SECTION
+            Text(
+                "SYSTEM & ABOUT",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+
             Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                    .clickable { onNavigateAbout() }
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
             ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("About Packora", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Version, developer credits, & key features", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // About Tile
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateAbout() }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "About Packora",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Version 3.0.0 • Features, credits & open source",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    // Pipeline / Compiler Status Tile
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Build,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Packaging Engine",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "On-Device AAPT2, D8 & ApkSigner",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                                Text(
+                                    "Ready",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

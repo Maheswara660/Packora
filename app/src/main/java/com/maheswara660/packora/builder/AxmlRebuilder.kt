@@ -461,9 +461,13 @@ class AxmlRebuilder {
             return
         }
 
-        val shellActivityEndIndex = findActivityEndIndex(parsed, "com.webtoapp.ui.shell.ShellActivity")
+        val shellActivityEndIndex = findActivityEndIndex(parsed, "com.maheswara660.packora.template.MainActivity")
+            .takeIf { it >= 0 }
+            ?: findActivityEndIndex(parsed, ".MainActivity")
+            .takeIf { it >= 0 }
+            ?: findActivityEndIndex(parsed, "")
         if (shellActivityEndIndex < 0) {
-            AppLogger.e(TAG, "Cannot find ShellActivity </activity> element for deep link")
+            AppLogger.e(TAG, "Cannot find MainActivity </activity> element for deep link")
             return
         }
 
@@ -544,7 +548,11 @@ class AxmlRebuilder {
             newChunks.add(buildEndElement(androidNsIndex, intentFilterNameIndex))
         }
 
-        val currentEndIndex = findActivityEndIndex(parsed, "com.webtoapp.ui.shell.ShellActivity")
+        val currentEndIndex = findActivityEndIndex(parsed, "com.maheswara660.packora.template.MainActivity")
+            .takeIf { it >= 0 }
+            ?: findActivityEndIndex(parsed, ".MainActivity")
+            .takeIf { it >= 0 }
+            ?: findActivityEndIndex(parsed, "")
         if (currentEndIndex >= 0) {
             parsed.chunks.addAll(currentEndIndex, newChunks)
             AppLogger.d(TAG, "Inserted ${newChunks.size} chunks for deep link intent-filter")
@@ -728,24 +736,30 @@ class AxmlRebuilder {
 
                 if (elementNameStr == "activity" && !insideTargetActivity) {
 
-                    for (j in 0 until attrCount) {
-                        val attrOffset = 36 + j * attrSize
-                        if (attrOffset + 20 > chunk.data.size) break
-                        buffer.position(attrOffset)
-                        buffer.int
-                        val attrName = buffer.int
-                        buffer.int
-                        buffer.short
-                        buffer.get()
-                        val attrValueType = buffer.get().toInt() and 0xFF
-                        val attrValueData = buffer.int
+                    if (activityClassName.isEmpty()) {
+                        insideTargetActivity = true
+                        depth = 1
+                    } else {
+                        for (j in 0 until attrCount) {
+                            val attrOffset = 36 + j * attrSize
+                            if (attrOffset + 20 > chunk.data.size) break
+                            buffer.position(attrOffset)
+                            buffer.int
+                            val attrName = buffer.int
+                            buffer.int
+                            buffer.short
+                            buffer.get()
+                            val attrValueType = buffer.get().toInt() and 0xFF
+                            val attrValueData = buffer.int
 
-                        if (attrName == nameAttrIndex && attrValueType == 0x03) {
-                            val valueStr = parsed.stringPool.strings.getOrNull(attrValueData)
-                            if (valueStr == activityClassName) {
-                                insideTargetActivity = true
-                                depth = 1
-                                break
+                            if (attrName == nameAttrIndex && attrValueType == 0x03) {
+                                val valueStr = parsed.stringPool.strings.getOrNull(attrValueData)
+                                if (valueStr == activityClassName || 
+                                    (activityClassName.endsWith("MainActivity") && valueStr?.endsWith("MainActivity") == true)) {
+                                    insideTargetActivity = true
+                                    depth = 1
+                                    break
+                                }
                             }
                         }
                     }

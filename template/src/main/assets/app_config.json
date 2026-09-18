@@ -7,6 +7,8 @@
   "webViewConfig": {
     "openExternalLinks": true,
     "desktopMode": false,
+    "enableWebFooter": false,
+    "hideWebFooter": true,
     "userAgent": "",
     "downloadLocation": "Downloads/TemplateApp",
     "customDownloadFolder": null

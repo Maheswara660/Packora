@@ -18,6 +18,9 @@ data class HistoryItem(
     val isDesktopMode: Boolean,
     val browserEngine: String,
     val allowCopying: Boolean,
+    val isForceDarkMode: Boolean = false,
+    val enableZoom: Boolean = false,
+    val enableWebFooter: Boolean = false,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null,
     val iconPath: String? = null
@@ -56,6 +59,9 @@ class BuildHistoryManager(context: Context) {
                         isDesktopMode = obj.optBoolean("isDesktopMode", false),
                         browserEngine = obj.optString("browserEngine", "SYSTEM_DEFAULT"),
                         allowCopying = obj.optBoolean("allowCopying", false),
+                        isForceDarkMode = obj.optBoolean("isForceDarkMode", false),
+                        enableZoom = obj.optBoolean("enableZoom", false),
+                        enableWebFooter = obj.optBoolean("enableWebFooter", false),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
                         iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null
@@ -99,6 +105,9 @@ class BuildHistoryManager(context: Context) {
                 put("isDesktopMode", item.isDesktopMode)
                 put("browserEngine", item.browserEngine)
                 put("allowCopying", item.allowCopying)
+                put("isForceDarkMode", item.isForceDarkMode)
+                put("enableZoom", item.enableZoom)
+                put("enableWebFooter", item.enableWebFooter)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)
                 if (item.iconPath != null) put("iconPath", item.iconPath)

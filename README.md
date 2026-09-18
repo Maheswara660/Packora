@@ -1,127 +1,283 @@
 <p align="center">
   <a href="https://github.com/maheswara660/Packora">
-    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="200" height="200" alt="Packora Logo">
+    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="160" height="160" alt="Packora Logo" style="border-radius: 36px;">
   </a>
 </p>
 
-<h1 align="center">Packora v2.4.0</h1>
+<h1 align="center">Packora v3.0.0</h1>
 
 <p align="center">
-  <b>Transforming Any Web Application into High-Performance Native Standalone Android WebAPKs — Completely On-Device.</b>
+  <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases"><img src="https://img.shields.io/badge/Release-v2.4.0-00A86B?style=for-the-badge&logo=android" alt="Version 2.4.0"></a>
-  <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.0.0-7F52FF?style=for-the-badge&logo=kotlin" alt="Kotlin"></a>
-  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose" alt="Jetpack Compose"></a>
-  <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android" alt="Android SDK 35"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.0.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.0.0"></a>
+  <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
+  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
+  <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-22C55E?style=for-the-badge" alt="License GPLv3"></a>
+  <a href="https://ko-fi.com/maheswara660"><img src="https://img.shields.io/badge/Sponsor-Ko--fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Ko-fi Sponsor"></a>
 </p>
+
+> [!NOTE]
+> **Zero Telemetry • 100% Offline • No Cloud Dependencies**  
+> Packora runs an entire Android compilation and packaging pipeline right on your phone or tablet. It takes any Progressive Web App (PWA) or responsive website and outputs a standalone, production-ready Android APK with zero external servers or developer tools required.
 
 ---
 
 ## 📌 Table of Contents
-- [About Packora](#-about-packora)
+
+- [Overview](#-overview)
+- [Architecture & How It Works](#-architecture--how-it-works)
+- [What's New in v3.0.0](#-whats-new-in-v300)
 - [Key Features & Capabilities](#-key-features--capabilities)
+  - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
+  - [My Apps Management Hub](#-my-apps-management-hub)
+  - [Standalone WebAPK Runtime](#-standalone-webapk-runtime)
+  - [Binary Engine & APK Signing](#-binary-engine--apk-signing)
+  - [Build History & Smart Versioning](#-build-history--smart-versioning)
+  - [Settings & Dynamic Theming](#-settings--dynamic-theming)
+- [Permissions & Security Model](#-permissions--security-model)
 - [Technology Stack](#-technology-stack)
-- [System Requirements & Build Instructions](#-system-requirements--build-instructions)
+- [Repository Structure](#-repository-structure)
+- [Building from Source](#-building-from-source)
 - [Contributing](#-contributing)
-- [License & Credits](#-license--credits)
+- [License & Acknowledgments](#-license--acknowledgments)
 
 ---
 
-## 📝 About Packora
+## 💡 Overview
 
-**Packora** is an advanced, privacy-focused Android application that compiles any web application or website into a native, standalone Android APK file **directly on your device**. 
+**Packora** bridges the gap between modern web applications and native Android experiences. While standard browsers offer simple "Add to Home Screen" shortcuts that stay bound to browser windows, tabs, and URL bars, Packora builds an **independent native APK** that:
 
-Unlike web wrappers or cloud-based compilers, Packora operates **100% offline without external servers, desktop tools, or complex IDEs**. It features a native in-house `:template` compilation module, custom binary **AXML** and **ARSC** string pool parsers, **V2/V3 APK signing**, **16KB ELF page alignment for Android 15+**, **Crisp High-Resolution Icon Engine**, **Smooth 0–100% Compiling Progress Engine**, **Smart History Auto-Versioning**, and a **Full Factory Reset** for complete form control.
+- Runs in its own dedicated Android window with independent task affinity.
+- Features custom app icons, package IDs, and versioning.
+- Auto-injects ad-blockers, smart website footer hiding, and persistent session cookie sync.
+- Supports native Google SSO via Android Account Manager and Google Play Services Auth.
+- Embeds 16KB ELF page alignment for smooth compatibility with Android 15+ kernels.
+- Signs packages with APK Signature Scheme v2 & v3 using built-in or custom PKCS12 / JKS certificates.
+
+---
+
+## ⚙️ Architecture & How It Works
+
+```mermaid
+flowchart TD
+    A[Target Web URL] --> B[Favicon & Metadata Auto-Extractor]
+    B --> C[User Customization: Bento Grid, Keystore, Icon Zoom & Fill]
+    C --> D[Template Shell Injection: in-house :template assets]
+    D --> E[Custom Binary AXML Manifest Rebuilder]
+    E --> F[AAPT2 Binary ARSC String Pool Modifier]
+    F --> G[ElfAligner16k: 16KB Native Page Alignment for Android 15+]
+    G --> H[apksig: APK Signature Scheme v2 & v3 Signing]
+    H --> I[Standalone Signed WebAPK Installer]
+    I --> J[Instant Install / My Apps Management Hub]
+```
+
+1. **Asset & Metadata Harvesting**: Fetches high-resolution icons (HTML apple-touch, manifest, clearbit, duckduckgo, unavatar) and extracts dominant corner colors.
+2. **Binary Modification Without AAPT**: In-house binary parsers rewrite `AndroidManifest.xml` (AXML) and `resources.arsc` directly in byte buffers, avoiding bulky command-line toolchains.
+3. **Android 15+ 16KB Page Alignment**: Re-aligns all native ELF binaries (`.so` files) within ZIP archives to 16,384-byte boundaries.
+4. **V2/V3 APK Signature**: Generates RFC-compliant cryptographic signatures on-device using ECDSA or RSA certificates.
+
+---
+
+## 🚀 What's New in v3.0.0
+
+- **Material 3 Delete BottomSheet Menu**: Replaced the system `AlertDialog` with a height-fitting bottom sheet featuring real app icons, package identifier, version badge (`v<versionName> (<versionCode>)`), data deletion warnings, and styled actions.
+- **My Apps Hub with History Feature Parity**:
+  - **Live Search**: Animated top-bar search field filtering installed WebAPKs in real time.
+  - **Sort BottomSheet**: 3-mode sort dialog (*Recently Installed*, *App Name A–Z*, *Updates Available First*).
+  - **Manual Refresh Scanner**: Instant re-scan of installed packages with live update notifications.
+  - **Direct Card Actions**: Added **Reuse Config** (`AutoMode`) and **Install APK** (`InstallMobile`) directly to installed app cards.
+- **Icon Zoomer Stepper Controls & Discrete Track Points**:
+  - Minus (`-`) and Plus (`+`) circular steppers for precise 1% (1 point) fine-tuning, clamped between 40% and 200%.
+  - Added `steps = 15` to the `Slider`, dividing the track into 16 intervals and rendering tactile stop indicator dots at every 10 points (50%, 60%, 70% ... 190%).
+  - Real-time percentage badge with primary tint.
+- **Ergonomic Bottom Navbar with Text Labels**: Restored text titles beneath icons with an optimized 66.dp height for touch ergonomics.
+- **Harmonized Circular Icon Badges**: Standardized 40.dp circular icon container badges (`CircleShape`, `primary.copy(0.12f)`) across Dashboard, Settings preference tiles, and About cards.
+- **Permissions Audit**: Added native declarations for `REQUEST_DELETE_PACKAGES`, `QUERY_ALL_PACKAGES`, `READ_MEDIA_IMAGES`, and `POST_NOTIFICATIONS`.
 
 ---
 
 ## ✨ Key Features & Capabilities
 
-### ⚡ Smooth Compiling Engine & Multi-ABI Architecture
-* **Smooth 0–100% Countdown**: Replaced jumpy progress steps (`0 -> 20 -> 60 -> 80 -> 100`) with a smooth, granular step-by-step counter (`0, 1, 2, 3... 100`) for a perfect real-time compilation feel.
-* **Universal & Multiple ABI Split Support**: Generates per-architecture split APKs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) along with a single universal installer APK compatible with all Android devices.
-* **16KB Page Alignment for Android 15+**: Integrated native `ElfAligner16k` logic for embedded `.so` libraries satisfying upcoming Android 15 kernel requirements.
+### 🎨 Dashboard & Bento Grid Customization
+- **Website Details Hero Card**: Interactive URL input with clipboard auto-paste, Web icon badge, and quick clearing.
+- **5-Card Quick Toggles Bento Grid**:
+  - 🖥️ **Desktop Mode**: Renders sites with a full desktop viewport and Chrome desktop User-Agent.
+  - 🌙 **Force Dark Mode**: Enables algorithmic darkening for sites without native dark themes.
+  - 🔍 **Pinch Zoom**: Toggles multi-touch zoom controls.
+  - 📋 **Allow Text Copying**: Overrides CSS user-select locks to permit text selection.
+  - 🛡️ **Hide Web Footer**: Intelligently detects and hides site legal/copyright footers while keeping web app navigation intact.
+- **Inline Pop-Under Feature Cards**:
+  - 🆔 **Package Identity & Versioning**: Custom package names and automatic version incrementing (`versionCode` + `versionName`).
+  - 📁 **Storage Folder**: Choose destination folders using Android's Storage Access Framework (SAF).
+  - 🔑 **Custom Signing Keystore**: Generate custom PKCS12 certificates (Common Name, Organization, Unit, Validity Years, Key Password).
+- **Icon Zoomer & Color Eyedropper**:
+  - Auto-extracts dominant background corner colors.
+  - 31+ curated color fill options or custom hex input.
+  - Steppers (`-` / `+`) and discrete slider for icon scaling.
 
-### 🌐 Standalone WebAPK Runtime & Seamless Browsing
-* **Respected Site-Native Dark Mode**: Respects the website's native dark/light theme by default (`forceDarkMode` default `Off`), with an optional toggle to force algorithmic darkening.
-* **Smart Website Footer Hider**: Enabled by default (`hideWebFooter` default `On`) with an intuitive 1-tap Bento card toggle. Intelligently detects and hides site informational footers (copyright notices, legal policy links, terms, privacy, security) that make web apps look like websites, while preserving web app bottom navigation bars and chat input docks.
-* **Multi-Layered Ad Blocker & Fallbacks**: Intercepts popunder redirects, tracking networks, and gambling URLs (`isAdOrGamblingUrl`) in real time. Dynamic CSS injection and `MutationObserver` collapse empty ad space without hiding web application modals (Credly, Forage, Eduskills, etc.).
-* **Google OAuth & Device Account Sync**: Integrates `AccountManager` and Google Play Services Auth synchronization. WebAPKs for Google AI Studio, Google Skills, Google Play Academy, and Google Stitch detect logged-in device accounts for seamless 1-tap Google SSO.
-* **Persistent Session Cookie Disk Sync**: Calls `CookieManager.getInstance().flush()` across page events and lifecycle pauses (`onPageFinished`, `onPause`, `onStop`), ensuring login credentials persist reliably across app restarts.
-* **Multi-Touch Zoom Control**: Optional `enableZoom` toggle for multi-touch pinch-to-zoom support (default `Off` to retain native app feel).
+### 📱 My Apps Management Hub
+- **Installed App Tracking**: Scans and displays WebAPKs generated by Packora on your device.
+- **Update Engine**: Detects newer builds from history and compiles seamless updates matching the exact original configuration.
+- **Comprehensive Actions**: Open app, rebuild with reused parameters, reinstall existing APKs, or initiate uninstallation.
 
-### 🎨 Quick-Toggles Bento Grid & Customization
-* **3-Tier Bento Dashboard Layout**: Organized dashboard structure featuring **Website Details Hero Card**, a 5-card **Quick Toggles Bento Grid** (Desktop Mode, Force Dark Mode, Enable Zoom, Allow Text Copying, Hide Web Footer), and 3 **Feature Option Cards** (Package Identity & Versioning, Storage Folder, Custom Signing Keystore).
-* **Inline Pop-Under Expansion Cards**: All 3 Feature Option Cards (Package Identity, Storage Folder, Keystore) expand inline directly beneath the card using smooth `AnimatedVisibility` — no Modal BottomSheets. Tap once to reveal fields, tap again to collapse.
-* **Extended Custom Keystore Fields**: Custom Signing Keystore card includes full PKCS12 certificate identity fields — Store Password, Key Alias, Key Password, Common Name (Author), Organization, Organizational Unit, and Validity Years — for production-grade certificate control.
-* **Full Factory Reset**: A single confirmation action resets all form inputs, Quick Toggle states, Feature Card details (Package, Storage, Keystore), and restores all `SharedPreferences` to defaults.
-* **Icon Color Eyedropper & Auto-Matched Background**: Extracts dominant corner colors automatically from web icons and provides an interactive Custom Hex Eyedropper in `IconZoomerBottomSheet`.
-* **22+ Material 3 Color Accents**: Expanded `AppColorAccent` with 22 vibrant color accents featuring a scrollable selection dialog capped at `300.dp` max height to keep the theme dialog compact.
-* **Redesigned History Screen**: Search icon in header opens an expandable search bar directly under the header with smooth animations and toggles the top icon to an 'X' button. History cards save and display actual app icon bitmaps for 1-tap config re-use.
+### 🌐 Standalone WebAPK Runtime
+- **Site-Native Dark Mode**: Automatically honors website dark/light styling without distortion.
+- **Ad & Gambling Redirect Blocker**: Real-time interceptor blocking intrusive popunders, ad tracking scripts, and gambling domains.
+- **Whitespace Collapsing**: Uses dynamic CSS and `MutationObserver` to collapse empty ad slots to zero height.
+- **Google OAuth & Device Account Sync**: Automatic discovery of logged-in Google Accounts via `AccountManager` for 1-tap Google Sign-In.
+- **Persistent Session Cookie Disk Sync**: Proactive cookie flushing ensuring login states persist across device restarts.
+- **HTML5 File Picker & WebRTC**: Supports camera, microphone, geolocation, and multi-file document uploads.
+
+### ⚡ Binary Engine & APK Signing
+- **100% Offline Compilation**: Operates without AAPT, AAPT2, or external Java runtimes.
+- **16KB Page Alignment**: Guarantees Android 15 kernel compatibility via `ElfAligner16k`.
+- **Dual Signature Scheme**: Generates APK Signature Scheme v2 and v3 signatures compliant with Google Play and Android package verifiers.
+
+### 📜 Build History & Smart Versioning
+- **1-Per-Row Grid**: Beautiful history cards displaying actual app icons, build timestamps, versions, package names, and output paths.
+- **Config Auto-Matching**: Entering a previously built URL automatically populates earlier settings and increments the version string.
+
+### ⚙️ Settings & Dynamic Theming
+- **Material You Dynamic Theming**: Adapts to system wallpaper colors or selects from **22+ hand-crafted Color Accents**.
+- **Browser Engine Selector**: Switch between System Default WebView, Chrome Engine, or Custom Tab runtimes.
+- **Full Factory Reset**: 1-tap wipe to restore all settings and form inputs to default values.
+
+---
+
+## 🔒 Permissions & Security Model
+
+Packora adheres to strict privacy standards. It contains **no third-party tracking SDKs**, **no analytics**, and **no network calls** other than loading the target website you specify.
+
+| Permission | Purpose in Packora |
+| :--- | :--- |
+| `INTERNET` | Loading web applications and downloading target web favicons. |
+| `ACCESS_NETWORK_STATE` | Detecting online/offline connectivity to display offline fallback screens. |
+| `QUERY_ALL_PACKAGES` | Inspecting installed WebAPKs for update status and management in My Apps. |
+| `REQUEST_INSTALL_PACKAGES` | Triggering native Android package installation for compiled APKs. |
+| `REQUEST_DELETE_PACKAGES` | Triggering native Android package uninstallation from My Apps bottom sheet. |
+| `POST_NOTIFICATIONS` | Delivering status bar notifications for build completion and WebAPK push events. |
+| `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE` | Selecting custom launcher icons and files from device storage. |
+| `CAMERA` / `RECORD_AUDIO` | Delegated to WebAPK runtime for HTML5 WebRTC video calls and audio capture. |
+| `ACCESS_FINE_LOCATION` | Delegated to WebAPK runtime for map services and geolocation. |
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Component | Library / Framework | Version | Purpose |
+| Component | Library / Framework | Version | Details |
 | :--- | :--- | :--- | :--- |
-| **Language** | Kotlin | `2.0.0` | Asynchronous coroutines & native build pipelines. |
-| **UI Framework** | Jetpack Compose | `2024.12.01 (BOM)` | Modern Material 3 Bento UI architecture. |
-| **Template Engine** | In-House `:template` | `v2.4.0` | Native WebAPK shell asset generator. |
-| **Binary Engine** | Custom AXML & ARSC | `v2.4.0` | Binary manifest & AAPT2 string pool rebuilder. |
-| **Signing Engine** | `apksig` & Keystore | `8.3.0` | V2/V3 APK signing & PKCS12 / JKS custom key injection. |
-| **Page Alignment** | `ElfAligner16k` | `v2.4.0` | Native `.so` 16KB page alignment for Android 15+ kernels. |
+| **Language** | Kotlin | `2.2.10` | Coroutines, Flow, modern functional syntax |
+| **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
+| **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
+| **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
+| **Page Alignment** | In-House `ElfAligner16k` | `v3.0.0` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.0.0` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v3.0.0` | High-performance standalone WebAPK wrapper |
 
 ---
 
-## 🚀 System Requirements & Build Instructions
+## 📂 Repository Structure
 
-### System Requirements
-* **Operating System**: Android 8.0 (Oreo) or higher (Min SDK 24, Target SDK 35).
-* **Supported Architectures**: Universal APK & ABI splits (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+```text
+Packora/
+├── app/                                 # Primary Packora application module
+│   ├── src/main/java/.../packora/
+│   │   ├── MainActivity.kt              # App entry point & navigation host
+│   │   ├── builder/                     # Binary compiler engine
+│   │   │   ├── ApkBuilder.kt            # Compilation pipeline orchestrator
+│   │   │   ├── AxmlRebuilder.kt         # Binary AndroidManifest.xml rebuilder
+│   │   │   ├── ArscRebuilder.kt         # Binary resources.arsc rebuilder
+│   │   │   ├── ElfAligner16k.kt         # 16KB ELF boundary aligner
+│   │   │   ├── JarSigner.kt             # apksig V2/V3 cryptographic signing
+│   │   │   └── ZipAligner.kt            # 4-byte ZIP entry alignment
+│   │   ├── manager/                     # Persistent managers
+│   │   │   ├── BuildHistoryManager.kt   # History tracking & auto-versioning
+│   │   │   └── PackoraPreferencesManager.kt # User settings & accents
+│   │   └── ui/                          # Jetpack Compose UI screens
+│   │       ├── BuildScreen.kt           # Dashboard & Bento Builder UI
+│   │       ├── MyAppsScreen.kt          # Installed WebAPKs manager & search
+│   │       ├── HistoryScreen.kt         # Build history grid
+│   │       ├── SettingsScreen.kt        # App configuration & accents
+│   │       └── AboutScreen.kt           # App info, credits & links
+│   └── proguard-rules.pro               # App module R8/ProGuard configuration
+├── template/                            # Embedded WebAPK shell source module
+│   ├── src/main/java/.../template/
+│   │   └── MainActivity.kt              # Standalone WebAPK activity window
+│   └── proguard-rules.pro               # Shell R8/ProGuard configuration
+├── .github/                             # Workflows & community templates
+│   ├── workflows/build.yml              # CI/CD multi-architecture release builder
+│   └── ISSUE_TEMPLATE/                  # GitHub issue templates
+├── CHANGELOG.md                         # Detailed version changelog
+└── README.md                            # Project documentation
+```
 
-### 🏗️ Building from Source
+---
 
-Ensure you have **Android Studio Ladybug** (or later) and **JDK 17** configured:
+## 🏗️ Building from Source
+
+### Prerequisites
+- **JDK 17** or higher configured (`JAVA_HOME`).
+- **Android Studio Ladybug (2024.2+)** or command-line Android SDK.
+- **Android SDK Platform 35** and **Build-Tools 35.0.0**.
+
+### Quick Build Instructions
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/maheswara660/Packora.git
 cd Packora
 
-# 2. Build Packora release APKs (compiles :template and produces Universal + ABI splits)
+# 2. Compile debug APK
+./gradlew :app:assembleDebug
+
+# 3. Compile full release APKs (Universal + ABI splits)
 ./gradlew :app:assembleRelease
 ```
 
-The compiled release APKs will be saved at:
-`app/build/outputs/apk/release/`
+Compiled APK files will be located at:
+- Debug: `app/build/outputs/apk/debug/app-debug.apk`
+- Release: `app/build/outputs/apk/release/`
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, feature requests, and bug reports are welcome!
-1. Fork the repository on GitHub.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+Contributions are warmly welcome! Whether fixing a bug, suggesting a feature, or optimizing the binary engine:
+
+1. **Fork** the repository on GitHub.
+2. **Create a branch** for your feature:
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
+3. **Commit** your changes:
+   ```bash
+   git commit -m "feat: Add support for custom WebChromeClient geolocation"
+   ```
+4. **Push** to your fork:
+   ```bash
+   git push origin feature/my-new-feature
+   ```
+5. **Open a Pull Request** with a detailed explanation of your changes.
+
+Please make sure your code adheres to Kotlin coding conventions and passes `./gradlew :app:assembleDebug`.
 
 ---
 
-## 📜 License & Credits
+## 📜 License & Acknowledgments
 
-Packora is open-source software licensed under the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
+Packora is free and open-source software licensed under the **[GNU General Public License v3.0](LICENSE)**.
 
-* **Created & Maintained by**: [Maheswara660](https://github.com/maheswara660)
-* **Donations & Support**: [Maheswara660](https://ko-fi.com/maheswara660)
+- **Author & Lead Developer**: [Maheswara660](https://github.com/maheswara660)
+- **Support the Project**:
+  - [Buy me a coffee on Ko-fi](https://ko-fi.com/maheswara660)
+  - [GitHub Sponsors](https://github.com/sponsors/maheswara660)
 
 ---
 
 <p align="center">
-  <b>Packora v2.4.0 — Unlocking Web-to-APK Limits.</b><br>
-  Made with ❤️ for the Android Community
+  <b>Packora v3.0.0 — Unlocking Web-to-APK Limits.</b><br>
+  Built with ❤️ for the Android open-source community.
 </p>

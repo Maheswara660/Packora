@@ -2,6 +2,27 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.0.0] - 2026-09-19
+### Added & Enhanced
+- **My Apps Management Hub with Build History Parity**:
+  - **Material 3 Delete BottomSheet Menu**: Replaced the system `AlertDialog` uninstallation prompt with a dedicated, height-fitting `ModalBottomSheet` menu featuring a 56.dp circular error header badge, application launcher icon preview, package name, version chip (`v<versionName> (<versionCode>)`), data deletion warning notice card, and styled `CANCEL` / `UNINSTALL` action buttons.
+  - **Real-Time App Search**: Added search icon to the top bar toggling an animated `OutlinedTextField` search bar for filtering installed WebAPKs by title or package name in real time.
+  - **Sort BottomSheet Menu**: Added sort action icon opening a modal selection sheet to sort installed apps by *Recently Installed*, *App Name (A–Z)*, and *Updates Available First*.
+  - **Manual Refresh Scanner**: Added refresh icon button to trigger an on-demand re-scan of installed packages with live update checking.
+  - **Instant Action Buttons on App Cards**: Integrated **Reuse Config** (`Icons.Outlined.AutoMode`) and **Install APK** (`Icons.Outlined.InstallMobile`) directly onto installed app cards for seamless rebuilds and direct installations.
+- **Icon Zoomer BottomSheet Stepper Controls & Discrete Track Points**:
+  - **Precise Stepper Buttons**: Added circular `FilledTonalIconButton` controls on both sides of the zoom scale slider (`-` on left, `+` on right) allowing users to decrease/increase zoom scale by exactly 1 point (1% / `0.01f`), clamped at 40% minimum and 200% maximum.
+  - **10-Point Discrete Steps on Slider Track**: Added `steps = 15` to the `Slider`, dividing the 40%–200% range into 16 intervals and rendering tactile stop indicator dots at every 10 points (50%, 60%, 70% ... 190%) along the track.
+  - **Styled Value Badge**: Enclosed the real-time zoom percentage (`${(scaleFactor * 100).roundToInt()}%`) inside a primary-tinted rounded badge.
+- **Ergonomic Bottom Navbar with Text Labels**:
+  - Restored clear text labels below navigation bar icons with an optimized 66.dp container height, delivering a balanced and easily accessible navigation experience.
+- **Harmonized Circular Icon Badges Across All Screens**:
+  - Standardized modern 40.dp circular icon container badges (`CircleShape`, `MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)`) across the Dashboard (URL web icon, Build & Config section), all Settings screen preference tiles, and About screen action cards for complete visual harmony.
+- **Android Permissions & Package Management Expansion**:
+  - Added native permissions to `AndroidManifest.xml`: `REQUEST_DELETE_PACKAGES`, `QUERY_ALL_PACKAGES`, `READ_MEDIA_IMAGES`, and `POST_NOTIFICATIONS` ensuring uninstallation intents, media picking, and push notifications work reliably on Android 13 through Android 15.
+- **Dynamic Package ID & Update Pipeline Enhancements**:
+  - Resolved duplicate package ID generation, refined automatic package assignment from URLs, and ensured app update compilations inherit exact original configurations.
+
 ## [2.4.0] - 2026-09-11
 ### Added & Enhanced
 - **Smooth 0–100% Compiling Progress Engine**: Replaced jumpy discrete progress steps (`0 -> 20 -> 60 -> 80 -> 100`) with a smooth, granular step-by-step counter (`0, 1, 2, 3... 100`) for a perfect real-time compilation feel.

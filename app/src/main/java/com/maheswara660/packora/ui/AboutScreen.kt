@@ -40,9 +40,26 @@ fun AboutScreen(
     val uriHandler = LocalUriHandler.current
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
-                title = { Text("About Packora", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text(
+                            "About Packora",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp,
+                            letterSpacing = (-0.5).sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "App Information & Credits",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -52,8 +69,8 @@ fun AboutScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.primary
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -63,7 +80,7 @@ fun AboutScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Glassmorphic Hero App Card
@@ -75,65 +92,90 @@ fun AboutScreen(
             // Connect & Support Grouped Section
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Connect & Support",
+                    text = "CONNECT & SUPPORT",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 8.dp, bottom = 8.dp),
-                    style = MaterialTheme.typography.titleSmall,
+                        .padding(start = 4.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
                 )
 
-                AboutActionItem(
-                    icon = Icons.Rounded.Code,
-                    title = "GitHub Repository",
-                    description = "View the source code and contribute",
-                    isFirstItem = true,
-                    onClick = {
-                        uriHandler.openUri("https://github.com/maheswara660/Packora")
-                    }
-                )
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        AboutActionTile(
+                            icon = Icons.Rounded.Code,
+                            title = "GitHub Repository",
+                            description = "View source code, star, and contribute",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/maheswara660/Packora")
+                            }
+                        )
 
-                AboutActionItem(
-                    icon = Icons.Rounded.Favorite,
-                    title = "Support Development",
-                    description = "Donate to help me continue developing Packora",
-                    onClick = {
-                        uriHandler.openUri("https://ko-fi.com/maheswara660")
-                    }
-                )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
 
-                AboutActionItem(
-                    icon = Icons.Rounded.BugReport,
-                    title = "Report Issue & Feedback",
-                    description = "Submit bug reports or feature requests",
-                    onClick = {
-                        uriHandler.openUri("https://github.com/maheswara660/Packora/issues")
-                    }
-                )
+                        AboutActionTile(
+                            icon = Icons.Rounded.Favorite,
+                            title = "Support Development",
+                            description = "Donate to help fund ongoing development",
+                            onClick = {
+                                uriHandler.openUri("https://ko-fi.com/maheswara660")
+                            }
+                        )
 
-                AboutActionItem(
-                    icon = Icons.Rounded.Description,
-                    title = "Open Source License",
-                    description = "View the project's license",
-                    isLastItem = true,
-                    onClick = {
-                        uriHandler.openUri("https://github.com/maheswara660/Packora/blob/main/LICENSE")
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        AboutActionTile(
+                            icon = Icons.Rounded.BugReport,
+                            title = "Report Issue & Feedback",
+                            description = "Submit bug reports or feature requests",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/maheswara660/Packora/issues")
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        AboutActionTile(
+                            icon = Icons.Rounded.Description,
+                            title = "Open Source License",
+                            description = "View the project's license",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/maheswara660/Packora/blob/main/LICENSE")
+                            }
+                        )
                     }
-                )
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "© 2026 Maheswara660\nMade with ❤️ for the community",
+                text = "© 2026 Maheswara660\nCrafted with ❤️ for the Android Community",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -144,9 +186,9 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "2.4.0"
+            pInfo.versionName ?: "3.0.0"
         } catch (e: Exception) {
-            "2.4.0"
+            "3.0.0"
         }
     }
 
@@ -155,7 +197,7 @@ fun HeroAppCard() {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pInfo).toString()
         } catch (e: Exception) {
-            "24"
+            "30"
         }
     }
 
@@ -171,38 +213,38 @@ fun HeroAppCard() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                 )
             )
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(32.dp))
-            .padding(28.dp),
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (appIconBitmap != null) {
                 Image(
                     bitmap = appIconBitmap,
                     contentDescription = "Packora Logo",
                     modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(22.dp))
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
                 )
             } else {
                 Image(
                     painter = painterResource(id = R.mipmap.ic_launcher),
                     contentDescription = "Packora Logo",
                     modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(22.dp))
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
                 )
             }
 
@@ -210,17 +252,17 @@ fun HeroAppCard() {
                 text = "Packora",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp,
+                letterSpacing = (-0.5).sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     text = "v$appVersion • Build $appCode",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -228,64 +270,12 @@ fun HeroAppCard() {
             }
 
             Text(
-                text = "Transforming Web Applications into High-Performance Native Standalone WebAPKs.",
+                text = "Transforming Web Applications into High-Performance Standalone Android WebAPKs.",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
-        }
-    }
-}
-
-@Composable
-fun BentoMetricsRow() {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        BentoMetricCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Rounded.Speed,
-            title = "Instant",
-            subtitle = "Compilation"
-        )
-        BentoMetricCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Rounded.Language,
-            title = "Multi-Engine",
-            subtitle = "Runtime Shells"
-        )
-        BentoMetricCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Rounded.Shield,
-            title = "DoH Encrypted",
-            subtitle = "DNS Privacy"
-        )
-    }
-}
-
-@Composable
-fun BentoMetricCard(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Start)
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Start)
         }
     }
 }
@@ -300,92 +290,117 @@ fun DeveloperCard() {
             .clickable {
                 uriHandler.openUri("https://github.com/maheswara660")
             },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier.size(44.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(32.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Maheswara660",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        Icons.Rounded.Verified,
+                        contentDescription = "Verified Developer",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
                 Text(
-                    text = "Developed by Maheswara660",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Passionate Android Developer",
+                    text = "Developer & Open Source Creator",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
 @Composable
-fun AboutActionItem(
+fun AboutActionTile(
     icon: ImageVector,
     title: String,
     description: String,
-    isFirstItem: Boolean = false,
-    isLastItem: Boolean = false,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 1.dp),
-        shape = RoundedCornerShape(
-            topStart = if (isFirstItem) 16.dp else 4.dp,
-            topEnd = if (isFirstItem) 16.dp else 4.dp,
-            bottomStart = if (isLastItem) 16.dp else 4.dp,
-            bottomEnd = if (isLastItem) 16.dp else 4.dp,
-        ),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            modifier = Modifier.size(40.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Icon(
+            Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }

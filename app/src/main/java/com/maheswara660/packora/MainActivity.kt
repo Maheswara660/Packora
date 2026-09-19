@@ -34,14 +34,16 @@ import com.maheswara660.packora.manager.AppThemeMode
 import com.maheswara660.packora.manager.PackoraPreferencesManager
 import com.maheswara660.packora.ui.AboutScreen
 import com.maheswara660.packora.ui.BuildScreen
+import com.maheswara660.packora.ui.ChangelogScreen
 import com.maheswara660.packora.ui.HistoryScreen
 import com.maheswara660.packora.ui.MyAppsScreen
 import com.maheswara660.packora.ui.SettingsScreen
+import com.maheswara660.packora.ui.UpdatesScreen
 import com.maheswara660.packora.ui.theme.PackoraTheme
 import java.io.File
 
 enum class Screen {
-    BUILD, MY_APPS, HISTORY, SETTINGS, ABOUT
+    BUILD, MY_APPS, UPDATES, HISTORY, SETTINGS, ABOUT
 }
 
 class MainActivity : ComponentActivity() {
@@ -81,8 +83,9 @@ fun MainAppNavigation(
 ) {
     // Primary tab: BUILD | MY_APPS | HISTORY | SETTINGS
     var selectedTab by remember { mutableStateOf(Screen.BUILD) }
-    // Secondary overlay (About screen opened from Settings)
+    // Secondary overlays (About & Changelog screens opened from Settings)
     var showAbout by remember { mutableStateOf(false) }
+    var showChangelog by remember { mutableStateOf(false) }
 
     var url by remember { mutableStateOf("") }
     var appName by remember { mutableStateOf("") }
@@ -100,10 +103,16 @@ fun MainAppNavigation(
 
     // Back navigation handling
     BackHandler(enabled = showAbout) { showAbout = false }
-    BackHandler(enabled = !showAbout && selectedTab != Screen.BUILD) { selectedTab = Screen.BUILD }
+    BackHandler(enabled = !showAbout && showChangelog) { showChangelog = false }
+    BackHandler(enabled = !showAbout && !showChangelog && selectedTab != Screen.BUILD) { selectedTab = Screen.BUILD }
 
     if (showAbout) {
         AboutScreen(onBack = { showAbout = false })
+        return
+    }
+
+    if (showChangelog) {
+        ChangelogScreen(onBack = { showChangelog = false })
         return
     }
 
@@ -117,6 +126,7 @@ fun MainAppNavigation(
     val tabs = listOf(
         TabItem(Screen.BUILD, "Build", Icons.Outlined.Build, Icons.Outlined.Build),
         TabItem(Screen.MY_APPS, "My Apps", Icons.Outlined.Inventory2, Icons.Outlined.Inventory2),
+        TabItem(Screen.UPDATES, "Updates", Icons.Outlined.SystemUpdate, Icons.Outlined.SystemUpdate),
         TabItem(Screen.HISTORY, "History", Icons.Outlined.History, Icons.Outlined.History),
         TabItem(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Outlined.Settings)
     )
@@ -232,6 +242,7 @@ fun MainAppNavigation(
                         onNavigateSettings = { selectedTab = Screen.SETTINGS }
                     )
                     Screen.MY_APPS -> MyAppsScreen(onReuseConfig = handleReuseConfig)
+                    Screen.UPDATES -> UpdatesScreen()
                     Screen.HISTORY -> HistoryScreen(
                         onBack = { selectedTab = Screen.BUILD },
                         onReuseConfig = handleReuseConfig
@@ -239,6 +250,7 @@ fun MainAppNavigation(
                     Screen.SETTINGS -> SettingsScreen(
                         onBack = { selectedTab = Screen.BUILD },
                         onNavigateAbout = { showAbout = true },
+                        onNavigateChangelog = { showChangelog = true },
                         onThemeModeChange = onThemeModeChange,
                         onColorAccentChange = onColorAccentChange
                     )
@@ -262,9 +274,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "3.0.0"
+        pInfo.versionName ?: "3.1.0"
     } catch (e: Exception) {
-        "3.0.0"
+        "3.1.0"
     }
 }
 

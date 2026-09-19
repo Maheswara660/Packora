@@ -15,6 +15,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,8 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -78,8 +83,6 @@ fun MyAppsScreen(
     var apps by remember { mutableStateOf<List<InstalledPackoraApp>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var appToUninstall by remember { mutableStateOf<InstalledPackoraApp?>(null) }
-    val buildProgress = remember { mutableStateMapOf<String, Int?>() }
-    val buildingPackages = remember { mutableStateListOf<String>() }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -109,8 +112,6 @@ fun MyAppsScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-
-    val updateCount = apps.count { it.hasUpdate }
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -150,45 +151,6 @@ fun MyAppsScreen(
                     }
                 },
                 actions = {
-                    AnimatedVisibility(
-                        visible = updateCount > 0 && buildingPackages.isEmpty(),
-                        enter = fadeIn() + slideInVertically(),
-                        exit = fadeOut()
-                    ) {
-                        Button(
-                            onClick = {
-                                val toUpdate = apps.filter { it.hasUpdate && it.historyItem != null }
-                                toUpdate.forEach { app ->
-                                    val item = app.historyItem!!
-                                    coroutineScope.launch {
-                                        buildAndInstall(
-                                            context = context,
-                                            historyManager = historyManager,
-                                            item = item,
-                                            onProgressUpdate = { buildProgress[app.packageName] = it },
-                                            onBuildingChange = { b ->
-                                                if (b) buildingPackages.add(app.packageName)
-                                                else buildingPackages.remove(app.packageName)
-                                            },
-                                            onDone = {
-                                                coroutineScope.launch {
-                                                    apps = detectInstalledPackoraApps(context, historyManager)
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            },
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            modifier = Modifier.padding(end = 4.dp)
-                        ) {
-                            Icon(Icons.Rounded.Refresh, null, Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Update All ($updateCount)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-
                     // Three icons from Build History screen: Search, Sort, Refresh
                     IconButton(
                         onClick = {
@@ -300,73 +262,14 @@ fun MyAppsScreen(
                     }
                 }
                 else -> {
-                    val updateApps = filteredApps.filter { it.hasUpdate }
-                    val nonUpdateApps = filteredApps.filter { !it.hasUpdate }
-
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (updateApps.isNotEmpty()) {
-                            item {
-                                Text(
-                                    "UPDATES AVAILABLE",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    letterSpacing = 0.8.sp,
-                                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
-                                )
-                            }
-                            items(updateApps, key = { "update_${it.packageName}" }) { app ->
-                                AppCard(
-                                    app = app,
-                                    progress = buildProgress[app.packageName],
-                                    isBuilding = app.packageName in buildingPackages,
-                                    onUpdate = {
-                                        val item = app.historyItem ?: return@AppCard
-                                        coroutineScope.launch {
-                                            buildAndInstall(
-                                                context, historyManager, item,
-                                                onProgressUpdate = { buildProgress[app.packageName] = it },
-                                                onBuildingChange = { b ->
-                                                    if (b) buildingPackages.add(app.packageName)
-                                                    else buildingPackages.remove(app.packageName)
-                                                },
-                                                onDone = {
-                                                    coroutineScope.launch {
-                                                        apps = detectInstalledPackoraApps(context, historyManager)
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    },
-                                    onReuseConfig = onReuseConfig,
-                                    onOpen = { openApp(context, app.packageName) },
-                                    onUninstall = { appToUninstall = app }
-                                )
-                            }
-                            if (nonUpdateApps.isNotEmpty()) {
-                                item {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "INSTALLED APPLICATIONS",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        letterSpacing = 0.8.sp,
-                                        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                        items(nonUpdateApps, key = { "app_${it.packageName}" }) { app ->
+                        items(filteredApps, key = { it.packageName }) { app ->
                             AppCard(
                                 app = app,
-                                progress = buildProgress[app.packageName],
-                                isBuilding = app.packageName in buildingPackages,
-                                onUpdate = null,
                                 onReuseConfig = onReuseConfig,
                                 onOpen = { openApp(context, app.packageName) },
                                 onUninstall = { appToUninstall = app }
@@ -569,34 +472,128 @@ fun MyAppsScreen(
 }
 
 @Composable
+fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Desktop / Mobile
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                text = if (item.isDesktopMode) "Desktop" else "Mobile",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        // Dark Mode
+        if (item.isForceDarkMode) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Dark Mode",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Zoom
+        if (item.enableZoom) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Zoom",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Copying
+        if (item.allowCopying) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Copying",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Footer Mode
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                text = if (item.enableWebFooter) "Footer On" else "Hide Footer",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        // Browser Engine
+        val engineLabel = when (item.browserEngine) {
+            "GECKOVIEW" -> "GeckoView"
+            "CHROMIUM" -> "Chromium"
+            else -> "Default"
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                text = engineLabel,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppCard(
     app: InstalledPackoraApp,
-    progress: Int?,
-    isBuilding: Boolean,
-    onUpdate: (() -> Unit)?,
     onReuseConfig: ((HistoryItem) -> Unit)? = null,
     onOpen: () -> Unit,
     onUninstall: () -> Unit
 ) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = (progress ?: 0) / 100f,
-        animationSpec = tween(80, easing = LinearEasing), label = "progress"
-    )
     val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (app.hasUpdate)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-            else MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .border(
                 1.dp,
-                if (app.hasUpdate) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 RoundedCornerShape(20.dp)
             )
     ) {
@@ -626,28 +623,13 @@ private fun AppCard(
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            app.appName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        if (app.hasUpdate) {
-                            Spacer(Modifier.width(8.dp))
-                            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary) {
-                                Text(
-                                    "Update",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        app.appName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         app.packageName,
@@ -657,115 +639,62 @@ private fun AppCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Text(
-                                "v${app.installedVersionName} (${app.installedVersionCode})",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                        if (app.hasUpdate && app.historyItem != null) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                Icons.Rounded.ArrowForward,
-                                null,
-                                Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    "v${app.historyItem.versionName} (${app.historyItem.versionCode})",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            AnimatedVisibility(visible = isBuilding) {
-                Column(Modifier.padding(top = 12.dp)) {
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                        Text("Compiling…", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
                         Text(
-                            "${progress ?: 0}%",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            "v${app.installedVersionName} (${app.installedVersionCode})",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { animatedProgress },
-                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
+                    if (app.historyItem != null) {
+                        Spacer(Modifier.height(4.dp))
+                        CompileSettingsBadges(app.historyItem)
+                    }
                 }
             }
-            if (!isBuilding) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilledTonalButton(
-                        onClick = onOpen,
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilledTonalButton(
+                    onClick = onOpen,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (onReuseConfig != null && app.historyItem != null) {
+                    FilledTonalIconButton(
+                        onClick = { onReuseConfig(app.historyItem) },
                         shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.weight(1f).height(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.OpenInNew, null, Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Open", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    if (onUpdate != null) {
-                        Button(
-                            onClick = onUpdate,
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = Modifier.weight(1f).height(38.dp)
-                        ) {
-                            Icon(Icons.Rounded.Refresh, null, Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Update", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                    if (onReuseConfig != null && app.historyItem != null) {
-                        FilledTonalIconButton(
-                            onClick = { onReuseConfig(app.historyItem) },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.AutoMode, contentDescription = "Reuse Config", modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    if (app.historyItem?.apkPath != null && File(app.historyItem.apkPath).exists()) {
-                        FilledTonalIconButton(
-                            onClick = { installApkFile(context, app.historyItem.apkPath) },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.InstallMobile, contentDescription = "Install APK", modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    IconButton(
-                        onClick = onUninstall,
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.size(38.dp)
                     ) {
-                        Icon(Icons.Outlined.DeleteOutline, "Uninstall", Modifier.size(20.dp))
+                        Icon(Icons.Outlined.AutoMode, contentDescription = "Reuse Config", modifier = Modifier.size(18.dp))
                     }
+                }
+                if (app.historyItem?.apkPath != null && File(app.historyItem.apkPath).exists()) {
+                    FilledTonalIconButton(
+                        onClick = { installApkFile(context, app.historyItem.apkPath) },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Outlined.InstallMobile, contentDescription = "Install APK", modifier = Modifier.size(18.dp))
+                    }
+                }
+                IconButton(
+                    onClick = onUninstall,
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.Outlined.DeleteOutline, "Uninstall", Modifier.size(20.dp))
                 }
             }
         }
@@ -784,7 +713,7 @@ fun detectInstalledPackoraApps(context: Context, historyManager: BuildHistoryMan
             }
             .map { pkg ->
                 val historyItem = historyManager.getLatestForPackage(pkg.packageName)
-                val installedVC = pkg.versionCode
+                val installedVC = PackageInfoCompat.getLongVersionCode(pkg).toInt()
                 val historyVC = historyItem?.versionCode ?: installedVC
                 val icon: Bitmap? = try {
                     pm.getApplicationIcon(pkg.packageName).toBitmap(56, 56)

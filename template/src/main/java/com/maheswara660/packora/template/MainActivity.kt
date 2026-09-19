@@ -1,5 +1,6 @@
 package com.maheswara660.packora.template
 
+import android.accounts.AccountManager
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -14,12 +15,16 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.autofill.AutofillManager
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
@@ -38,6 +43,15 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
+import android.app.PictureInPictureParams
+import android.content.ClipboardManager
+import android.util.Rational
+import androidx.appcompat.app.AlertDialog
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import androidx.credentials.CustomCredential
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -58,7 +72,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import com.maheswara660.packora.template.databinding.ActivityMainBinding
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -91,6 +104,283 @@ class MainActivity : ComponentActivity() {
 
             filePathCallback?.onReceiveValue(results)
             filePathCallback = null
+        }
+    }
+
+    private var isShowingError: Boolean = false
+    private var lastCheckedMagicLink: String? = null
+    private var activeCustomTabAuth: Boolean = false
+
+    fun enterFloatingWindowMode() {
+        // 1. First attempt to launch in Android / OEM Freeform pop-up window mode (WindowConfiguration.WINDOWING_MODE_FREEFORM = 5)
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+            }
+            val options = android.app.ActivityOptions.makeBasic()
+            val setWindowingModeMethod = android.app.ActivityOptions::class.java.getMethod("setWindowingMode", Int::class.javaPrimitiveType)
+            setWindowingModeMethod.invoke(options, 5) // WINDOWING_MODE_FREEFORM
+            startActivity(intent, options.toBundle())
+            return
+        } catch (e: Exception) {}
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val width = binding.root.width.takeIf { it > 0 } ?: 9
+                val height = binding.root.height.takeIf { it > 0 } ?: 16
+                val aspectRatio = try {
+                    val ratio = width.toFloat() / height.toFloat()
+                    when {
+                        ratio < 0.42f -> Rational(42, 100)
+                        ratio > 2.38f -> Rational(238, 100)
+                        else -> Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
+                    }
+                } catch (e: Exception) {
+                    Rational(9, 16)
+                }
+
+                val builder = PictureInPictureParams.Builder()
+                    .setAspectRatio(aspectRatio)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(true)
+                    builder.setSeamlessResizeEnabled(true)
+                }
+                enterPictureInPictureMode(builder.build())
+            } catch (e: Exception) {
+                Toast.makeText(this, "Floating window not available: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, "Floating window requires Android 8.0+", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updatePictureInPictureParams() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val params = PictureInPictureParams.Builder()
+                    .setAspectRatio(Rational(9, 16))
+                    .setAutoEnterEnabled(true)
+                    .setSeamlessResizeEnabled(true)
+                    .build()
+                setPictureInPictureParams(params)
+            } catch (e: Exception) {}
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isShowingError) {
+            enterFloatingWindowMode()
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) {
+            binding.errorOverlay.visibility = View.GONE
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updatePictureInPictureParams()
+        checkClipboardForMagicLoginLink()
+    }
+
+    private fun checkClipboardForMagicLoginLink() {
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+            if (!clipboard.hasPrimaryClip()) return
+            val item = clipboard.primaryClip?.getItemAt(0) ?: return
+            val text = item.text?.toString()?.trim() ?: return
+
+            if (!text.startsWith("http://") && !text.startsWith("https://")) return
+            if (text == lastCheckedMagicLink) return
+
+            val targetUrl = config?.optString("targetUrl", "") ?: ""
+            val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
+            val uri = try { Uri.parse(text) } catch (e: Exception) { null } ?: return
+            val host = uri.host?.lowercase() ?: return
+
+            val isTargetDomain = targetHost != null && (host.endsWith(targetHost) || targetHost.endsWith(host))
+            val hasMagicKeywords = text.contains("token=") || text.contains("magic=") || text.contains("auth=") ||
+                    text.contains("signin=") || text.contains("callback=") || text.contains("verification=") ||
+                    text.contains("session=") || text.contains("code=") || text.contains("login_token=") ||
+                    text.contains("email_link=") || text.contains("login?") || text.contains("/verify")
+
+            if (isTargetDomain || (hasMagicKeywords && !isAdOrGamblingUrl(text))) {
+                lastCheckedMagicLink = text
+                promptOpenMagicLoginLink(text)
+            }
+        } catch (e: Exception) {}
+    }
+
+    private fun promptOpenMagicLoginLink(url: String) {
+        runOnUiThread {
+            AlertDialog.Builder(this)
+                .setTitle("Email Login Link Detected")
+                .setMessage("A login link from your email was copied to your clipboard. Would you like to sign in with it inside this app now?")
+                .setPositiveButton("SIGN IN NOW") { _, _ ->
+                    binding.webView.loadUrl(url)
+                }
+                .setNegativeButton("DISMISS", null)
+                .show()
+        }
+    }
+
+    fun showPasteMagicLinkDialog() {
+        val input = android.widget.EditText(this).apply {
+            hint = "https://... magic login link from email"
+            maxLines = 3
+            setPadding(48, 32, 48, 32)
+            try {
+                val clip = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+                    ?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+                if (clip != null && (clip.startsWith("http://") || clip.startsWith("https://"))) {
+                    setText(clip)
+                    setSelection(clip.length)
+                }
+            } catch (e: Exception) {}
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Sign In with Email Link")
+            .setMessage("If this website sent a login or magic link to your email, paste it below to log in directly inside this app:")
+            .setView(input)
+            .setPositiveButton("SIGN IN") { _, _ ->
+                val pasted = input.text.toString().trim()
+                if (pasted.startsWith("http://") || pasted.startsWith("https://")) {
+                    binding.webView.loadUrl(pasted)
+                } else {
+                    Toast.makeText(this, "Please paste a valid link starting with http:// or https://", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
+    fun launchGoogleSignIn(authUrl: String, serverClientId: String? = null) {
+        val clientId = serverClientId?.takeIf { it.isNotBlank() } ?: try {
+            Uri.parse(authUrl).getQueryParameter("client_id")
+        } catch (e: Exception) { null }
+
+        if (!clientId.isNullOrBlank() && clientId.contains("googleusercontent.com")) {
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(clientId)
+                    .setAutoSelectEnabled(true)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val credentialManager = CredentialManager.create(this@MainActivity)
+                credentialManager.getCredentialAsync(
+                    context = this@MainActivity,
+                    request = request,
+                    cancellationSignal = null,
+                    executor = ContextCompat.getMainExecutor(this@MainActivity),
+                    callback = object : CredentialManagerCallback<GetCredentialResponse, GetCredentialException> {
+                        override fun onResult(result: GetCredentialResponse) {
+                            val cred = result.credential
+                            if (cred is CustomCredential && cred.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                try {
+                                    val googleIdToken = GoogleIdTokenCredential.createFrom(cred.data)
+                                    val idToken = googleIdToken.idToken
+                                    notifyWebPageGoogleIdToken(idToken)
+                                    return
+                                } catch (e: Exception) {}
+                            }
+                            launchGoogleOAuthInCustomTab(authUrl)
+                        }
+
+                        override fun onError(e: GetCredentialException) {
+                            launchGoogleOAuthInCustomTab(authUrl)
+                        }
+                    }
+                )
+                return
+            } catch (e: Exception) {
+                // Fallback to Custom Tab
+            }
+        }
+
+        launchGoogleOAuthInCustomTab(authUrl)
+    }
+
+    private fun launchGoogleOAuthInCustomTab(authUrl: String) {
+        try {
+            activeCustomTabAuth = true
+            val uri = Uri.parse(authUrl)
+            val customTabsIntent = CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+            customTabsIntent.intent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            customTabsIntent.launchUrl(this@MainActivity, uri)
+        } catch (e: Exception) {
+            activeCustomTabAuth = false
+            binding.webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+            binding.webView.loadUrl(authUrl)
+        }
+    }
+
+    private fun notifyWebPageGoogleIdToken(idToken: String) {
+        val js = """
+            (function() {
+                try {
+                    if (window.handleCredentialResponse) {
+                        window.handleCredentialResponse({ credential: '$idToken' });
+                    }
+                    if (window.google && window.google.accounts && window.google.accounts.id) {
+                        if (window.__gsi_callback) window.__gsi_callback({ credential: '$idToken' });
+                    }
+                    window.dispatchEvent(new CustomEvent('google-id-token', { detail: { token: '$idToken' } }));
+                } catch(e) {}
+            })();
+        """.trimIndent()
+        runOnUiThread {
+            binding.webView.evaluateJavascript(js, null)
+        }
+    }
+
+    // JavaScript Bridge for Google Sign-In button detection, Credential Manager & Floating Window
+    inner class GoogleAuthBridge {
+        private var detectedClientId: String? = null
+
+        @JavascriptInterface
+        fun registerClientId(clientId: String?) {
+            if (!clientId.isNullOrBlank()) {
+                detectedClientId = clientId
+            }
+        }
+
+        @JavascriptInterface
+        fun triggerGoogleSignIn(authUrl: String? = null, clientId: String? = null) {
+            runOnUiThread {
+                val finalClientId = clientId?.takeIf { it.isNotBlank() } ?: detectedClientId
+                if (!authUrl.isNullOrBlank() && authUrl.contains("accounts.google.com")) {
+                    launchGoogleSignIn(authUrl, finalClientId)
+                } else if (!finalClientId.isNullOrBlank()) {
+                    launchGoogleSignIn(binding.webView.url ?: "", finalClientId)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun openFloatingWindow() {
+            runOnUiThread {
+                enterFloatingWindowMode()
+            }
+        }
+
+        @JavascriptInterface
+        fun openMagicLinkDialog() {
+            runOnUiThread {
+                showPasteMagicLinkDialog()
+            }
         }
     }
 
@@ -318,13 +608,53 @@ class MainActivity : ComponentActivity() {
         webView = binding.webView
 
         binding.btnRetry.setOnClickListener {
-            hideErrorOverlay()
+            if (!isNetworkAvailable()) {
+                binding.errorStatusChip.text = "NO INTERNET DETECTED"
+                Toast.makeText(this@MainActivity, "No internet connection detected", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Keep error overlay visible while loading; display connecting state
+            binding.btnRetry.isEnabled = false
+            binding.btnRetryText.text = "CONNECTING..."
+            binding.errorStatusChip.text = "CONNECTING..."
+
             val targetUrl = config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
             if (targetUrl != null) {
                 binding.webView.loadUrl(targetUrl)
             } else {
                 binding.webView.reload()
             }
+
+            // Re-enable button after timeout if still showing error
+            binding.btnRetry.postDelayed({
+                if (isShowingError) {
+                    binding.btnRetry.isEnabled = true
+                    binding.btnRetryText.text = "RETRY CONNECTION"
+                    val host = try { Uri.parse(targetUrl ?: "").host } catch (e: Exception) { null }
+                    binding.errorStatusChip.text = if (!host.isNullOrBlank()) host.uppercase() else "NETWORK OFFLINE"
+                }
+            }, 6000)
+        }
+
+        binding.btnSettings.setOnClickListener {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                    startActivity(intent)
+                } catch (ex: Exception) {}
+            }
+        }
+
+        binding.btnMagicLink.setOnClickListener {
+            showPasteMagicLinkDialog()
+        }
+
+        binding.btnFloatingWindow.setOnClickListener {
+            enterFloatingWindowMode()
         }
 
         val deepLinkUrl = intent.data?.toString()?.takeIf { it.isNotBlank() }
@@ -340,6 +670,20 @@ class MainActivity : ComponentActivity() {
                 "</body></html>",
                 "text/html", "utf-8"
             )
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(network) ?: return false
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val info = cm.activeNetworkInfo ?: return false
+            @Suppress("DEPRECATION")
+            info.isConnected
         }
     }
 
@@ -365,8 +709,32 @@ class MainActivity : ComponentActivity() {
 
     private fun showErrorOverlay() {
         runOnUiThread {
-            val bg = if (isNightMode) Color.parseColor("#121212") else Color.parseColor("#F8FAFC")
-            binding.errorOverlay.setBackgroundColor(bg)
+            isShowingError = true
+            binding.btnRetry.isEnabled = true
+            binding.btnRetryText.text = "RETRY CONNECTION"
+
+            val isDark = isNightMode
+            val overlayBg = if (isDark) Color.parseColor("#0F172A") else Color.parseColor("#F8FAFC")
+            val cardBg = if (isDark) Color.parseColor("#1E293B") else Color.parseColor("#FFFFFF")
+            val titleColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+            val subtextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+
+            binding.errorOverlay.setBackgroundColor(overlayBg)
+            binding.errorCard.setCardBackgroundColor(cardBg)
+            binding.errorTitle.setTextColor(titleColor)
+            binding.errorMessage.setTextColor(subtextColor)
+            binding.errorStatusChip.setTextColor(subtextColor)
+            binding.settingsIcon.setColorFilter(subtextColor)
+            binding.btnSettingsText.setTextColor(subtextColor)
+            binding.magicLinkIcon.setColorFilter(subtextColor)
+            binding.btnMagicLinkText.setTextColor(subtextColor)
+            binding.floatingWindowIcon.setColorFilter(subtextColor)
+            binding.btnFloatingWindowText.setTextColor(subtextColor)
+
+            val targetUrl = config?.optString("targetUrl", "") ?: ""
+            val host = try { Uri.parse(targetUrl).host } catch (e: Exception) { null }
+            binding.errorStatusChip.text = if (!host.isNullOrBlank()) host.uppercase() else "NETWORK OFFLINE"
+
             binding.errorOverlay.visibility = View.VISIBLE
             binding.webView.visibility = View.GONE
         }
@@ -374,6 +742,7 @@ class MainActivity : ComponentActivity() {
 
     private fun hideErrorOverlay() {
         runOnUiThread {
+            isShowingError = false
             binding.errorOverlay.visibility = View.GONE
             binding.webView.visibility = View.VISIBLE
         }
@@ -456,22 +825,30 @@ class MainActivity : ComponentActivity() {
         webView.addJavascriptInterface(AutofillBridge(), "AndroidAutofill")
         webView.addJavascriptInterface(NotificationBridge(), "AndroidNotification")
         webView.addJavascriptInterface(PasskeyBridge(), "AndroidPasskey")
+        webView.addJavascriptInterface(GoogleAuthBridge(), "AndroidGoogleAuth")
 
         if (isDesktopMode) {
             val desktopUA = webViewConfig?.optString("userAgent")
                 ?.takeIf { it.isNotBlank() }
-                ?: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+                ?: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
             settings.userAgentString = desktopUA
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
             settings.defaultTextEncodingName = "utf-8"
         } else {
-            // Clean standard Chrome User Agent so Google OAuth work seamlessly
-            settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+            // Clean standard Chrome User Agent so Google OAuth and auth flows work seamlessly without 403
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
             settings.useWideViewPort = false
             settings.loadWithOverviewMode = false
         }
+
+        // Strip X-Requested-With header to prevent Google and OAuth providers from returning 403 disallowed_useragent
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+            }
+        } catch (e: Exception) {}
 
         webView.webViewClient = object : WebViewClient() {
 
@@ -479,9 +856,30 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(
                 view: WebView?, request: WebResourceRequest?
             ): WebResourceResponse? {
-                val requestUrl = request?.url?.toString()
+                if (request == null) return null
+
+                // 1. Never block the main website frame
+                if (request.isForMainFrame) {
+                    return null
+                }
+
+                val requestUrl = request.url?.toString() ?: return null
+                val lowerUrl = requestUrl.lowercase()
+
+                // 2. Safety Whitelist: Never block media streams, video segments, audio, fonts, or blob/data
+                if (lowerUrl.endsWith(".m3u8") || lowerUrl.endsWith(".mp4") || lowerUrl.endsWith(".webm") ||
+                    lowerUrl.endsWith(".ts") || lowerUrl.endsWith(".mp3") || lowerUrl.endsWith(".m4s") ||
+                    lowerUrl.endsWith(".mpd") || lowerUrl.startsWith("blob:") || lowerUrl.startsWith("data:")
+                ) {
+                    return null
+                }
+                val acceptHeader = request.requestHeaders?.get("Accept")?.lowercase() ?: ""
+                if (acceptHeader.contains("video/") || acceptHeader.contains("audio/")) {
+                    return null
+                }
+
+                // 3. Block verified ad & tracking network domains
                 if (isAdOrGamblingUrl(requestUrl)) {
-                    // Block ad & tracking requests by returning empty 0-byte stream
                     return WebResourceResponse(
                         "text/plain",
                         "UTF-8",
@@ -493,7 +891,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                hideErrorOverlay()
+                // Note: Do not hide error overlay here; error overlay is hidden in onPageFinished once page loads successfully
                 syncWebPageThemeColor(view)
                 injectPasskeyPolyfill(view)
                 injectAutoAcceptCookies(view)
@@ -545,6 +943,12 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+
+                // Hide error screen only when page has finished loading successfully with a valid URL
+                if (isShowingError && url != null && url != "about:blank" && !url.startsWith("data:")) {
+                    hideErrorOverlay()
+                }
+
                 syncWebPageThemeColor(view)
                 injectPasskeyPolyfill(view)
                 injectAutoAcceptCookies(view)
@@ -571,6 +975,37 @@ class MainActivity : ComponentActivity() {
                 if (hideWebFooter) {
                     injectWebFooterHider(view)
                 }
+
+                // Inject Google SSO button click interceptor & GIS client_id detector
+                view?.evaluateJavascript(
+                    """
+                    (function() {
+                        try {
+                            var attachGoogleListener = function() {
+                                var gisEl = document.querySelector('#g_id_onload, [data-client_id], meta[name="google-signin-client_id"]');
+                                var cid = gisEl ? (gisEl.getAttribute('data-client_id') || gisEl.getAttribute('content')) : null;
+                                if (cid && window.AndroidGoogleAuth && window.AndroidGoogleAuth.registerClientId) {
+                                    window.AndroidGoogleAuth.registerClientId(cid);
+                                }
+
+                                var googleButtons = document.querySelectorAll('[data-provider="google"], [id*="google" i], [class*="google" i], a[href*="accounts.google.com"], button[aria-label*="google" i]');
+                                googleButtons.forEach(function(btn) {
+                                    if (btn.__packora_google_attached) return;
+                                    btn.__packora_google_attached = true;
+                                    btn.addEventListener('click', function(e) {
+                                        var href = (btn.tagName === 'A' && btn.href) ? btn.href : null;
+                                        if (cid && window.AndroidGoogleAuth && window.AndroidGoogleAuth.registerClientId) {
+                                            window.AndroidGoogleAuth.registerClientId(cid);
+                                        }
+                                    }, false);
+                                });
+                            };
+                            attachGoogleListener();
+                            new MutationObserver(attachGoogleListener).observe(document.body || document.documentElement, { childList: true, subtree: true });
+                        } catch(e) {}
+                    })();
+                    """.trimIndent(), null
+                )
 
                 // Inject Autofill & Password Manager helper logic into login forms
                 view?.evaluateJavascript(
@@ -623,17 +1058,41 @@ class MainActivity : ComponentActivity() {
                 showErrorOverlay()
             }
 
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: WebResourceResponse?
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                val code = errorResponse?.statusCode ?: 0
+                if (request?.isForMainFrame == true && (code in 500..599 || code == 404)) {
+                    showErrorOverlay()
+                }
+            }
+
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                if (url == null) return false
+                val uri = try { Uri.parse(url) } catch (e: Exception) { return false }
+                return handleUrlNavigation(view, url, uri, isMainFrame = true, isRedirect = false)
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView?, request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return false
+                val uri = request.url ?: Uri.parse(url)
+                return handleUrlNavigation(view, url, uri, request.isForMainFrame, request.isRedirect)
+            }
 
+            private fun handleUrlNavigation(
+                view: WebView?, url: String, uri: Uri, isMainFrame: Boolean, isRedirect: Boolean
+            ): Boolean {
                 // 1. Block ad, popunder, and gambling promotional redirect links
                 if (isAdOrGamblingUrl(url)) {
-                    return true // Intercept & block navigation to ad/gambling sites
+                    return true
                 }
 
-                val uri = Uri.parse(url)
                 val scheme = uri.scheme?.lowercase() ?: ""
 
                 // Handle payment gateways and non-http(s) custom URI schemes
@@ -663,7 +1122,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 2. Deep Linking to Popular Installed Native Apps (YouTube, LinkedIn, Instagram, Twitter, etc.)
+                // 2. Keep Google OAuth, Account Chooser, SSO, MFA, Password Reset & Auth URLs strictly inside the app WebView
+                if (url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
+                    view?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                    return false // Load internally in app WebView!
+                }
+
+                // 3. Deep Linking to Popular Installed Native Apps (YouTube, Instagram, etc.)
                 if (tryLaunchInInstalledNativeApp(url)) {
                     return true
                 }
@@ -672,90 +1137,16 @@ class MainActivity : ComponentActivity() {
                 val targetUrl = config?.optString("targetUrl", "") ?: ""
 
                 if (openExternalLinks && targetUrl.isNotEmpty()) {
-                    val targetHost = Uri.parse(targetUrl).host?.lowercase()
+                    val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
                     val currentHost = uri.host?.lowercase()
-
-                    val isAuthOrRedirect = currentHost != null && (
-                        // Google, Apple, Microsoft
-                        currentHost.contains("accounts.google") ||
-                        currentHost.contains("login.microsoftonline") ||
-                        currentHost.contains("appleid.apple") ||
-                        currentHost.contains("auth.apple") ||
-                        currentHost.contains("signin.aws") ||
-                        // Enterprise SSO / Identity platforms
-                        currentHost.contains("cognito") ||
-                        currentHost.contains("auth0") ||
-                        currentHost.contains("okta") ||
-                        currentHost.contains("onelogin") ||
-                        currentHost.contains("pingidentity") ||
-                        currentHost.contains("ping.identity") ||
-                        currentHost.contains("sailpoint") ||
-                        currentHost.contains("forgerock") ||
-                        currentHost.contains("keycloak") ||
-                        // Clerk (used by Notion, Linear, Loom, etc.)
-                        currentHost.contains("clerk.") ||
-                        currentHost.contains("clerkstage") ||
-                        currentHost.contains("clerkdev") ||
-                        // Auth keywords in subdomain or path
-                        currentHost.contains(".auth.") ||
-                        currentHost.startsWith("auth.") ||
-                        currentHost.contains("oauth") ||
-                        currentHost.contains("openid") ||
-                        currentHost.contains("oidc") ||
-                        currentHost.startsWith("login.") ||
-                        currentHost.startsWith("signin.") ||
-                        currentHost.startsWith("signup.") ||
-                        currentHost.startsWith("register.") ||
-                        currentHost.startsWith("sso.") ||
-                        currentHost.contains("saml") ||
-                        currentHost.contains("ldap") ||
-                        currentHost.startsWith("identity.") ||
-                        currentHost.startsWith("id.") ||
-                        currentHost.contains(".iam.") ||
-                        currentHost.contains("federat") ||
-                        currentHost.startsWith("connect.") ||
-                        currentHost.startsWith("token.") ||
-                        currentHost.startsWith("authorize.") ||
-                        currentHost.startsWith("callback.") ||
-                        currentHost.contains("redirect") ||
-                        // Modern auth-as-a-service
-                        currentHost.contains("firebaseapp") ||
-                        currentHost.contains("supabase.co") ||
-                        currentHost.contains("workos") ||
-                        currentHost.contains("stytch") ||
-                        currentHost.contains("descope") ||
-                        currentHost.contains("magic.link") ||
-                        currentHost.contains("passwordless") ||
-                        // MFA / OTP / Security verification
-                        currentHost.contains("duo.com") ||
-                        currentHost.contains("recaptcha") ||
-                        currentHost.contains("hcaptcha") ||
-                        currentHost.contains("turnstile") ||
-                        currentHost.startsWith("verify.") ||
-                        currentHost.startsWith("2fa.") ||
-                        currentHost.startsWith("mfa.") ||
-                        currentHost.startsWith("otp.") ||
-                        currentHost.startsWith("secure.") ||
-                        // Popular platform OAuth endpoints
-                        (currentHost.contains("github.com") && url.contains("/login")) ||
-                        (currentHost.contains("gitlab.com") && url.contains("/sign_in")) ||
-                        (currentHost.contains("linkedin.com") && url.contains("/oauth")) ||
-                        (currentHost.contains("facebook.com") && url.contains("/dialog")) ||
-                        (currentHost.contains("twitter.com") && url.contains("/oauth")) ||
-                        (currentHost.contains("discord.com") && url.contains("/oauth2")) ||
-                        (currentHost.contains("slack.com") && url.contains("/oauth")) ||
-                        (currentHost.contains("atlassian") && url.contains("/login")) ||
-                        currentHost.contains("sso") ||
-                        currentHost.contains("identity")
-                    )
 
                     val isSameDomainFamily = targetHost != null && currentHost != null && (
                         currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost) ||
                         currentHost.split(".").takeLast(2) == targetHost.split(".").takeLast(2)
                     )
 
-                    // Keep intra-site links inside WebView; open distinct external domains in Custom Tabs
-                    if (!isSameDomainFamily && !isAuthOrRedirect && request?.isForMainFrame == true && !request.isRedirect) {
+                    // Keep intra-site links and auth flows inside WebView; only open external non-auth links in Custom Tabs
+                    if (!isSameDomainFamily && !isAuthOrLoginUrl(url, uri.host) && isMainFrame && !isRedirect) {
                         try {
                             val customTabsIntent = CustomTabsIntent.Builder().build()
                             customTabsIntent.launchUrl(this@MainActivity, uri)
@@ -795,12 +1186,27 @@ class MainActivity : ComponentActivity() {
                     settings.databaseEnabled = true
                     settings.setSupportMultipleWindows(true)
                     settings.javaScriptCanOpenWindowsAutomatically = true
+                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+                    // Strip X-Requested-With header on popup WebView so Google doesn't block with 403 disallowed_useragent
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+                            }
+                        } catch (e: Exception) {}
+                    }
                 }
 
                 val popupDialog = Dialog(this@MainActivity, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen).apply {
                     setContentView(popupWebView)
+                    window?.apply {
+                        setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        setBackgroundDrawable(ColorDrawable(Color.argb(170, 0, 0, 0)))
+                    }
+                    popupWebView.setBackgroundColor(Color.TRANSPARENT)
                     setOnDismissListener {
                         try {
                             popupWebView.stopLoading()
@@ -838,12 +1244,37 @@ class MainActivity : ComponentActivity() {
                         try { CookieManager.getInstance().flush() } catch (e: Exception) {}
                         injectPasskeyPolyfill(v)
                         injectAutoAcceptCookies(v)
+
+                        // If login flow completed in popup and navigated back to target app domain, auto-close popup & refresh main WebView
+                        val targetHost = try { Uri.parse(config?.optString("targetUrl", "") ?: "").host?.lowercase() } catch (e: Exception) { null }
+                        val currentHost = try { Uri.parse(url ?: "").host?.lowercase() } catch (e: Exception) { null }
+                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(url)) {
+                            try {
+                                popupDialog.dismiss()
+                                binding.webView.reload()
+                            } catch (e: Exception) {}
+                        }
+                    }
+
+                    @Suppress("DEPRECATION")
+                    override fun shouldOverrideUrlLoading(v: WebView?, url: String?): Boolean {
+                        if (url == null) return false
+                        if (isAdOrGamblingUrl(url)) return true
+                        if (url.contains("accounts.google.com") || isAuthOrLoginUrl(url)) {
+                            v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                            return false
+                        }
+                        return false
                     }
 
                     override fun shouldOverrideUrlLoading(v: WebView?, req: WebResourceRequest?): Boolean {
                         val target = req?.url?.toString() ?: return false
                         if (isAdOrGamblingUrl(target)) {
                             return true
+                        }
+                        if (target.contains("accounts.google.com") || isAuthOrLoginUrl(target)) {
+                            v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                            return false // Let Google Account Chooser & Auth load inside popup window!
                         }
                         if (tryLaunchInInstalledNativeApp(target)) {
                             try { popupDialog.dismiss() } catch (e: Exception) {}
@@ -1026,6 +1457,9 @@ class MainActivity : ComponentActivity() {
 
     private fun tryLaunchInInstalledNativeApp(url: String): Boolean {
         return try {
+            if (isAuthOrLoginUrl(url)) {
+                return false // Protect auth and login links from being intercepted by external apps/browsers
+            }
             val uri = Uri.parse(url)
             val scheme = uri.scheme?.lowercase() ?: ""
 
@@ -1448,7 +1882,7 @@ class MainActivity : ComponentActivity() {
                         style.innerHTML = `
                             ins.adsbygoogle, .adsbygoogle, iframe[src*="doubleclick"], iframe[src*="googlesyndication"],
                             iframe[src*="taboola"], iframe[src*="outbrain"], iframe[src*="adsterra"],
-                            .ad-container, .ad-wrapper, .ad-slot, .ad-unit, .sponsored-content, .pubnation-ad, .adbox, #adbox, .ad_box, #ad_box {
+                            .pubnation-ad, .adbox, #adbox, .ad_box, #ad_box {
                                 display: none !important;
                                 height: 0 !important;
                                 max-height: 0 !important;
@@ -1468,13 +1902,18 @@ class MainActivity : ComponentActivity() {
                         var selectors = [
                             'ins.adsbygoogle', '.adsbygoogle', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
                             'iframe[src*="taboola"]', 'iframe[src*="outbrain"]', 'iframe[src*="adsterra"]',
-                            '.ad-container', '.ad-wrapper', '.ad-slot', '.ad-unit', '.sponsored-content'
+                            '.ad-container', '.ad-wrapper', '.ad-slot', '.ad-unit', '.sponsored-content', '.pubnation-ad'
                         ];
                         selectors.forEach(function(s) {
-                            document.querySelectorAll(s).forEach(function(el) {
-                                el.style.display = 'none';
-                                el.style.height = '0px';
-                            });
+                            try {
+                                document.querySelectorAll(s).forEach(function(el) {
+                                    // Safeguard: Never collapse or disable elements containing media or form controls
+                                    if (el.querySelector('video, audio, input, textarea, button, [role="button"]')) return;
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('height', '0px', 'important');
+                                    el.style.setProperty('pointer-events', 'none', 'important');
+                                });
+                            } catch(e) {}
                         });
                     };
                     cleanAdElements();
@@ -1552,36 +1991,128 @@ class MainActivity : ComponentActivity() {
             """
             (function() {
                 try {
-                    var hideInfoFooters = function() {
+                    function queryAll(selector, root) {
+                        root = root || document;
+                        var list = [];
+                        try {
+                            list = Array.prototype.slice.call(root.querySelectorAll(selector));
+                        } catch(e) {}
+                        try {
+                            var all = root.querySelectorAll('*');
+                            for (var i = 0; i < all.length; i++) {
+                                if (all[i].shadowRoot) {
+                                    list = list.concat(queryAll(selector, all[i].shadowRoot));
+                                }
+                            }
+                        } catch(e) {}
+                        return list;
+                    }
+
+                    var isBottomDocked = function(el) {
+                        try {
+                            var style = window.getComputedStyle(el);
+                            if (style.position === 'fixed' || style.position === 'sticky') {
+                                var rect = el.getBoundingClientRect();
+                                if (rect.bottom >= window.innerHeight - 30 && rect.top > 0) {
+                                    return true;
+                                }
+                            }
+                        } catch(e) {}
+                        return false;
+                    };
+
                         var selectors = [
-                            'footer', '#footer', '[id*="footer"]', '[id*="Footer"]',
-                            '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.footer',
-                            '[class*="footer"]', '[class*="Footer"]', 'div[role="contentinfo"]', 'section[role="contentinfo"]',
-                            'div[class*="copyright"]', 'div[class*="site-info"]', 'div[class*="legal"]', 'div[class*="policy"]',
-                            'section[class*="copyright"]', 'section[class*="legal"]', 'section[class*="policy"]',
-                            'div[data-component*="footer"]', 'div[data-test-id*="footer"]'
+                            'footer', '#footer', '[id*="footer" i]', '#colophon', '.colophon', '[id*="colophon" i]',
+                            '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.sub-footer', '.footer',
+                            '[class*="footer" i]', '[class*="Footer" i]', '[class*="subfooter" i]', '[class*="prefooter" i]',
+                            '[class*="fat-footer" i]', '[class*="socket" i]', '[class*="site-bottom" i]', '[class*="attribution" i]',
+                            'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
+                            'div[class*="copyright" i]', 'section[class*="copyright" i]', 'p[class*="copyright" i]', 'span[class*="copyright" i]',
+                            'div[class*="site-info" i]', 'div[class*="legal" i]', 'section[class*="legal" i]', 'div[class*="policy" i]', 'section[class*="policy" i]',
+                            'div[class*="disclaimer" i]', 'section[class*="disclaimer" i]', 'div[id*="disclaimer" i]',
+                            'div[data-component*="footer" i]', 'div[data-test-id*="footer" i]', 'div[data-testid*="footer" i]', 'div[data-cy*="footer" i]',
+                            '[data-section="footer"]', '[data-area="footer"]', '[data-widget-type="footer"]',
+                            '[aria-label*="footer" i]', '.cookie-banner', '.privacy-banner', '.gdpr-banner', '.ccpa-banner', '.consent-banner',
+                            '.footer-container', '.footer-wrapper', '.footer-content', '.footer-links', '.footer-nav', '.footer-bottom', '.bottom-footer',
+                            '.site-subfooter', '.site_footer'
                         ];
                         
                         var keywords = [
+                            // Copyright & Ownership
                             '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
+                            'all trademarks are property', 'registered trademark', 'trademark notice', 'intellectual property',
+                            'licensed under', 'mit license', 'apache license',
+                            
+                            // Terms, Privacy & Cookies
                             'terms', 'privacy', 'cookie', 'cookies', 'security', 'status', 'legal', 'disclaimer', 'imprint', 'impressum',
                             'privacy policy', 'terms of service', 'terms of use', 'terms & conditions', 'site policy', 'code of conduct',
-                            'content policy', 'user agreement', 'manage cookies', 'cookie preferences', 'cookie choices',
-                            'do not share my personal', 'do not sell', 'privacy notice', 'refund policy', 'shipping policy',
-                            'powered by', 'built with', 'proudly powered by', 'published with', 'sitemap', 'site map',
-                            'contact us', 'about us', 'help center', 'documentation', 'editorial guidelines', 'ad choices',
-                            'system status', 'footer navigation', 'trust center', 'compliance', 'interest-based ads'
+                            'content policy', 'user agreement', 'manage cookies', 'cookie preferences', 'cookie choices', 'cookie settings',
+                            'privacy notice', 'refund policy', 'shipping policy', 'return policy', 'cancellation policy', 'delivery information',
+                            'acceptable use policy', 'community guidelines', 'whistleblower policy', 'modern slavery statement',
+                            
+                            // Regulatory, Compliance & Consumer Privacy
+                            'do not share my personal', 'do not sell', 'do not sell or share', 'do not sell my personal', 'your privacy choices',
+                            'california consumer privacy', 'california privacy notice', 'ccpa', 'gdpr', 'uk gdpr', 'lgpd', 'privacy shield',
+                            'regulatory disclosures', 'regulatory info', 'accessibility statement', 'accessibility policy', 'accessibility notice',
+                            'terms of sale', 'commercial terms', 'merchant agreement', 'dispute resolution', 'consumer rights',
+                            
+                            // Disclaimers, Ads & Trust Disclosures
+                            'earnings disclaimer', 'medical disclaimer', 'financial disclaimer', 'risk warning', 'general advice warning',
+                            'affiliate disclosure', 'affiliate program', 'sponsored content', 'advertising disclosures', 'ad choices', 'interest-based ads',
+                            'responsible disclosure', 'vulnerability reporting', 'trust center', 'compliance', 'security policy',
+                            
+                            // CMS & Framework Credits
+                            'powered by', 'built with', 'proudly powered by', 'published with', 'hosted by', 'created with', 'designed by',
+                            'powered by wordpress', 'powered by shopify', 'powered by ghost', 'powered by webflow', 'powered by squarespace', 'built with framer',
+                            'powered by wix', 'running on', 'powered by discourse', 'powered by vbulletin',
+                            
+                            // Corporate, Press & Site Info
+                            'sitemap', 'site map', 'contact us', 'about us', 'help center', 'documentation', 'editorial guidelines',
+                            'system status', 'footer navigation', 'investor relations', 'press releases', 'press center', 'media kit', 'newsroom',
+                            'careers', 'work with us', 'job openings', 'hiring', 'corporate information', 'company details',
+
+                            // Newsletter / Subscription Footers
+                            'subscribe to our newsletter', 'stay connected', 'get our latest updates', 'newsletter signup', 'sign up for newsletter',
+                            
+                            // Multilingual Legal Notices
+                            // German
+                            'haftungsausschluss', 'datenschutz', 'datenschutzerklärung', 'allgemeine geschäftsbedingungen', 'agb', 'alle rechte vorbehalten',
+                            // French
+                            'mentions légales', 'politique de confidentialité', 'conditions générales', 'tous droits réservés', 'gestion des cookies',
+                            // Spanish
+                            'términos y condiciones', 'política de privacidad', 'aviso legal', 'política de cookies', 'todos los derechos reservados',
+                            // Italian
+                            'termini e condizioni', 'informativa sulla privacy', 'tutti i diritti riservati', 'note legali',
+                            // Portuguese
+                            'termos de uso', 'todos os direitos reservados', 'preferências de cookies', 'política de privacidade',
+                            // Dutch
+                            'algemene voorwaarden', 'privacybeleid', 'alle rechten voorbehouden',
+                            // Swedish
+                            'användarvillkor', 'integritetspolicy', 'alla rättigheter förbehållna',
+                            // Polish
+                            'regulamin', 'polityka prywatności', 'wszystkie prawa zastrzeżone',
+                            // Russian
+                            'все права защищены', 'политика конфиденциальности', 'пользовательское соглашение',
+                            // Chinese
+                            '版权所有', '保留所有权利', '隐私政策', '服务条款', '使用条款',
+                            // Japanese
+                            '無断転載を禁じます', 'プライバシーポリシー', '利用規約', '特定商取引法に基づく表記',
+                            // Korean
+                            '모든 권리 보유', '개인정보처리방침', '이용약관',
+                            // Hindi
+                            'सर्वाधिकार सुरक्षित', 'गोपनीयता नीति', 'नियम और शर्तें'
                         ];
                         
-                        var footerCandidates = document.querySelectorAll(selectors.join(', '));
+                        var footerCandidates = queryAll(selectors.join(', '));
                         footerCandidates.forEach(function(el) {
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
+                            var bottomDocked = isBottomDocked(el);
                             
                             // Protection safeguard: Do NOT hide if element contains tab bars, chat inputs, or app controls
-                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i]');
+                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i], [class*="bottom-nav" i]');
                             
-                            if (hasInfoKeyword && !isAppNav) {
+                            if ((hasInfoKeyword || (bottomDocked && keywords.slice(0, 10).some(function(kw) { return text.includes(kw); }))) && !isAppNav) {
                                 el.style.setProperty('display', 'none', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');
@@ -1706,15 +2237,265 @@ class MainActivity : ComponentActivity() {
     private fun isAdOrGamblingUrl(urlString: String?): Boolean {
         if (urlString.isNullOrBlank()) return false
         val lower = urlString.lowercase()
-        val blacklistedKeywords = listOf(
-            "parimatch", "1xbet", "bet365", "popads", "popcash", "adsterra", "propellerads",
-            "exoclick", "betway", "stake.com", "dafabet", "mostbet", "adroll", "doubleclick",
-            "googlesyndication", "onclickads", "bet9ja", "melbet", "win100", "slot", "casino",
-            "gambling", "betting", "affiliate", "redirectad", "ad-delivery", "adserver",
-            "fastclick", "revenuehits", "flyout", "ad-click", "click-redirect", "taboola", "outbrain",
-            "adnxs.com", "criteo.com", "amazon-adsystem.com", "rubiconproject.com"
+        val uri = try { Uri.parse(urlString) } catch (e: Exception) { null }
+        val host = uri?.host?.lowercase() ?: ""
+        val path = uri?.path?.lowercase() ?: ""
+
+        // Never block streaming media or data blobs
+        if (lower.endsWith(".m3u8") || lower.endsWith(".mp4") || lower.endsWith(".webm") ||
+            lower.endsWith(".ts") || lower.endsWith(".mp3") || lower.endsWith(".m4s") ||
+            lower.endsWith(".mpd") || lower.startsWith("blob:") || lower.startsWith("data:")
+        ) {
+            return false
+        }
+
+        // Verified ad network and tracking domains
+        val adDomains = listOf(
+            "googlesyndication.com", "doubleclick.net", "adservice.google.",
+            "adsterra.com", "propellerads.com", "popcash.net", "popads.net",
+            "exoclick.com", "trafficjunky.com", "mgid.com", "revcontent.com",
+            "taboola.com", "outbrain.com", "adnxs.com", "criteo.com",
+            "rubiconproject.com", "pubmatic.com", "openx.net", "bidswitch.net",
+            "smartadserver.com", "adroll.com", "applovin.com", "unityads.unity3d.com",
+            "ironsrc.com", "vungle.com", "inmobi.com", "amazon-adsystem.com",
+            "zedo.com", "media.net", "scorecardresearch.com", "quantserve.com",
+            "advertising.com", "fastclick.net", "revenuehits.com", "onclickads.net",
+            "adcolony.com", "chartboost.com", "yieldmo.com", "exponential.com"
         )
-        return blacklistedKeywords.any { lower.contains(it) }
+        if (adDomains.any { host.endsWith(it) || host.contains(".$it") || host == it }) {
+            return true
+        }
+
+        // Verified gambling & betting domains
+        val gamblingDomains = listOf(
+            "bet365.", "1xbet.", "parimatch.", "betway.", "stake.com",
+            "dafabet.", "mostbet.", "bet9ja.", "melbet.", "888casino.",
+            "betfair.", "bwin.", "williamhill.", "pokerstars.", "draftkings.",
+            "fanduel.", "betonline.", "bovada."
+        )
+        if (gamblingDomains.any { host.contains(it) }) {
+            return true
+        }
+
+        // Specific ad-delivery paths
+        val adPathKeywords = listOf(
+            "/adserver/", "/ad-delivery/", "/ad_delivery/", "/popunder",
+            "/direct-ad/", "/adclick", "/ad-click", "/click-redirect"
+        )
+        if (adPathKeywords.any { path.contains(it) }) {
+            return true
+        }
+
+        return false
+    }
+
+    private fun isAuthOrLoginUrl(urlString: String?, hostString: String? = null): Boolean {
+        if (urlString.isNullOrBlank()) return false
+        val lowerUrl = urlString.lowercase()
+        val host = (hostString ?: try { Uri.parse(urlString).host } catch (e: Exception) { null })?.lowercase() ?: ""
+
+        // 1. Identity Providers & Auth Platforms Domains
+        val isAuthHost = host.contains("accounts.google") ||
+            host.contains("myaccount.google") ||
+            host.contains("googleid.google") ||
+            host.contains("oauth2.googleapis") ||
+            host.contains("login.microsoftonline") ||
+            host.contains("login.live.com") ||
+            host.contains("account.microsoft") ||
+            host.contains("login.windows.net") ||
+            host.contains("b2clogin.com") ||
+            host.contains("appleid.apple") ||
+            host.contains("idmsa.apple") ||
+            host.contains("auth.apple") ||
+            host.contains("signin.aws") ||
+            host.contains("cognito") ||
+            host.contains("auth0") ||
+            host.contains("okta") ||
+            host.contains("onelogin") ||
+            host.contains("pingidentity") ||
+            host.contains("ping.identity") ||
+            host.contains("pingone") ||
+            host.contains("sailpoint") ||
+            host.contains("forgerock") ||
+            host.contains("keycloak") ||
+            host.contains("identityserver") ||
+            host.contains("shibboleth") ||
+            host.contains("clerk.") ||
+            host.contains("clerkstage") ||
+            host.contains("clerkdev") ||
+            host.contains("clerk.com") ||
+            host.contains("firebaseapp") ||
+            host.contains("supabase.co") ||
+            host.contains("workos") ||
+            host.contains("stytch") ||
+            host.contains("descope") ||
+            host.contains("magic.link") ||
+            host.contains("kinde.com") ||
+            host.contains("passage.id") ||
+            host.contains("logto.io") ||
+            host.contains("zitadel") ||
+            host.contains("oryapis") ||
+            host.contains("ory.sh") ||
+            host.contains("fusionauth") ||
+            host.contains("cotter.app") ||
+            host.contains("appwrite.io") ||
+            host.contains("nhost.io") ||
+            host.contains("duo.com") ||
+            host.contains("recaptcha") ||
+            host.contains("hcaptcha") ||
+            host.contains("turnstile") ||
+            host.contains("challenges.cloudflare") ||
+            // Subdomain prefixes for auth / identity
+            host.startsWith("auth.") ||
+            host.startsWith("auth-") ||
+            host.startsWith("authentication.") ||
+            host.startsWith("login.") ||
+            host.startsWith("signin.") ||
+            host.startsWith("sign-in.") ||
+            host.startsWith("signup.") ||
+            host.startsWith("sign-up.") ||
+            host.startsWith("register.") ||
+            host.startsWith("registration.") ||
+            host.startsWith("sso.") ||
+            host.startsWith("id.") ||
+            host.startsWith("idp.") ||
+            host.startsWith("identity.") ||
+            host.startsWith("iam.") ||
+            host.startsWith("accounts.") ||
+            host.startsWith("account.") ||
+            host.startsWith("user.") ||
+            host.startsWith("users.") ||
+            host.startsWith("profile.") ||
+            host.startsWith("portal.") ||
+            host.startsWith("member.") ||
+            host.startsWith("members.") ||
+            host.startsWith("client.") ||
+            host.startsWith("clients.") ||
+            host.startsWith("customer.") ||
+            host.startsWith("customers.") ||
+            host.startsWith("secure.") ||
+            host.startsWith("session.") ||
+            host.startsWith("sessions.") ||
+            host.startsWith("oauth.") ||
+            host.startsWith("openid.") ||
+            host.startsWith("oidc.") ||
+            host.startsWith("saml.") ||
+            host.startsWith("ldap.") ||
+            host.startsWith("token.") ||
+            host.startsWith("tokens.") ||
+            host.startsWith("authorize.") ||
+            host.startsWith("connect.") ||
+            host.startsWith("verify.") ||
+            host.startsWith("2fa.") ||
+            host.startsWith("mfa.") ||
+            host.startsWith("otp.") ||
+            host.startsWith("passkey.") ||
+            host.startsWith("passkeys.") ||
+            host.startsWith("webauthn.") ||
+            // Substring auth indicators in domain
+            host.contains(".auth.") ||
+            host.contains(".identity.") ||
+            host.contains(".iam.") ||
+            host.contains(".sso.") ||
+            host.contains(".oauth.") ||
+            host.contains("federat")
+
+        if (isAuthHost) return true
+
+        // 2. OAuth provider domains with login / oauth subpaths
+        if ((host.contains("github.com") && (lowerUrl.contains("/login") || lowerUrl.contains("/session") || lowerUrl.contains("/oauth"))) ||
+            (host.contains("gitlab.com") && (lowerUrl.contains("/sign_in") || lowerUrl.contains("/oauth"))) ||
+            (host.contains("linkedin.com") && (lowerUrl.contains("/uas/login") || lowerUrl.contains("/oauth") || lowerUrl.contains("/checkpoint"))) ||
+            (host.contains("facebook.com") && (lowerUrl.contains("/dialog/oauth") || lowerUrl.contains("/login"))) ||
+            ((host.contains("twitter.com") || host.contains("x.com")) && (lowerUrl.contains("/i/flow/login") || lowerUrl.contains("/oauth") || lowerUrl.contains("/login"))) ||
+            (host.contains("discord.com") && (lowerUrl.contains("/login") || lowerUrl.contains("/oauth2"))) ||
+            (host.contains("slack.com") && (lowerUrl.contains("/oauth") || lowerUrl.contains("/signin") || lowerUrl.contains("/login"))) ||
+            (host.contains("amazon.com") && (lowerUrl.contains("/ap/signin") || lowerUrl.contains("/oauth"))) ||
+            (host.contains("atlassian.com") && lowerUrl.contains("/login")) ||
+            (host.contains("spotify.com") && (lowerUrl.contains("/login") || lowerUrl.contains("/authorize"))) ||
+            (host.contains("uber.com") && lowerUrl.contains("/login")) ||
+            (host.contains("yahoo.com") && lowerUrl.contains("/login")) ||
+            (host.contains("steamcommunity.com") && lowerUrl.contains("/openid")) ||
+            (host.contains("twitch.tv") && lowerUrl.contains("/login")) ||
+            (host.contains("reddit.com") && lowerUrl.contains("/login")) ||
+            (host.contains("paypal.com") && lowerUrl.contains("/signin")) ||
+            (host.contains("dropbox.com") && lowerUrl.contains("/login")) ||
+            (host.contains("zoom.us") && (lowerUrl.contains("/oauth") || lowerUrl.contains("/signin")))
+        ) {
+            return true
+        }
+
+        // 3. Path and Full URL Keywords (Catching SPAs, query parameters, hash fragments, and multi-lingual routes)
+        val uri = try { Uri.parse(urlString) } catch (e: Exception) { null }
+        val path = uri?.path?.lowercase() ?: ""
+
+        val authKeywords = listOf(
+            // English standard routes
+            "login", "log-in", "log_in", "signin", "sign-in", "sign_in",
+            "signup", "sign-up", "sign_up", "register", "registration",
+            "join", "join-now", "joinus", "enroll", "enrollment",
+            "create-account", "create_account", "createaccount",
+            "new-account", "new_account", "new-user", "new_user", "newuser",
+            "onboarding", "authenticate", "authentication",
+            "user-login", "user_login", "member-login", "member_login",
+            "client-login", "client_login", "customer-login", "customer_login",
+            "account-login", "portal-login", "admin-login", "wp-login",
+            // OAuth, SSO & Identity protocols
+            "oauth", "oauth2", "openid", "oidc", "authorize", "authorization",
+            "sso", "saml", "saml2", "idp", "session", "sessions",
+            "token", "access_token", "id_token", "refresh_token",
+            "grant_type", "client_id", "response_type", "redirect_uri",
+            "code_challenge", "code_verifier", "nonce", "state",
+            "continue_with_google", "continue-with", "signin/oauth",
+            "oauth/authorize", "select_account", "login_hint",
+            "oauth-callback", "auth-callback", "api/auth",
+            // Password & Account Recovery
+            "password", "forgot-password", "forgot_password", "forgotpassword",
+            "reset-password", "reset_password", "resetpassword",
+            "change-password", "change_password", "recover", "recovery",
+            "magic-link", "magiclink", "magic_link",
+            // 2FA, OTP & Passkeys
+            "verify", "verification", "verify-email", "confirm-email", "check-email",
+            "two-factor", "twofactor", "2fa", "mfa", "totp", "otp",
+            "passcode", "passkey", "passkeys", "webauthn", "fido", "fido2",
+            "checkpoint", "challenge", "security-check", "captcha",
+            // Spanish
+            "iniciar-sesion", "iniciar_sesion", "iniciarsesion", "ingresar", "ingreso", "registrarse", "registro", "crear-cuenta",
+            // French
+            "connexion", "se-connecter", "identification", "inscription", "creer-un-compte",
+            // German
+            "anmelden", "anmeldung", "einloggen", "registrieren", "registrierung", "konto-erstellen",
+            // Portuguese
+            "entrar", "acesso", "cadastrar", "cadastro", "criar-conta",
+            // Italian
+            "accedi", "accesso", "registrati", "registrazione"
+        )
+
+        // Match against path segments
+        if (authKeywords.any { kw -> path.contains(kw) }) return true
+
+        // Match against entire URL (for SPAs, hash routing e.g. #/login, and query params e.g. ?action=login)
+        val spaAndQueryPatterns = listOf(
+            "#/login", "#/signin", "#/signup", "#/register", "#/auth", "#!/login", "#login", "#signin", "#signup",
+            "action=login", "action=signin", "action=signup", "action=register",
+            "mode=login", "mode=signin", "mode=signup",
+            "view=login", "view=signin", "view=signup",
+            "prompt=login", "prompt=consent", "prompt=select_account", "prompt=none",
+            "screen=login", "screen=signup", "type=login", "type=signup",
+            "flow=login", "flow=signup", "auth=true",
+            "code_challenge=", "state=", "nonce=", "discovery",
+            ".well-known/openid-configuration", "oauth_verifier=", "oauth_token="
+        )
+        if (spaAndQueryPatterns.any { pattern -> lowerUrl.contains(pattern) }) return true
+
+        // Check if any keyword appears after / or ? or & or = in lowerUrl
+        if (authKeywords.any { kw ->
+            lowerUrl.contains("/$kw") || lowerUrl.contains("?$kw") || lowerUrl.contains("&$kw") || lowerUrl.contains("=$kw")
+        }) {
+            return true
+        }
+
+        return false
     }
 
     private fun loadConfig(): JSONObject? {

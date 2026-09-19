@@ -186,9 +186,9 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "3.0.0"
+            pInfo.versionName ?: "3.1.0"
         } catch (e: Exception) {
-            "3.0.0"
+            "3.1.0"
         }
     }
 

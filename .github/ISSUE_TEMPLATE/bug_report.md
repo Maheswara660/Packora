@@ -24,7 +24,7 @@ Steps to reproduce the behavior:
 ## 📱 Device Information
 - **Device**: [e.g. Pixel 8 Pro]
 - **OS Version**: [e.g. Android 14]
-- **Packora Version**: [e.g. v3.0.0]
+- **Packora Version**: [e.g. v3.1.0]
 
 ## 🛠️ Technical Context
 If possible, describe the APK configuration active when this bug occurred:

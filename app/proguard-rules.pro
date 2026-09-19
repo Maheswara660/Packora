@@ -6,6 +6,7 @@
 -keep class com.maheswara660.packora.manager.** { *; }
 -keep class com.maheswara660.packora.ui.InstalledPackoraApp { *; }
 -keep class com.maheswara660.packora.ui.AppSortMode { *; }
+-keep class com.maheswara660.packora.ui.ReleaseItem { *; }
 
 # Standard Gson rules
 -keep class sun.misc.Unsafe { *; }

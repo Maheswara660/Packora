@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.0.0</h1>
+<h1 align="center">Packora v3.1.0</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.0.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.0.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.1.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.1.0"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -29,7 +29,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.0.0](#-whats-new-in-v300)
+- [What's New in v3.1.0](#-whats-new-in-v310)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -81,21 +81,23 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.0.0
+## 🚀 What's New in v3.1.0
 
-- **Material 3 Delete BottomSheet Menu**: Replaced the system `AlertDialog` with a height-fitting bottom sheet featuring real app icons, package identifier, version badge (`v<versionName> (<versionCode>)`), data deletion warnings, and styled actions.
-- **My Apps Hub with History Feature Parity**:
-  - **Live Search**: Animated top-bar search field filtering installed WebAPKs in real time.
-  - **Sort BottomSheet**: 3-mode sort dialog (*Recently Installed*, *App Name A–Z*, *Updates Available First*).
-  - **Manual Refresh Scanner**: Instant re-scan of installed packages with live update notifications.
-  - **Direct Card Actions**: Added **Reuse Config** (`AutoMode`) and **Install APK** (`InstallMobile`) directly to installed app cards.
-- **Icon Zoomer Stepper Controls & Discrete Track Points**:
-  - Minus (`-`) and Plus (`+`) circular steppers for precise 1% (1 point) fine-tuning, clamped between 40% and 200%.
-  - Added `steps = 15` to the `Slider`, dividing the track into 16 intervals and rendering tactile stop indicator dots at every 10 points (50%, 60%, 70% ... 190%).
-  - Real-time percentage badge with primary tint.
-- **Ergonomic Bottom Navbar with Text Labels**: Restored text titles beneath icons with an optimized 66.dp height for touch ergonomics.
-- **Harmonized Circular Icon Badges**: Standardized 40.dp circular icon container badges (`CircleShape`, `primary.copy(0.12f)`) across Dashboard, Settings preference tiles, and About cards.
-- **Permissions Audit**: Added native declarations for `REQUEST_DELETE_PACKAGES`, `QUERY_ALL_PACKAGES`, `READ_MEDIA_IMAGES`, and `POST_NOTIFICATIONS`.
+- **Floating Window & Freeform Windowing Engine**:
+  - Native `WINDOWING_MODE_FREEFORM` (`ActivityOptions.setWindowingMode(5)`) and Picture-in-Picture fallback allowing compiled WebAPKs to run as movable, resizable floating windows directly over other apps and games.
+  - Declared `MULTIWINDOW_LAUNCHER` category, Samsung Multi-Window metadata (`com.samsung.android.sdk.multiwindow.penwindow.enable`, `enableInstanceForAll`), and default window layout dimensions (`600dp x 800dp`), appearing in system "Open in pop-up view" launchers across Samsung One UI, Xiaomi HyperOS, ColorOS/OxygenOS, and stock Android.
+- **Google Sign-In & Native Account Chooser Integration**:
+  - Suppressed the `X-Requested-With` header on authentication endpoints via `WebSettingsCompat`, preventing Google OAuth from blocking in-app logins with error 403 `disallowed_useragent`.
+  - Configured authentic modern Chrome User-Agent adhering to Google Identity Platform security policies.
+  - Implemented custom popup dialog windowing for multi-window OAuth redirects with a 170-alpha darkened scrim backdrop, rendering Google's account picker as an authentic centered modal.
+- **Passwordless Email Magic Link Clipboard Sync & Manual Input**:
+  - Automatic clipboard scanner on app resume detecting copied magic auth links (Notion, Slack, Substack, Medium, etc.) with instant deep navigation.
+  - Dedicated manual paste dialog with real-time URL validation to instantly route magic links directly into the active session.
+- **Dedicated In-App Update Bottom Sheet**:
+  - Converted the updates dialog into an `App Update Ready!` installation bottom sheet with version progression (`v<oldVersion> ➔ v<newVersion>`), build details, and primary `INSTALL UPDATE` action.
+- **Updates Screen Card Parity & Settings Update Spinner**:
+  - Standardized `UpdateAppCard` to match `MyAppsScreen` and `HistoryScreen` 1:1 with elevated rounded surfaces, launcher icon boxes, and compilation chips.
+  - Replaced static "Checking" text on the Settings update tile with a Material 3 circular progress indicator.
 
 ---
 
@@ -173,9 +175,9 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
 | **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
-| **Page Alignment** | In-House `ElfAligner16k` | `v3.0.0` | 16KB ELF boundary alignment |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.0.0` | Low-level byte-level binary manifest rewriter |
-| **Template Engine** | In-House `:template` Shell | `v3.0.0` | High-performance standalone WebAPK wrapper |
+| **Page Alignment** | In-House `ElfAligner16k` | `v3.1.0` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.1.0` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v3.1.0` | High-performance standalone WebAPK wrapper |
 
 ---
 
@@ -278,6 +280,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.0.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.1.0 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

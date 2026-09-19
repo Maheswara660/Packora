@@ -2,6 +2,27 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.1.0] - 2026-09-19
+### Added & Enhanced
+- **Floating Window & Freeform Windowing Engine for Generated WebAPKs**:
+  - **Freeform Multi-Window Support**: Added `enterFloatingWindowMode()` utilizing Android's native `WINDOWING_MODE_FREEFORM` (`ActivityOptions.setWindowingMode(5)`) with Picture-in-Picture fallback, allowing compiled WebAPKs to run as movable, resizable floating pop-up windows directly over games and other apps.
+  - **OEM Pop-Up View & Pen Window Parity**: Configured `MULTIWINDOW_LAUNCHER` category, Samsung Multi-Window metadata (`com.samsung.android.sdk.multiwindow.penwindow.enable`, `enableInstanceForAll`), and default window dimensions (`600dp x 800dp`, `gravity="top|end"`). WebAPKs now appear in Samsung One UI "Open in pop-up view", Xiaomi HyperOS floating windows, ColorOS/OxygenOS mini windows, and stock Android freeform task launchers.
+- **Seamless Google Sign-In & Native Account Chooser Integration**:
+  - **403 Disallowed Useragent Fix**: Suppressed the `X-Requested-With` header on authentication endpoints using `WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())`, preventing Google OAuth from blocking in-app WebAPK logins.
+  - **Clean Desktop/Mobile Chrome User-Agent**: Configured an authentic, un-hijacked modern Chrome User-Agent string adhering to Google identity platform security criteria.
+  - **Non-Blocking Button Interception**: Removed event cancellations (`preventDefault` / `stopPropagation`) on Google SSO buttons in injected script handlers.
+  - **Native Modal Account Chooser Dialog**: Implemented custom popup `Dialog` windowing for multi-window OAuth redirects (`onCreateWindow`) styled with a 170-alpha darkened scrim backdrop, rendering Google's "Choose an account to continue to..." dialog as an authentic centered modal over the WebAPK.
+- **Passwordless Email Magic Link Clipboard Sync & Manual Input**:
+  - **Automatic Clipboard Detection**: Built an automatic clipboard token scanner on app resume (`onResume`) that detects magic login URLs (from services like Notion, Slack, Substack, Medium, etc.) copied from external email clients and navigates directly without manual re-typing.
+  - **Direct Magic Link Paste Dialog**: Added a dedicated manual paste dialog with real-time URL validation to instantly route magic links directly into the active session.
+- **Dedicated In-App Update Bottom Sheet**:
+  - **Converted Update Dialog**: Transformed the generic app generation dialog into a dedicated `App Update Ready!` installation bottom sheet on the Updates screen.
+  - **Update Version Highlighting**: Displays previous vs. target version progression (`v<oldVersion> ➔ v<newVersion>`), build details, and a prominent green `INSTALL UPDATE` primary action button.
+- **Updates Screen Card Design Parity**:
+  - Standardized `UpdateAppCard` to match `MyAppsScreen` and `HistoryScreen` cards 1:1, featuring elevated `20.dp` rounded surfaces, tonal borders, `54.dp` launcher icon container with primary container tinting, version chips, and compilation badges.
+- **Settings Screen Real-Time Update Checker Spinner**:
+  - Replaced static "Checking" text on the update preference tile with a sleek Material 3 `CircularProgressIndicator` (20.dp) for smooth visual feedback while polling remote GitHub releases.
+
 ## [3.0.0] - 2026-09-19
 ### Added & Enhanced
 - **My Apps Management Hub with Build History Parity**:

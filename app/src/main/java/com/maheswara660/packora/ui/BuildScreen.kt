@@ -233,15 +233,19 @@ fun BuildScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Website Target URL Card
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 86.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // 1. Website Target URL Card
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -899,144 +903,179 @@ fun BuildScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+        }
 
-            // 5. Play Store Pinned Compile Button
-            Button(
-                onClick = {
-                    isBuilding = true
-                    targetProgressPercent = 0
-                    animatedProgressPercent = 0
-                    coroutineScope.launch(Dispatchers.IO) {
-                        try {
-                            val builder = ApkBuilder(context)
-                            val finalPackage = if (packageName.isBlank()) {
-                                "com.maheswara660.packora." + (appName.ifBlank { "app" }).trim().lowercase().replace(Regex("[^a-z0-9]"), "")
-                            } else packageName.trim()
-                            val historyList = historyManager.getHistoryItems()
-                            val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
-                            val normTarget = fetchUrl.lowercase().trimEnd('/')
-                            val matching = historyList.filter { it.targetUrl.lowercase().trimEnd('/') == normTarget }
+        // Anchored Compile Button Dock matching UpdatesScreen
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            shadowElevation = 8.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                    thickness = 0.5.dp
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            isBuilding = true
+                            targetProgressPercent = 0
+                            animatedProgressPercent = 0
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val builder = ApkBuilder(context)
+                                    val finalPackage = if (packageName.isBlank()) {
+                                        "com.maheswara660.packora." + (appName.ifBlank { "app" }).trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+                                    } else packageName.trim()
+                                    val historyList = historyManager.getHistoryItems()
+                                    val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                                    val normTarget = fetchUrl.lowercase().trimEnd('/')
+                                    val matching = historyList.filter { it.targetUrl.lowercase().trimEnd('/') == normTarget }
 
-                            val finalCode = versionCode.toIntOrNull() ?: if (matching.isNotEmpty()) (matching.maxOf { it.versionCode } + 1) else 1
-                            val finalName = versionName.ifBlank { if (matching.isNotEmpty()) incrementVersionString(matching.first().versionName) else "1.0.0" }
+                                    val finalCode = versionCode.toIntOrNull() ?: if (matching.isNotEmpty()) (matching.maxOf { it.versionCode } + 1) else 1
+                                    val finalName = versionName.ifBlank { if (matching.isNotEmpty()) incrementVersionString(matching.first().versionName) else "1.0.0" }
 
-                            val inputBitmap: Bitmap? = if (iconUri != null) {
-                                context.contentResolver.openInputStream(iconUri!!).use {
-                                    android.graphics.BitmapFactory.decodeStream(it)
-                                }
-                            } else autoFetchedIconBitmap
-
-                            val prefsManager = PackoraPreferencesManager(context)
-                            val effectiveFolder = if (prefsManager.useCustomStorageFolder && !prefsManager.customStorageFolder.isNullOrBlank()) {
-                                prefsManager.customStorageFolder
-                            } else if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) {
-                                customDownloadFolder
-                            } else null
-
-                            val resultPath = builder.buildApk(
-                                appName = appName.ifBlank { "My App" },
-                                packageName = finalPackage,
-                                targetUrl = url,
-                                versionCode = finalCode,
-                                versionName = finalName,
-                                iconBitmap = inputBitmap,
-                                disableHeader = true,
-                                outputPath = "${appName.replace(" ", "_")}.apk",
-                                customDownloadFolder = effectiveFolder,
-                                isDesktopMode = isDesktopMode,
-                                browserEngine = selectedBrowserEngine,
-                                allowCopying = allowCopying,
-                                isForceDarkMode = isForceDarkMode,
-                                enableZoom = enableZoom,
-                                enableWebFooter = isEnableWebFooter,
-                                hideWebFooter = !isEnableWebFooter,
-                                keystorePassword = if (useCustomKeystore && keystorePassword.isNotBlank()) keystorePassword else null,
-                                keyAlias = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else null,
-                                commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,
-                                organization = if (useCustomKeystore && organization.isNotBlank()) organization else null,
-                                organizationalUnit = if (useCustomKeystore && organizationalUnit.isNotBlank()) organizationalUnit else null,
-                                validityYears = validityYears.toIntOrNull() ?: 25,
-                                keyPassword = if (useCustomKeystore && keyPassword.isNotBlank()) keyPassword else null,
-                                onProgress = { p, _ ->
-                                    Handler(Looper.getMainLooper()).post {
-                                        targetProgressPercent = maxOf(targetProgressPercent, p)
-                                    }
-                                }
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                targetProgressPercent = 100
-                                coroutineScope.launch {
-                                    while (animatedProgressPercent < 100) {
-                                        delay(12)
-                                    }
-                                    isBuilding = false
-                                    if (resultPath != null) {
-                                        lastBuiltApkPath = resultPath
-                                        lastBuiltPackageName = finalPackage
-                                        lastBuiltAppName = appName.ifBlank { "My App" }
-                                        lastBuiltVersionName = finalName
-                                        lastBuiltVersionCode = finalCode
-                                        showSuccessDialog = true
-
-                                        val itemId = UUID.randomUUID().toString()
-                                        var savedIconPath: String? = null
-                                        if (inputBitmap != null) {
-                                            try {
-                                                val iconsDir = File(context.filesDir, "history_icons").apply { mkdirs() }
-                                                val iconFile = File(iconsDir, "$itemId.png")
-                                                FileOutputStream(iconFile).use { out ->
-                                                    inputBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                                                }
-                                                savedIconPath = iconFile.absolutePath
-                                            } catch (e: Exception) {}
+                                    val inputBitmap: Bitmap? = if (iconUri != null) {
+                                        context.contentResolver.openInputStream(iconUri!!).use {
+                                            android.graphics.BitmapFactory.decodeStream(it)
                                         }
+                                    } else autoFetchedIconBitmap
 
-                                        historyManager.addHistoryItem(
-                                            HistoryItem(
-                                                id = itemId,
-                                                appName = appName.ifBlank { "My App" },
-                                                packageName = finalPackage,
-                                                targetUrl = url,
-                                                versionCode = finalCode,
-                                                versionName = finalName,
-                                                isDesktopMode = isDesktopMode,
-                                                browserEngine = selectedBrowserEngine,
-                                                allowCopying = allowCopying,
-                                                isForceDarkMode = isForceDarkMode,
-                                                enableZoom = enableZoom,
-                                                enableWebFooter = isEnableWebFooter,
-                                                apkPath = resultPath,
-                                                iconPath = savedIconPath
-                                            )
-                                        )
+                                    val prefsManager = PackoraPreferencesManager(context)
+                                    val effectiveFolder = if (prefsManager.useCustomStorageFolder && !prefsManager.customStorageFolder.isNullOrBlank()) {
+                                        prefsManager.customStorageFolder
+                                    } else if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) {
+                                        customDownloadFolder
+                                    } else null
+
+                                    val resultPath = builder.buildApk(
+                                        appName = appName.ifBlank { "My App" },
+                                        packageName = finalPackage,
+                                        targetUrl = url,
+                                        versionCode = finalCode,
+                                        versionName = finalName,
+                                        iconBitmap = inputBitmap,
+                                        disableHeader = true,
+                                        outputPath = "${appName.replace(" ", "_")}.apk",
+                                        customDownloadFolder = effectiveFolder,
+                                        isDesktopMode = isDesktopMode,
+                                        browserEngine = selectedBrowserEngine,
+                                        allowCopying = allowCopying,
+                                        isForceDarkMode = isForceDarkMode,
+                                        enableZoom = enableZoom,
+                                        enableWebFooter = isEnableWebFooter,
+                                        hideWebFooter = !isEnableWebFooter,
+                                        keystorePassword = if (useCustomKeystore && keystorePassword.isNotBlank()) keystorePassword else null,
+                                        keyAlias = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else null,
+                                        commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,
+                                        organization = if (useCustomKeystore && organization.isNotBlank()) organization else null,
+                                        organizationalUnit = if (useCustomKeystore && organizationalUnit.isNotBlank()) organizationalUnit else null,
+                                        validityYears = validityYears.toIntOrNull() ?: 25,
+                                        keyPassword = if (useCustomKeystore && keyPassword.isNotBlank()) keyPassword else null,
+                                        onProgress = { p, _ ->
+                                            Handler(Looper.getMainLooper()).post {
+                                                targetProgressPercent = maxOf(targetProgressPercent, p)
+                                            }
+                                        }
+                                    )
+                                    Handler(Looper.getMainLooper()).post {
+                                        targetProgressPercent = 100
+                                        coroutineScope.launch {
+                                            while (animatedProgressPercent < 100) {
+                                                delay(12)
+                                            }
+                                            isBuilding = false
+                                            if (resultPath != null) {
+                                                lastBuiltApkPath = resultPath
+                                                lastBuiltPackageName = finalPackage
+                                                lastBuiltAppName = appName.ifBlank { "My App" }
+                                                lastBuiltVersionName = finalName
+                                                lastBuiltVersionCode = finalCode
+                                                showSuccessDialog = true
+
+                                                val itemId = UUID.randomUUID().toString()
+                                                var savedIconPath: String? = null
+                                                if (inputBitmap != null) {
+                                                    try {
+                                                        val iconsDir = File(context.filesDir, "history_icons").apply { mkdirs() }
+                                                        val iconFile = File(iconsDir, "$itemId.png")
+                                                        FileOutputStream(iconFile).use { out ->
+                                                            inputBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                                        }
+                                                        savedIconPath = iconFile.absolutePath
+                                                    } catch (e: Exception) {}
+                                                }
+
+                                                historyManager.addHistoryItem(
+                                                    HistoryItem(
+                                                        id = itemId,
+                                                        appName = appName.ifBlank { "My App" },
+                                                        packageName = finalPackage,
+                                                        targetUrl = url,
+                                                        versionCode = finalCode,
+                                                        versionName = finalName,
+                                                        isDesktopMode = isDesktopMode,
+                                                        browserEngine = selectedBrowserEngine,
+                                                        allowCopying = allowCopying,
+                                                        isForceDarkMode = isForceDarkMode,
+                                                        enableZoom = enableZoom,
+                                                        enableWebFooter = isEnableWebFooter,
+                                                        apkPath = resultPath,
+                                                        iconPath = savedIconPath
+                                                    )
+                                                )
+                                            }
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    Handler(Looper.getMainLooper()).post { isBuilding = false }
                                 }
                             }
-                        } catch (e: Exception) {
-                            Handler(Looper.getMainLooper()).post { isBuilding = false }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        enabled = !isBuilding && url.isNotBlank()
+                    ) {
+                        if (isBuilding) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(
+                                "COMPILING ${animatedProgressPercent}%",
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Outlined.RocketLaunch,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                "COMPILE WEBAPK",
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.5.sp,
+                                fontSize = 15.sp
+                            )
                         }
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(20.dp),
-                enabled = !isBuilding && url.isNotBlank()
-            ) {
-                if (isBuilding) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text("COMPILING ${animatedProgressPercent}%", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                } else {
-                    Icon(Icons.Outlined.RocketLaunch, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("COMPILE WEBAPK", fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, fontSize = 15.sp)
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
 
         // Zoom dialog
         if (showZoomDialog) {

@@ -41,6 +41,8 @@ captures/
 *.apks
 *.aab
 *.apxc
+release/
+app/release/
 
 # Packora EXCEPTION: Do NOT ignore the compiled template WebAPK asset!
 !app/src/main/assets/template/webview_shell.apk

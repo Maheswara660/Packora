@@ -21,6 +21,7 @@ data class HistoryItem(
     val isForceDarkMode: Boolean = false,
     val enableZoom: Boolean = false,
     val enableWebFooter: Boolean = false,
+    val disableHeader: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null,
     val iconPath: String? = null
@@ -62,6 +63,7 @@ class BuildHistoryManager(context: Context) {
                         isForceDarkMode = obj.optBoolean("isForceDarkMode", false),
                         enableZoom = obj.optBoolean("enableZoom", false),
                         enableWebFooter = obj.optBoolean("enableWebFooter", false),
+                        disableHeader = obj.optBoolean("disableHeader", true),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
                         iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null
@@ -108,6 +110,7 @@ class BuildHistoryManager(context: Context) {
                 put("isForceDarkMode", item.isForceDarkMode)
                 put("enableZoom", item.enableZoom)
                 put("enableWebFooter", item.enableWebFooter)
+                put("disableHeader", item.disableHeader)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)
                 if (item.iconPath != null) put("iconPath", item.iconPath)

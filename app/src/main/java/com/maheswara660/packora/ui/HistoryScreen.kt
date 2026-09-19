@@ -276,18 +276,6 @@ fun HistoryScreen(
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                shape = RoundedCornerShape(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (item.isDesktopMode) "Desktop" else "Mobile",
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
                                             Text(
                                                 text = item.formattedDate(),
                                                 style = MaterialTheme.typography.labelSmall,
@@ -297,6 +285,8 @@ fun HistoryScreen(
                                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                             )
                                         }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        CompileSettingsBadges(item)
                                     }
 
                                     IconButton(

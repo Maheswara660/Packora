@@ -450,20 +450,12 @@ fun SettingsScreen(
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                if (isCheckingUpdate) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.5.dp,
-                                        modifier = Modifier.size(20.dp),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Outlined.SystemUpdate,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                                Icon(
+                                    Icons.Outlined.SystemUpdate,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))

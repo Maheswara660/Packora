@@ -276,15 +276,11 @@ fun UpdatesScreen() {
 
                 buildingPackages.remove(app.packageName)
                 buildProgress[app.packageName] = 100
-
-                if (resultPath != null) {
-                    // Auto-trigger native package installer so user only clicks "Update"
-                    triggerInstall(context, File(resultPath))
-                    // Delay slightly to let system package installer dialog display
-                    delay(1200)
-                }
             }
             isUpdatingAll = false
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "All updates compiled! You can install them individually.", Toast.LENGTH_LONG).show()
+            }
             refreshApps()
         }
     }
@@ -647,11 +643,16 @@ private fun UpdateAppCard(
     isBuilding: Boolean,
     onUpdate: () -> Unit
 ) {
+    val context = LocalContext.current
     val animatedProgress by animateFloatAsState(
         targetValue = (progress ?: 0) / 100f,
         animationSpec = tween(durationMillis = 200, easing = LinearEasing),
         label = "update_progress_${app.packageName}"
     )
+
+    val hasCompiledUpdate = app.historyItem?.apkPath != null &&
+            File(app.historyItem.apkPath).exists() &&
+            (app.historyItem.versionCode > app.installedVersionCode)
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -663,7 +664,8 @@ private fun UpdateAppCard(
             .fillMaxWidth()
             .border(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                if (hasCompiledUpdate) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 RoundedCornerShape(20.dp)
             )
     ) {
@@ -711,12 +713,17 @@ private fun UpdateAppCard(
                     Spacer(Modifier.height(4.dp))
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        color = if (hasCompiledUpdate) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         Text(
-                            text = "Installed: v${app.installedVersionName} (${app.installedVersionCode})",
+                            text = if (hasCompiledUpdate) {
+                                "Installed: v${app.installedVersionName} ➔ Ready: v${app.historyItem!!.versionName}"
+                            } else {
+                                "Installed: v${app.installedVersionName} (${app.installedVersionCode})"
+                            },
                             fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (hasCompiledUpdate) FontWeight.Bold else FontWeight.Normal,
+                            color = if (hasCompiledUpdate) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -752,27 +759,58 @@ private fun UpdateAppCard(
                 Spacer(Modifier.height(14.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Clean single Update button for this card
-                    Button(
-                        onClick = onUpdate,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp),
-                        enabled = app.historyItem != null
+                if (hasCompiledUpdate) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (app.historyItem != null) "UPDATE APP" else "NO BUILD CONFIG FOUND",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Button(
+                            onClick = { triggerInstall(context, File(app.historyItem!!.apkPath)) },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                        ) {
+                            Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "INSTALL UPDATE",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                        FilledTonalIconButton(
+                            onClick = onUpdate,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Recompile", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = onUpdate,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp),
+                            enabled = app.historyItem != null
+                        ) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (app.historyItem != null) "UPDATE APP" else "NO BUILD CONFIG FOUND",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             }

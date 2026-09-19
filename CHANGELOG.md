@@ -2,6 +2,20 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.1.1] - 2026-09-19
+### Added & Enhanced
+- **Dedicated Compiled Updates Ready Section in My Apps**:
+  - **Instant 1-Tap Installation**: Added a dedicated `Compiled Updates Ready` section pinned at the top of My Apps displaying pre-compiled update WebAPKs with version progression chips (`v<installed> ➔ v<ready>`), compile configuration badges, and direct `INSTALL UPDATE` actions without requiring any recompilation.
+- **Non-Intrusive Silent Batch Compilation in Updates Screen**:
+  - **Uninterrupted Workflow**: Updated "Update All" to compile all eligible apps sequentially in the background without auto-launching repetitive system package installer prompt dialogs after each build.
+  - **Completion Notification**: Displays a batch completion toast when all compiles finish, allowing users to review and install updates on their own schedule.
+- **Smart Pre-Compiled Update Detection**:
+  - Automatically identifies whether an update WebAPK is already compiled and present in local storage, rendering an `Installed ➔ Ready` version chip, a direct green `INSTALL UPDATE` button, and an optional recompile icon button.
+- **Clean Single Update Loader in Settings**:
+  - Removed duplicate `CircularProgressIndicator` from the left icon badge in the "Check for Updates" preference tile, permanently restoring the static system update icon and displaying a single progress spinner on the far right while polling GitHub releases.
+- **Template WebAPK Shell Polish**:
+  - Cleaned up experimental Picture-in-Picture and freeform window handlers from the `:template` module for lighter, more stable standalone WebAPK builds.
+
 ## [3.1.0] - 2026-09-19
 ### Added & Enhanced
 - **Floating Window & Freeform Windowing Engine for Generated WebAPKs**:

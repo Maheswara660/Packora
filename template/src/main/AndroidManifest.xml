@@ -70,36 +70,16 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|uiMode|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustResize"
             android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
-            <layout
-                android:defaultHeight="600dp"
-                android:defaultWidth="420dp"
-                android:minHeight="280dp"
-                android:minWidth="240dp"
-                android:gravity="top|end" />
-            <meta-data
-                android:name="com.samsung.android.sdk.multiwindow.enable"
-                android:value="true" />
-            <meta-data
-                android:name="com.samsung.android.sdk.multiwindow.penwindow.enable"
-                android:value="true" />
-            <meta-data
-                android:name="com.sec.android.multiwindow.style"
-                android:value="default" />
-            <meta-data
-                android:name="com.samsung.android.sdk.multiwindow.multiinstance.enable"
-                android:value="true" />
             <meta-data
                 android:name="android.supports_size_changes"
                 android:value="true" />

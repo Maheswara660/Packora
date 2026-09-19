@@ -198,39 +198,6 @@
                         android:textColor="#94A3B8" />
                 </LinearLayout>
 
-                <!-- Helpful Action: OPEN IN FLOATING WINDOW -->
-                <LinearLayout
-                    android:id="@+id/btnFloatingWindow"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_secondary_button"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="horizontal"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="16dp">
-
-                    <ImageView
-                        android:id="@+id/floatingWindowIcon"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_picture_in_picture"
-                        app:tint="#94A3B8"
-                        android:contentDescription="Floating Window" />
-
-                    <TextView
-                        android:id="@+id/btnFloatingWindowText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Open as Floating Window"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="#94A3B8" />
-                </LinearLayout>
-
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>

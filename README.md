@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.1.0</h1>
+<h1 align="center">Packora v3.1.1</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.1.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.1.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.1.1-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.1.1"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -29,7 +29,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.1.0](#-whats-new-in-v310)
+- [What's New in v3.1.1](#-whats-new-in-v311)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -81,23 +81,27 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.1.0
+## 🚀 What's New in v3.1.1
 
-- **Floating Window & Freeform Windowing Engine**:
-  - Native `WINDOWING_MODE_FREEFORM` (`ActivityOptions.setWindowingMode(5)`) and Picture-in-Picture fallback allowing compiled WebAPKs to run as movable, resizable floating windows directly over other apps and games.
-  - Declared `MULTIWINDOW_LAUNCHER` category, Samsung Multi-Window metadata (`com.samsung.android.sdk.multiwindow.penwindow.enable`, `enableInstanceForAll`), and default window layout dimensions (`600dp x 800dp`), appearing in system "Open in pop-up view" launchers across Samsung One UI, Xiaomi HyperOS, ColorOS/OxygenOS, and stock Android.
+- **Dedicated Compiled Updates Ready Section in My Apps**:
+  - Pinned `Compiled Updates Ready` section displaying pre-compiled update APKs with version progression chips (`v<installed> ➔ v<ready>`), compile settings badges, and direct 1-tap `INSTALL UPDATE` actions without recompilation.
+- **Silent Batch Compilation in Updates Screen**:
+  - Batch "Update All" now compiles all eligible apps sequentially in the background without interrupting users with repetitive system package installer prompt dialogs.
+  - Displays a clean completion Toast directing users to install their updates individually when ready.
+- **Smart Pre-Compiled Update Detection**:
+  - Automatically identifies whether an update WebAPK is already compiled on disk, rendering an `Installed ➔ Ready` version chip and direct green `INSTALL UPDATE` button.
+- **Clean Single Loader in Settings**:
+  - Removed duplicate progress indicator from the left icon badge in "Check for Updates", keeping the static system update icon and rendering a single spinner on the far right.
 - **Google Sign-In & Native Account Chooser Integration**:
   - Suppressed the `X-Requested-With` header on authentication endpoints via `WebSettingsCompat`, preventing Google OAuth from blocking in-app logins with error 403 `disallowed_useragent`.
   - Configured authentic modern Chrome User-Agent adhering to Google Identity Platform security policies.
   - Implemented custom popup dialog windowing for multi-window OAuth redirects with a 170-alpha darkened scrim backdrop, rendering Google's account picker as an authentic centered modal.
 - **Passwordless Email Magic Link Clipboard Sync & Manual Input**:
-  - Automatic clipboard scanner on app resume detecting copied magic auth links (Notion, Slack, Substack, Medium, etc.) with instant deep navigation.
+  - Automatic clipboard scanner on app resume detecting copied magic auth links with instant deep navigation.
   - Dedicated manual paste dialog with real-time URL validation to instantly route magic links directly into the active session.
-- **Dedicated In-App Update Bottom Sheet**:
-  - Converted the updates dialog into an `App Update Ready!` installation bottom sheet with version progression (`v<oldVersion> ➔ v<newVersion>`), build details, and primary `INSTALL UPDATE` action.
-- **Updates Screen Card Parity & Settings Update Spinner**:
+- **Dedicated In-App Update Bottom Sheet & Card Parity**:
+  - Converted update dialog into an `App Update Ready!` installation bottom sheet with version progression (`v<oldVersion> ➔ v<newVersion>`), build details, and primary `INSTALL UPDATE` action.
   - Standardized `UpdateAppCard` to match `MyAppsScreen` and `HistoryScreen` 1:1 with elevated rounded surfaces, launcher icon boxes, and compilation chips.
-  - Replaced static "Checking" text on the Settings update tile with a Material 3 circular progress indicator.
 
 ---
 
@@ -175,9 +179,9 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
 | **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
-| **Page Alignment** | In-House `ElfAligner16k` | `v3.1.0` | 16KB ELF boundary alignment |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.1.0` | Low-level byte-level binary manifest rewriter |
-| **Template Engine** | In-House `:template` Shell | `v3.1.0` | High-performance standalone WebAPK wrapper |
+| **Page Alignment** | In-House `ElfAligner16k` | `v3.1.1` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.1.1` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v3.1.1` | High-performance standalone WebAPK wrapper |
 
 ---
 
@@ -280,6 +284,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.1.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.1.1 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

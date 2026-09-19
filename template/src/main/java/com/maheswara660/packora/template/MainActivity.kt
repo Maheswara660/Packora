@@ -43,9 +43,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
-import android.app.PictureInPictureParams
 import android.content.ClipboardManager
-import android.util.Rational
 import androidx.appcompat.app.AlertDialog
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -111,80 +109,8 @@ class MainActivity : ComponentActivity() {
     private var lastCheckedMagicLink: String? = null
     private var activeCustomTabAuth: Boolean = false
 
-    fun enterFloatingWindowMode() {
-        // 1. First attempt to launch in Android / OEM Freeform pop-up window mode (WindowConfiguration.WINDOWING_MODE_FREEFORM = 5)
-        try {
-            val intent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-            }
-            val options = android.app.ActivityOptions.makeBasic()
-            val setWindowingModeMethod = android.app.ActivityOptions::class.java.getMethod("setWindowingMode", Int::class.javaPrimitiveType)
-            setWindowingModeMethod.invoke(options, 5) // WINDOWING_MODE_FREEFORM
-            startActivity(intent, options.toBundle())
-            return
-        } catch (e: Exception) {}
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val width = binding.root.width.takeIf { it > 0 } ?: 9
-                val height = binding.root.height.takeIf { it > 0 } ?: 16
-                val aspectRatio = try {
-                    val ratio = width.toFloat() / height.toFloat()
-                    when {
-                        ratio < 0.42f -> Rational(42, 100)
-                        ratio > 2.38f -> Rational(238, 100)
-                        else -> Rational(width.coerceAtLeast(1), height.coerceAtLeast(1))
-                    }
-                } catch (e: Exception) {
-                    Rational(9, 16)
-                }
-
-                val builder = PictureInPictureParams.Builder()
-                    .setAspectRatio(aspectRatio)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAutoEnterEnabled(true)
-                    builder.setSeamlessResizeEnabled(true)
-                }
-                enterPictureInPictureMode(builder.build())
-            } catch (e: Exception) {
-                Toast.makeText(this, "Floating window not available: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            Toast.makeText(this, "Floating window requires Android 8.0+", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updatePictureInPictureParams() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                val params = PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(9, 16))
-                    .setAutoEnterEnabled(true)
-                    .setSeamlessResizeEnabled(true)
-                    .build()
-                setPictureInPictureParams(params)
-            } catch (e: Exception) {}
-        }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isShowingError) {
-            enterFloatingWindowMode()
-        }
-    }
-
-    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) {
-            binding.errorOverlay.visibility = View.GONE
-        }
-    }
-
     override fun onResume() {
         super.onResume()
-        updatePictureInPictureParams()
         checkClipboardForMagicLoginLink()
     }
 
@@ -346,7 +272,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // JavaScript Bridge for Google Sign-In button detection, Credential Manager & Floating Window
+    // JavaScript Bridge for Google Sign-In button detection and Credential Manager
     inner class GoogleAuthBridge {
         private var detectedClientId: String? = null
 
@@ -369,12 +295,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        @JavascriptInterface
-        fun openFloatingWindow() {
-            runOnUiThread {
-                enterFloatingWindowMode()
-            }
-        }
 
         @JavascriptInterface
         fun openMagicLinkDialog() {
@@ -653,10 +573,6 @@ class MainActivity : ComponentActivity() {
             showPasteMagicLinkDialog()
         }
 
-        binding.btnFloatingWindow.setOnClickListener {
-            enterFloatingWindowMode()
-        }
-
         val deepLinkUrl = intent.data?.toString()?.takeIf { it.isNotBlank() }
         val targetUrl = deepLinkUrl ?: config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
 
@@ -728,8 +644,6 @@ class MainActivity : ComponentActivity() {
             binding.btnSettingsText.setTextColor(subtextColor)
             binding.magicLinkIcon.setColorFilter(subtextColor)
             binding.btnMagicLinkText.setTextColor(subtextColor)
-            binding.floatingWindowIcon.setColorFilter(subtextColor)
-            binding.btnFloatingWindowText.setTextColor(subtextColor)
 
             val targetUrl = config?.optString("targetUrl", "") ?: ""
             val host = try { Uri.parse(targetUrl).host } catch (e: Exception) { null }

@@ -33,9 +33,21 @@ fun ChangelogScreen(
 ) {
     val releases = listOf(
         ReleaseItem(
-            version = "3.1.0",
+            version = "3.1.1",
             date = "September 19, 2026",
             isLatest = true,
+            summary = "Compiled Updates Section in My Apps, Silent Batch Compilation, Pre-Compiled Update Detection & Clean Settings Loader",
+            changes = listOf(
+                "Compiled Updates Hub: Added a dedicated 'Compiled Updates Ready' section pinned to the top of My Apps displaying pre-compiled update APKs with direct 1-tap installation without recompiling.",
+                "Silent Batch Updates: 'Update All' now compiles all eligible apps sequentially in the background without launching intrusive system package installer prompts between builds.",
+                "Smart Pre-Compiled Update Detection: UpdateAppCard detects ready updates on disk, showing an 'Installed ➔ Ready' version badge and instant green 'INSTALL UPDATE' action button.",
+                "Clean Settings Update Loader: Removed duplicate progress indicator from the left icon badge on 'Check for Updates', keeping the static update icon and displaying a single spinner on the right.",
+                "Template WebAPK Shell Polish: Cleaned up experimental Picture-in-Picture and floating window handlers from the template module for lighter, more stable standalone WebAPK builds."
+            )
+        ),
+        ReleaseItem(
+            version = "3.1.0",
+            date = "September 19, 2026",
             summary = "Floating Window Engine, Google Account Chooser Sync, Magic Link Login & Update System Parity",
             changes = listOf(
                 "Floating Window Engine: Added native WINDOWING_MODE_FREEFORM with Picture-in-Picture fallback allowing WebAPKs to run as floating pop-up windows over games and apps.",

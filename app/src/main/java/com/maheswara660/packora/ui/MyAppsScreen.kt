@@ -262,12 +262,83 @@ fun MyAppsScreen(
                     }
                 }
                 else -> {
+                    val compiledUpdates = remember(filteredApps) {
+                        filteredApps.filter {
+                            it.hasUpdate &&
+                            !it.historyItem?.apkPath.isNullOrBlank() &&
+                            File(it.historyItem!!.apkPath).exists() &&
+                            (it.historyItem.versionCode > it.installedVersionCode)
+                        }
+                    }
+                    val regularApps = remember(filteredApps, compiledUpdates) {
+                        filteredApps.filter { it !in compiledUpdates }
+                    }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(filteredApps, key = { it.packageName }) { app ->
+                        if (compiledUpdates.isNotEmpty()) {
+                            item(key = "header_compiled_updates") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp, bottom = 4.dp, start = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.SystemUpdate,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Compiled Updates Ready (${compiledUpdates.size})",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            items(compiledUpdates, key = { "compiled_update_${it.packageName}" }) { app ->
+                                CompiledUpdateCard(
+                                    app = app,
+                                    onInstallUpdate = { app.historyItem?.apkPath?.let { installApkFile(context, it) } },
+                                    onReuseConfig = onReuseConfig,
+                                    onUninstall = { appToUninstall = app }
+                                )
+                            }
+
+                            if (regularApps.isNotEmpty()) {
+                                item(key = "header_installed_apps") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 10.dp, bottom = 4.dp, start = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Apps,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "Installed Applications (${regularApps.size})",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        items(regularApps, key = { it.packageName }) { app ->
                             AppCard(
                                 app = app,
                                 onReuseConfig = onReuseConfig,
@@ -571,6 +642,146 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun CompiledUpdateCard(
+    app: InstalledPackoraApp,
+    onInstallUpdate: () -> Unit,
+    onReuseConfig: ((HistoryItem) -> Unit)? = null,
+    onUninstall: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                RoundedCornerShape(20.dp)
+            )
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (app.icon != null) {
+                        Image(
+                            app.icon.asImageBitmap(),
+                            app.appName,
+                            Modifier.size(54.dp).clip(RoundedCornerShape(14.dp))
+                        )
+                    } else {
+                        Icon(
+                            Icons.Rounded.Android,
+                            null,
+                            Modifier.size(30.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            app.appName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                "UPDATE READY",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        app.packageName,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            "Installed: v${app.installedVersionName} ➔ Ready: v${app.historyItem?.versionName ?: "Update"}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    if (app.historyItem != null) {
+                        Spacer(Modifier.height(4.dp))
+                        CompileSettingsBadges(app.historyItem)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onInstallUpdate,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) {
+                    Icon(Icons.Outlined.InstallMobile, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("INSTALL UPDATE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                if (onReuseConfig != null && app.historyItem != null) {
+                    FilledTonalIconButton(
+                        onClick = { onReuseConfig(app.historyItem) },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Outlined.AutoMode, contentDescription = "Reuse Config", modifier = Modifier.size(18.dp))
+                    }
+                }
+                IconButton(
+                    onClick = onUninstall,
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.Outlined.DeleteOutline, "Uninstall", Modifier.size(20.dp))
+                }
+            }
         }
     }
 }

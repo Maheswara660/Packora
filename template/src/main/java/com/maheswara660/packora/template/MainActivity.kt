@@ -30,6 +30,7 @@ import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -111,6 +112,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::binding.isInitialized) {
+            try { binding.webView.onResume() } catch (e: Exception) {}
+        }
         checkClipboardForMagicLoginLink()
     }
 
@@ -454,13 +458,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Android 12+ splash screen exit animation setup
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            splashScreen.setOnExitAnimationListener { splashScreenView ->
-                splashScreenView.remove()
-            }
-        }
-
         // Create Notification Channel for Web Notifications
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -527,6 +524,10 @@ class MainActivity : ComponentActivity() {
         setupWebView()
         webView = binding.webView
 
+        if (savedInstanceState != null) {
+            try { binding.webView.restoreState(savedInstanceState) } catch (e: Exception) {}
+        }
+
         binding.btnRetry.setOnClickListener {
             if (!isNetworkAvailable()) {
                 binding.errorStatusChip.text = "NO INTERNET DETECTED"
@@ -576,16 +577,18 @@ class MainActivity : ComponentActivity() {
         val deepLinkUrl = intent.data?.toString()?.takeIf { it.isNotBlank() }
         val targetUrl = deepLinkUrl ?: config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
 
-        if (targetUrl != null) {
-            binding.webView.loadUrl(targetUrl)
-        } else {
-            binding.webView.loadData(
-                "<html><body style='font-family:sans-serif;padding:24px;background:#1a1a2e;color:#fff;'>" +
-                "<h2 style='color:#e94560;'>Configuration Error</h2>" +
-                "<p>app_config.json was not found or has no targetUrl. APK injection may have failed.</p>" +
-                "</body></html>",
-                "text/html", "utf-8"
-            )
+        if (binding.webView.url.isNullOrBlank()) {
+            if (targetUrl != null) {
+                binding.webView.loadUrl(targetUrl)
+            } else {
+                binding.webView.loadData(
+                    "<html><body style='font-family:sans-serif;padding:24px;background:#1a1a2e;color:#fff;'>" +
+                    "<h2 style='color:#e94560;'>Configuration Error</h2>" +
+                    "<p>app_config.json was not found or has no targetUrl. APK injection may have failed.</p>" +
+                    "</body></html>",
+                    "text/html", "utf-8"
+                )
+            }
         }
     }
 
@@ -605,12 +608,37 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (::binding.isInitialized) {
+            try { binding.webView.onPause() } catch (e: Exception) {}
+        }
         try { CookieManager.getInstance().flush() } catch (e: Exception) {}
     }
 
     override fun onStop() {
         super.onStop()
         try { CookieManager.getInstance().flush() } catch (e: Exception) {}
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::binding.isInitialized) {
+            try { binding.webView.saveState(outState) } catch (e: Exception) {}
+        }
+    }
+
+    override fun onDestroy() {
+        if (::binding.isInitialized) {
+            try {
+                binding.webView.apply {
+                    stopLoading()
+                    loadUrl("about:blank")
+                    clearHistory()
+                    removeAllViews()
+                    destroy()
+                }
+            } catch (e: Exception) {}
+        }
+        super.onDestroy()
     }
 
     // Handle OAuth redirect callbacks (e.g. https://app.example.com/callback)
@@ -950,6 +978,19 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?
+            ): Boolean {
+                view?.let { wv ->
+                    val container = wv.parent as? ViewGroup
+                    container?.removeView(wv)
+                    wv.destroy()
+                }
+                recreate()
+                return true
+            }
+
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
@@ -959,17 +1000,6 @@ class MainActivity : ComponentActivity() {
                 if (request?.isForMainFrame == true) {
                     showErrorOverlay()
                 }
-            }
-
-            @Suppress("DEPRECATION")
-            override fun onReceivedError(
-                view: WebView?,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?
-            ) {
-                super.onReceivedError(view, errorCode, description, failingUrl)
-                showErrorOverlay()
             }
 
             override fun onReceivedHttpError(

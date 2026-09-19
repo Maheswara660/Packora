@@ -4,8 +4,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
@@ -15,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -26,30 +29,38 @@ data class ReleaseItem(
     val changes: List<String>
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChangelogScreen(
-    onBack: () -> Unit
-) {
-    val releases = listOf(
-        ReleaseItem(
-            version = "3.1.1",
-            date = "September 19, 2026",
-            isLatest = true,
-            summary = "Compiled Updates Section in My Apps, Silent Batch Compilation, Pre-Compiled Update Detection & Clean Settings Loader",
-            changes = listOf(
-                "Compiled Updates Hub: Added a dedicated 'Compiled Updates Ready' section pinned to the top of My Apps displaying pre-compiled update APKs with direct 1-tap installation without recompiling.",
-                "Silent Batch Updates: 'Update All' now compiles all eligible apps sequentially in the background without launching intrusive system package installer prompts between builds.",
-                "Smart Pre-Compiled Update Detection: UpdateAppCard detects ready updates on disk, showing an 'Installed ➔ Ready' version badge and instant green 'INSTALL UPDATE' action button.",
-                "Clean Settings Update Loader: Removed duplicate progress indicator from the left icon badge on 'Check for Updates', keeping the static update icon and displaying a single spinner on the right.",
-                "Template WebAPK Shell Polish: Cleaned up experimental Picture-in-Picture and floating window handlers from the template module for lighter, more stable standalone WebAPK builds."
-            )
-        ),
-        ReleaseItem(
-            version = "3.1.0",
-            date = "September 19, 2026",
-            summary = "Floating Window Engine, Google Account Chooser Sync, Magic Link Login & Update System Parity",
-            changes = listOf(
+val packoraReleases = listOf(
+    ReleaseItem(
+        version = "3.2.0",
+        date = "September 19, 2026",
+        isLatest = true,
+        summary = "Unified My Apps & Updates Hub, Sequential Install Queue, Markdown Release Notes & WebAPK Stability Fixes",
+        changes = listOf(
+            "Unified My Apps & Updates Hub: Merged the updates screen into My Apps with an Updates Available summary banner and streamlined 4-tab bottom navigation.",
+            "Sequential Install Queue: 'Update All' compiles all eligible apps and triggers the system package installer sequentially one app at a time like F-Droid and Aurora Store.",
+            "Markdown Release Notes: GitHub release notes in the App Update Ready bottom sheet now render with rich headers, lists, code pills, and formatted styling.",
+            "One-Time What's New Prompt: Automatically displays a clean What's New bottom sheet highlighting the latest release upon app update or launch.",
+            "WebAPK Shell Stability & Blackscreen Fix: Fixed black screen on app reopen, isolated task affinity with singleTask launchMode, and resolved Chromium resume/pause lifecycle.",
+            "GitHub Sponsors Link: Added direct GitHub Sponsors support link in the About section alongside Ko-fi."
+        )
+    ),
+    ReleaseItem(
+        version = "3.1.1",
+        date = "September 19, 2026",
+        summary = "Compiled Updates Section in My Apps, Silent Batch Compilation, Pre-Compiled Update Detection & Clean Settings Loader",
+        changes = listOf(
+            "Compiled Updates Hub: Added a dedicated 'Compiled Updates Ready' section pinned to the top of My Apps displaying pre-compiled update APKs with direct 1-tap installation without recompiling.",
+            "Silent Batch Updates: 'Update All' now compiles all eligible apps sequentially in the background without launching intrusive system package installer prompts between builds.",
+            "Smart Pre-Compiled Update Detection: UpdateAppCard detects ready updates on disk, showing an 'Installed ➔ Ready' version badge and instant green 'INSTALL UPDATE' action button.",
+            "Clean Settings Update Loader: Removed duplicate progress indicator from the left icon badge on 'Check for Updates', keeping the static update icon and displaying a single spinner on the right.",
+            "Template WebAPK Shell Polish: Cleaned up experimental Picture-in-Picture and floating window handlers from the template module for lighter, more stable standalone WebAPK builds."
+        )
+    ),
+    ReleaseItem(
+        version = "3.1.0",
+        date = "September 19, 2026",
+        summary = "Floating Window Engine, Google Account Chooser Sync, Magic Link Login & Update System Parity",
+        changes = listOf(
                 "Floating Window Engine: Added native WINDOWING_MODE_FREEFORM with Picture-in-Picture fallback allowing WebAPKs to run as floating pop-up windows over games and apps.",
                 "OEM Pop-Up View Parity: Declared MULTIWINDOW_LAUNCHER, Samsung Multi-Window (penwindow) metadata, and 600x800dp dimensions for One UI, HyperOS, and ColorOS/OxygenOS support.",
                 "Google Sign-In 403 Disallowed Fix: Stripped X-Requested-With header via WebSettingsCompat to prevent Google OAuth from blocking in-app WebAPK logins.",
@@ -168,6 +179,13 @@ fun ChangelogScreen(
         )
     )
 
+fun getLatestRelease(): ReleaseItem = packoraReleases.first()
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChangelogScreen(
+    onBack: () -> Unit
+) {
     Scaffold(
         contentWindowInsets = WindowInsets.statusBars,
         topBar = {
@@ -204,7 +222,7 @@ fun ChangelogScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(releases, key = { it.version }) { release ->
+            items(packoraReleases, key = { it.version }) { release ->
                 ReleaseCard(release)
             }
         }
@@ -325,6 +343,151 @@ private fun ReleaseCard(release: ReleaseItem) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LatestChangelogBottomSheet(
+    release: ReleaseItem = getLatestRelease(),
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "What's New in v${release.version}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Text(
+                        text = "v${release.version}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = release.date,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = release.summary,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 280.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                release.changes.forEach { change ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(18.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = change,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text(
+                    text = "UNDERSTOOD",
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
             }
         }
     }

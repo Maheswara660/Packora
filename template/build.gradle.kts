@@ -10,8 +10,8 @@ android {
         applicationId = "com.maheswara660.packora.template"
         minSdk = 24
         targetSdk = 35
-        versionCode = 32
-        versionName = "3.1.1"
+        versionCode = 33
+        versionName = "3.2.0"
     }
 
     buildTypes {

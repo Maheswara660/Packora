@@ -140,6 +140,20 @@ fun AboutScreen(
                         )
 
                         AboutActionTile(
+                            icon = Icons.Rounded.VolunteerActivism,
+                            title = "Sponsor on GitHub",
+                            description = "Support ongoing work via GitHub Sponsors",
+                            onClick = {
+                                uriHandler.openUri("https://github.com/sponsors/maheswara660")
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        AboutActionTile(
                             icon = Icons.Rounded.BugReport,
                             title = "Report Issue & Feedback",
                             description = "Submit bug reports or feature requests",
@@ -186,9 +200,9 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "3.1.1"
+            pInfo.versionName ?: "3.2.0"
         } catch (e: Exception) {
-            "3.1.1"
+            "3.2.0"
         }
     }
 

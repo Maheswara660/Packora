@@ -38,6 +38,7 @@ import com.maheswara660.packora.manager.AppUpdateManager
 import com.maheswara660.packora.manager.PackoraPreferencesManager
 import com.maheswara660.packora.manager.ReleaseAsset
 import com.maheswara660.packora.manager.UpdateCheckResult
+import com.maheswara660.packora.ui.components.MarkdownText
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -1169,16 +1170,15 @@ fun AppUpdateBottomSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 150.dp)
+                            .heightIn(max = 220.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             .verticalScroll(rememberScrollState())
                             .padding(12.dp)
                     ) {
-                        Text(
-                            text = releaseInfo.changelog,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                        MarkdownText(
+                            markdown = releaseInfo.changelog,
+                            textColor = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

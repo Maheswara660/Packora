@@ -39,4 +39,8 @@ class PackoraPreferencesManager(context: Context) {
     var customStorageFolder: String?
         get() = prefs.getString("custom_storage_folder", null)
         set(value) = prefs.edit().putString("custom_storage_folder", value).apply()
+
+    var lastSeenChangelogVersion: String?
+        get() = prefs.getString("last_seen_changelog_version", null)
+        set(value) = prefs.edit().putString("last_seen_changelog_version", value).apply()
 }

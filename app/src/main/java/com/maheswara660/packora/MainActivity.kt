@@ -36,14 +36,15 @@ import com.maheswara660.packora.ui.AboutScreen
 import com.maheswara660.packora.ui.BuildScreen
 import com.maheswara660.packora.ui.ChangelogScreen
 import com.maheswara660.packora.ui.HistoryScreen
+import com.maheswara660.packora.ui.LatestChangelogBottomSheet
 import com.maheswara660.packora.ui.MyAppsScreen
 import com.maheswara660.packora.ui.SettingsScreen
-import com.maheswara660.packora.ui.UpdatesScreen
+import com.maheswara660.packora.ui.getLatestRelease
 import com.maheswara660.packora.ui.theme.PackoraTheme
 import java.io.File
 
 enum class Screen {
-    BUILD, MY_APPS, UPDATES, HISTORY, SETTINGS, ABOUT
+    BUILD, MY_APPS, HISTORY, SETTINGS, ABOUT
 }
 
 class MainActivity : ComponentActivity() {
@@ -67,7 +68,8 @@ class MainActivity : ComponentActivity() {
                     onColorAccentChange = {
                         appColorAccent = it
                         prefsManager.colorAccent = it
-                    }
+                    },
+                    prefsManager = prefsManager
                 )
             }
         }
@@ -79,7 +81,8 @@ fun MainAppNavigation(
     appThemeMode: AppThemeMode,
     onThemeModeChange: (AppThemeMode) -> Unit,
     appColorAccent: AppColorAccent,
-    onColorAccentChange: (AppColorAccent) -> Unit
+    onColorAccentChange: (AppColorAccent) -> Unit,
+    prefsManager: PackoraPreferencesManager
 ) {
     // Primary tab: BUILD | MY_APPS | HISTORY | SETTINGS
     var selectedTab by remember { mutableStateOf(Screen.BUILD) }
@@ -116,6 +119,26 @@ fun MainAppNavigation(
         return
     }
 
+    var showLatestChangelogSheet by remember { mutableStateOf(false) }
+    val currentAppVersion = context.appVersion()
+
+    LaunchedEffect(Unit) {
+        val lastSeen = prefsManager.lastSeenChangelogVersion
+        if (lastSeen != currentAppVersion) {
+            showLatestChangelogSheet = true
+        }
+    }
+
+    if (showLatestChangelogSheet) {
+        LatestChangelogBottomSheet(
+            release = getLatestRelease(),
+            onDismiss = {
+                prefsManager.lastSeenChangelogVersion = currentAppVersion
+                showLatestChangelogSheet = false
+            }
+        )
+    }
+
     data class TabItem(
         val screen: Screen,
         val label: String,
@@ -126,7 +149,6 @@ fun MainAppNavigation(
     val tabs = listOf(
         TabItem(Screen.BUILD, "Build", Icons.Outlined.Build, Icons.Outlined.Build),
         TabItem(Screen.MY_APPS, "My Apps", Icons.Outlined.Inventory2, Icons.Outlined.Inventory2),
-        TabItem(Screen.UPDATES, "Updates", Icons.Outlined.SystemUpdate, Icons.Outlined.SystemUpdate),
         TabItem(Screen.HISTORY, "History", Icons.Outlined.History, Icons.Outlined.History),
         TabItem(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Outlined.Settings)
     )
@@ -242,7 +264,6 @@ fun MainAppNavigation(
                         onNavigateSettings = { selectedTab = Screen.SETTINGS }
                     )
                     Screen.MY_APPS -> MyAppsScreen(onReuseConfig = handleReuseConfig)
-                    Screen.UPDATES -> UpdatesScreen()
                     Screen.HISTORY -> HistoryScreen(
                         onBack = { selectedTab = Screen.BUILD },
                         onReuseConfig = handleReuseConfig
@@ -274,9 +295,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "3.1.1"
+        pInfo.versionName ?: "3.2.0"
     } catch (e: Exception) {
-        "3.1.1"
+        "3.2.0"
     }
 }
 

@@ -2,6 +2,29 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.2.0] - 2026-09-19
+### Added & Enhanced
+- **Unified My Apps & Updates Hub**:
+  - **Seamless Hub Integration**: Merged the Updates screen into My Apps with an intelligent `Updates Available` summary banner, eliminating screen redundancy and establishing a clean 4-tab bottom navigation bar (Build, My Apps, History, Settings).
+  - **Updates Available Banner**: Pinned to the top of My Apps displaying the total count of eligible updates with a 1-tap `UPDATE ALL` action and real-time background compilation status.
+- **F-Droid & Aurora Store Style Sequential Install Queue**:
+  - **Sequential Background Pipeline**: Tapping `UPDATE ALL` compiles all eligible apps in the background, then triggers the system package installer for one app at a time.
+  - **Automated Progression Receiver**: Listens for system `ACTION_PACKAGE_REPLACED` and `ACTION_PACKAGE_ADDED` broadcasts, automatically prompting the installer for the next queued update the instant the previous app installation completes.
+  - **Resume Fallback & Skip Control**: Verifies installed package version codes on app resume and provides a `SKIP` button if the user opts out of installing a specific app.
+  - **Collision-Proof Output Naming**: Formats update APK files as `<package_name>_v<versionCode>.apk`, preventing file overwrite conflicts across separate builds.
+- **Markdown-Formatted In-App Release Notes**:
+  - **Rich Changelog Rendering**: Replaced raw markdown plain text inside the `App Update Ready!` bottom sheet with a dedicated `MarkdownText` renderer supporting markdown headers (`#`, `##`, `###`), bullet lists, bold text (`**`), italics (`*`), inline code pills (`` `code` ``), and horizontal rules (`---`).
+- **One-Time "What's New" Changelog Bottom Sheet**:
+  - **Automated Version Prompt**: Automatically displays a modal bottom sheet highlighting the latest release's features on initial launch following an update or install.
+  - **Single Source of Truth**: Dynamically pulls release highlights from a shared `packoraReleases` registry without code duplication, completing with an `UNDERSTOOD` confirmation button.
+- **WebAPK Shell Launch & Blackscreen Fix**:
+  - **Isolated Task Affinity**: Configured `android:launchMode="singleTask"` and `alwaysRetainTaskState="true"` in the `:template` manifest to prevent WebAPKs from attaching to the package installer task or opening into other application windows.
+  - **Lifecycle Surface Management**: Added `webView.onResume()` and `webView.onPause()` to resume Chromium hardware rasterizers and JavaScript execution upon app reopen, resolving black screen freezes.
+  - **Clean Splash Removal**: Removed unneeded `splashScreen.setOnExitAnimationListener` intercepts on Android 12+ that caused black screen splash hangs.
+  - **Renderer Crash Recovery**: Added `onRenderProcessGone` handler in `WebViewClient` to recover from Chromium terminations.
+- **GitHub Sponsors Integration**:
+  - Added dedicated **Sponsor on GitHub** action tile (`https://github.com/sponsors/maheswara660`) in the About screen alongside Ko-fi.
+
 ## [3.1.1] - 2026-09-19
 ### Added & Enhanced
 - **Dedicated Compiled Updates Ready Section in My Apps**:

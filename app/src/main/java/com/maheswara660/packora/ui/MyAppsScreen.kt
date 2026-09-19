@@ -48,10 +48,10 @@ import com.maheswara660.packora.incrementVersionString
 import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.manager.BuildHistoryManager
 import com.maheswara660.packora.manager.HistoryItem
+import com.maheswara660.packora.manager.PackoraPreferencesManager
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,6 +71,13 @@ data class InstalledPackoraApp(
     val hasUpdate: Boolean
 )
 
+data class PendingInstallTask(
+    val packageName: String,
+    val appName: String,
+    val apkPath: String,
+    val targetVersionCode: Int
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAppsScreen(
@@ -84,6 +91,36 @@ fun MyAppsScreen(
     var isLoading by remember { mutableStateOf(true) }
     var appToUninstall by remember { mutableStateOf<InstalledPackoraApp?>(null) }
 
+    val buildingPackages = remember { mutableStateListOf<String>() }
+    val buildProgress = remember { mutableStateMapOf<String, Int?>() }
+    var isUpdatingAll by remember { mutableStateOf(false) }
+    var updateAllProgressText by remember { mutableStateOf<String?>(null) }
+    val installQueue = remember { mutableStateListOf<PendingInstallTask>() }
+    var currentInstallingApp by remember { mutableStateOf<PendingInstallTask?>(null) }
+
+    fun refreshApps() {
+        coroutineScope.launch(Dispatchers.IO) {
+            val detected = detectInstalledPackoraApps(context, historyManager)
+            withContext(Dispatchers.Main) {
+                apps = detected
+            }
+        }
+    }
+
+    fun advanceInstallQueue() {
+        if (installQueue.isNotEmpty()) {
+            val next = installQueue.removeAt(0)
+            currentInstallingApp = next
+            coroutineScope.launch {
+                delay(600)
+                installApkFile(context, next.apkPath)
+            }
+        } else {
+            currentInstallingApp = null
+            Toast.makeText(context, "All updates installed successfully!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
@@ -95,21 +132,238 @@ fun MyAppsScreen(
         }
     }
 
+    // BroadcastReceiver listening for completed package installations to auto-trigger the next queued update
+    DisposableEffect(context, currentInstallingApp) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                val action = intent?.action
+                if (action == Intent.ACTION_PACKAGE_REPLACED || action == Intent.ACTION_PACKAGE_ADDED) {
+                    val data = intent.data?.schemeSpecificPart
+                    val active = currentInstallingApp
+                    if (data != null && active != null && data == active.packageName) {
+                        advanceInstallQueue()
+                        refreshApps()
+                    }
+                }
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addDataScheme("package")
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            try { context.unregisterReceiver(receiver) } catch (e: Exception) {}
+        }
+    }
+
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    val detected = detectInstalledPackoraApps(context, historyManager)
-                    withContext(Dispatchers.Main) {
-                        apps = detected
-                    }
+                val active = currentInstallingApp
+                if (active != null) {
+                    try {
+                        val pInfo = context.packageManager.getPackageInfo(active.packageName, 0)
+                        val installedVC = PackageInfoCompat.getLongVersionCode(pInfo).toInt()
+                        if (installedVC >= active.targetVersionCode) {
+                            advanceInstallQueue()
+                        }
+                    } catch (e: Exception) {}
                 }
+                refreshApps()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Batch updates: compiles all eligible apps in background, then triggers sequential installer
+    fun triggerUpdateAll() {
+        val toUpdate = apps.filter { it.historyItem != null }
+        if (toUpdate.isEmpty()) {
+            Toast.makeText(context, "No installed apps with build configs to update", Toast.LENGTH_SHORT).show()
+            return
+        }
+        coroutineScope.launch {
+            isUpdatingAll = true
+            installQueue.clear()
+
+            val compiledTasks = mutableListOf<PendingInstallTask>()
+
+            toUpdate.forEachIndexed { index, app ->
+                val item = app.historyItem ?: return@forEachIndexed
+                buildingPackages.add(app.packageName)
+                buildProgress[app.packageName] = 0
+                updateAllProgressText = "Compiling ${index + 1}/${toUpdate.size}: ${app.appName}..."
+
+                val newVersionCode = item.versionCode + 1
+                val newVersionName = incrementVersionString(item.versionName)
+                val outputName = "${item.packageName}_v${newVersionCode}.apk"
+
+                val resultPath = withContext(Dispatchers.IO) {
+                    try {
+                        val builder = ApkBuilder(context)
+                        val prefsManager = PackoraPreferencesManager(context)
+                        val customFolder = prefsManager.customStorageFolder
+                        val effectiveFolder = if (!customFolder.isNullOrBlank() && File(customFolder).exists()) {
+                            customFolder
+                        } else null
+
+                        val inputBitmap = if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
+                            try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
+                        } else {
+                            app.icon
+                        }
+
+                        builder.buildApk(
+                            appName = item.appName,
+                            packageName = item.packageName,
+                            targetUrl = item.targetUrl,
+                            versionCode = newVersionCode,
+                            versionName = newVersionName,
+                            iconBitmap = inputBitmap,
+                            disableHeader = item.disableHeader,
+                            outputPath = outputName,
+                            customDownloadFolder = effectiveFolder,
+                            isDesktopMode = item.isDesktopMode,
+                            browserEngine = item.browserEngine,
+                            allowCopying = item.allowCopying,
+                            isForceDarkMode = item.isForceDarkMode,
+                            enableZoom = item.enableZoom,
+                            enableWebFooter = item.enableWebFooter,
+                            hideWebFooter = !item.enableWebFooter,
+                            keystorePassword = null,
+                            keyAlias = null,
+                            commonName = null,
+                            organization = null,
+                            organizationalUnit = null,
+                            validityYears = 25,
+                            keyPassword = null,
+                            onProgress = { pct, _ -> Handler(Looper.getMainLooper()).post { buildProgress[app.packageName] = pct } }
+                        )?.also { path ->
+                            historyManager.addHistoryItem(
+                                item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
+                            )
+                        }
+                    } catch (e: Exception) { null }
+                }
+
+                buildingPackages.remove(app.packageName)
+                buildProgress[app.packageName] = 100
+
+                if (resultPath != null) {
+                    compiledTasks.add(
+                        PendingInstallTask(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            apkPath = resultPath,
+                            targetVersionCode = newVersionCode
+                        )
+                    )
+                }
+            }
+
+            isUpdatingAll = false
+            updateAllProgressText = null
+
+            refreshApps()
+
+            if (compiledTasks.isNotEmpty()) {
+                installQueue.addAll(compiledTasks)
+                val first = installQueue.removeAt(0)
+                currentInstallingApp = first
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Compiled ${compiledTasks.size} updates! Starting installer...", Toast.LENGTH_SHORT).show()
+                    installApkFile(context, first.apkPath)
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Could not compile updates", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Single app update compilation and immediate install launch
+    fun triggerSingleUpdate(app: InstalledPackoraApp) {
+        val item = app.historyItem ?: return
+        coroutineScope.launch {
+            buildingPackages.add(app.packageName)
+            buildProgress[app.packageName] = 0
+
+            val newVersionCode = item.versionCode + 1
+            val newVersionName = incrementVersionString(item.versionName)
+            val outputName = "${item.packageName}_v${newVersionCode}.apk"
+
+            val resultPath = withContext(Dispatchers.IO) {
+                try {
+                    val builder = ApkBuilder(context)
+                    val prefsManager = PackoraPreferencesManager(context)
+                    val customFolder = prefsManager.customStorageFolder
+                    val effectiveFolder = if (!customFolder.isNullOrBlank() && File(customFolder).exists()) {
+                        customFolder
+                    } else null
+
+                    val inputBitmap = if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
+                        try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
+                    } else {
+                        app.icon
+                    }
+
+                    builder.buildApk(
+                        appName = item.appName,
+                        packageName = item.packageName,
+                        targetUrl = item.targetUrl,
+                        versionCode = newVersionCode,
+                        versionName = newVersionName,
+                        iconBitmap = inputBitmap,
+                        disableHeader = item.disableHeader,
+                        outputPath = outputName,
+                        customDownloadFolder = effectiveFolder,
+                        isDesktopMode = item.isDesktopMode,
+                        browserEngine = item.browserEngine,
+                        allowCopying = item.allowCopying,
+                        isForceDarkMode = item.isForceDarkMode,
+                        enableZoom = item.enableZoom,
+                        enableWebFooter = item.enableWebFooter,
+                        hideWebFooter = !item.enableWebFooter,
+                        keystorePassword = null,
+                        keyAlias = null,
+                        commonName = null,
+                        organization = null,
+                        organizationalUnit = null,
+                        validityYears = 25,
+                        keyPassword = null,
+                        onProgress = { pct, _ -> Handler(Looper.getMainLooper()).post { buildProgress[app.packageName] = pct } }
+                    )?.also { path ->
+                        historyManager.addHistoryItem(
+                            item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
+                        )
+                    }
+                } catch (e: Exception) { null }
+            }
+
+            buildingPackages.remove(app.packageName)
+            buildProgress[app.packageName] = 100
+
+            refreshApps()
+
+            if (resultPath != null) {
+                installApkFile(context, resultPath)
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to compile update for ${app.appName}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -262,6 +516,9 @@ fun MyAppsScreen(
                     }
                 }
                 else -> {
+                    val eligibleForUpdate = remember(filteredApps) {
+                        filteredApps.filter { it.historyItem != null }
+                    }
                     val compiledUpdates = remember(filteredApps) {
                         filteredApps.filter {
                             it.hasUpdate &&
@@ -279,6 +536,29 @@ fun MyAppsScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        if (eligibleForUpdate.isNotEmpty() || isUpdatingAll || currentInstallingApp != null) {
+                            item(key = "banner_updates_available") {
+                                UpdatesAvailableBanner(
+                                    updateCount = eligibleForUpdate.size,
+                                    isUpdatingAll = isUpdatingAll,
+                                    progressText = updateAllProgressText,
+                                    currentInstallingApp = currentInstallingApp,
+                                    queueSize = installQueue.size,
+                                    onUpdateAll = {
+                                        val active = currentInstallingApp
+                                        if (active != null) {
+                                            installApkFile(context, active.apkPath)
+                                        } else {
+                                            triggerUpdateAll()
+                                        }
+                                    },
+                                    onSkipCurrentInstall = if (currentInstallingApp != null) {
+                                        { advanceInstallQueue() }
+                                    } else null
+                                )
+                            }
+                        }
+
                         if (compiledUpdates.isNotEmpty()) {
                             item(key = "header_compiled_updates") {
                                 Row(
@@ -341,8 +621,11 @@ fun MyAppsScreen(
                         items(regularApps, key = { it.packageName }) { app ->
                             AppCard(
                                 app = app,
+                                isBuilding = app.packageName in buildingPackages,
+                                progress = buildProgress[app.packageName],
                                 onReuseConfig = onReuseConfig,
                                 onOpen = { openApp(context, app.packageName) },
+                                onUpdate = if (app.historyItem != null) { { triggerSingleUpdate(app) } } else null,
                                 onUninstall = { appToUninstall = app }
                             )
                         }
@@ -787,10 +1070,140 @@ private fun CompiledUpdateCard(
 }
 
 @Composable
+fun UpdatesAvailableBanner(
+    updateCount: Int,
+    isUpdatingAll: Boolean,
+    progressText: String?,
+    currentInstallingApp: PendingInstallTask?,
+    queueSize: Int,
+    onUpdateAll: () -> Unit,
+    onSkipCurrentInstall: (() -> Unit)? = null
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                RoundedCornerShape(20.dp)
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Update,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isUpdatingAll) "Compiling Updates"
+                        else if (currentInstallingApp != null) "Installing Updates"
+                        else "Updates Available ($updateCount)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isUpdatingAll) (progressText ?: "Compiling in background...")
+                        else if (currentInstallingApp != null) "Installing ${currentInstallingApp.appName} (${queueSize + 1} in queue)"
+                        else "Update your installed WebAPKs sequentially",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (isUpdatingAll) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                )
+            } else if (currentInstallingApp != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onUpdateAll,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                    ) {
+                        Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PROMPT INSTALLER", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    if (onSkipCurrentInstall != null) {
+                        OutlinedButton(
+                            onClick = onSkipCurrentInstall,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(38.dp)
+                        ) {
+                            Text("SKIP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onUpdateAll,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                ) {
+                    Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("UPDATE ALL ($updateCount)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AppCard(
     app: InstalledPackoraApp,
+    isBuilding: Boolean = false,
+    progress: Int? = null,
     onReuseConfig: ((HistoryItem) -> Unit)? = null,
     onOpen: () -> Unit,
+    onUpdate: (() -> Unit)? = null,
     onUninstall: () -> Unit
 ) {
     val context = LocalContext.current
@@ -804,7 +1217,8 @@ private fun AppCard(
             .fillMaxWidth()
             .border(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                if (isBuilding) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 RoundedCornerShape(20.dp)
             )
     ) {
@@ -868,6 +1282,40 @@ private fun AppCard(
                 }
             }
 
+            if (isBuilding) {
+                Spacer(Modifier.height(10.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Compiling update...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "${progress ?: 0}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (progress ?: 0) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
             Spacer(Modifier.height(8.dp))
@@ -882,6 +1330,20 @@ private fun AppCard(
                     Spacer(Modifier.width(6.dp))
                     Text("Open", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
+
+                if (onUpdate != null && !isBuilding) {
+                    Button(
+                        onClick = onUpdate,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Icon(Icons.Rounded.Update, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 if (onReuseConfig != null && app.historyItem != null) {
                     FilledTonalIconButton(
                         onClick = { onReuseConfig(app.historyItem) },
@@ -956,9 +1418,13 @@ suspend fun buildAndInstall(
     withContext(Dispatchers.IO) {
         try {
             val builder = ApkBuilder(context)
+            val prefsManager = PackoraPreferencesManager(context)
+            val customFolder = prefsManager.customStorageFolder
+            val effectiveFolder = if (!customFolder.isNullOrBlank() && File(customFolder).exists()) customFolder else null
+
             val newVersionCode = item.versionCode + 1
             val newVersionName = incrementVersionString(item.versionName)
-            val outputName = "${item.appName.replace(" ", "_")}_update.apk"
+            val outputName = "${item.packageName}_v${newVersionCode}.apk"
             val inputBitmap = if (!item.iconPath.isNullOrBlank() && java.io.File(item.iconPath).exists()) {
                 try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
             } else null
@@ -972,7 +1438,7 @@ suspend fun buildAndInstall(
                 iconBitmap = inputBitmap,
                 disableHeader = true,
                 outputPath = outputName,
-                customDownloadFolder = null,
+                customDownloadFolder = effectiveFolder,
                 isDesktopMode = item.isDesktopMode,
                 browserEngine = item.browserEngine,
                 allowCopying = item.allowCopying,

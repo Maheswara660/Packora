@@ -69,16 +69,13 @@
             android:name=".MainActivity"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|uiMode|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask"
+            android:alwaysRetainTaskState="true"
             android:resizeableActivity="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
             </intent-filter>
             <meta-data
                 android:name="android.supports_size_changes"

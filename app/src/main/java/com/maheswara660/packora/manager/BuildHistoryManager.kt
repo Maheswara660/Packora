@@ -50,8 +50,14 @@ class BuildHistoryManager(context: Context) {
             val list = mutableListOf<HistoryItem>()
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
-                val enableFooter = obj.optBoolean("enableWebFooter", false)
-                val hideFooter = if (obj.has("hideWebFooter")) obj.optBoolean("hideWebFooter", true) else !enableFooter
+                val enableFooter = if (obj.has("enableWebFooter")) {
+                    obj.optBoolean("enableWebFooter", false)
+                } else if (obj.has("hideWebFooter")) {
+                    !obj.optBoolean("hideWebFooter", true)
+                } else {
+                    false
+                }
+                val hideFooter = !enableFooter
                 list.add(
                     HistoryItem(
                         id = obj.optString("id", UUID.randomUUID().toString()),

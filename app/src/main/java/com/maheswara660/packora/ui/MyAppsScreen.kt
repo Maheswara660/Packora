@@ -240,7 +240,7 @@ fun MyAppsScreen(
                             isForceDarkMode = item.isForceDarkMode,
                             enableZoom = item.enableZoom,
                             enableWebFooter = item.enableWebFooter,
-                            hideWebFooter = item.hideWebFooter,
+                            hideWebFooter = !item.enableWebFooter,
                             keystorePassword = null,
                             keyAlias = null,
                             commonName = null,
@@ -335,7 +335,7 @@ fun MyAppsScreen(
                         isForceDarkMode = item.isForceDarkMode,
                         enableZoom = item.enableZoom,
                         enableWebFooter = item.enableWebFooter,
-                        hideWebFooter = item.hideWebFooter,
+                        hideWebFooter = !item.enableWebFooter,
                         keystorePassword = null,
                         keyAlias = null,
                         commonName = null,
@@ -895,13 +895,12 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
         }
 
         // Footer Mode
-        val isHidingFooter = item.hideWebFooter || !item.enableWebFooter
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = RoundedCornerShape(6.dp)
         ) {
             Text(
-                text = if (isHidingFooter) "Hide Footer" else "Footer On",
+                text = if (item.enableWebFooter) "Footers Enabled" else "Footers Hidden",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1446,7 +1445,7 @@ suspend fun buildAndInstall(
                 isForceDarkMode = item.isForceDarkMode,
                 enableZoom = item.enableZoom,
                 enableWebFooter = item.enableWebFooter,
-                hideWebFooter = item.hideWebFooter,
+                hideWebFooter = !item.enableWebFooter,
                 keystorePassword = null,
                 keyAlias = null,
                 commonName = null,

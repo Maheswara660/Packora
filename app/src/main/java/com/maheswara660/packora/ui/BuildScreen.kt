@@ -92,12 +92,14 @@ fun BuildScreen(
 
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
-    var hideWebFooter by remember {
+    var isEnableWebFooter by remember {
         mutableStateOf(
-            if (sharedPrefs.contains("hide_web_footer")) {
-                sharedPrefs.getBoolean("hide_web_footer", true)
+            if (sharedPrefs.contains("enable_web_footer")) {
+                sharedPrefs.getBoolean("enable_web_footer", false)
+            } else if (sharedPrefs.contains("hide_web_footer")) {
+                !sharedPrefs.getBoolean("hide_web_footer", true)
             } else {
-                !sharedPrefs.getBoolean("enable_web_footer", false)
+                false
             }
         )
     }
@@ -566,18 +568,18 @@ fun BuildScreen(
                 )
 
                 FilterChip(
-                    selected = hideWebFooter,
+                    selected = isEnableWebFooter,
                     onClick = {
-                        hideWebFooter = !hideWebFooter
+                        isEnableWebFooter = !isEnableWebFooter
                         sharedPrefs.edit()
-                            .putBoolean("hide_web_footer", hideWebFooter)
-                            .putBoolean("enable_web_footer", !hideWebFooter)
+                            .putBoolean("enable_web_footer", isEnableWebFooter)
+                            .putBoolean("hide_web_footer", !isEnableWebFooter)
                             .apply()
                     },
-                    label = { Text("Hide Footers") },
+                    label = { Text("Enable Footers") },
                     leadingIcon = {
                         Icon(
-                            if (hideWebFooter) Icons.Filled.Check else Icons.Outlined.VisibilityOff,
+                            if (isEnableWebFooter) Icons.Filled.Check else Icons.Outlined.CallToAction,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -981,8 +983,8 @@ fun BuildScreen(
                                         allowCopying = allowCopying,
                                         isForceDarkMode = isForceDarkMode,
                                         enableZoom = enableZoom,
-                                        enableWebFooter = !hideWebFooter,
-                                        hideWebFooter = hideWebFooter,
+                                        enableWebFooter = isEnableWebFooter,
+                                        hideWebFooter = !isEnableWebFooter,
                                         keystorePassword = if (useCustomKeystore && keystorePassword.isNotBlank()) keystorePassword else null,
                                         keyAlias = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else null,
                                         commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,
@@ -1037,8 +1039,8 @@ fun BuildScreen(
                                                         allowCopying = allowCopying,
                                                         isForceDarkMode = isForceDarkMode,
                                                         enableZoom = enableZoom,
-                                                        enableWebFooter = !hideWebFooter,
-                                                        hideWebFooter = hideWebFooter,
+                                                        enableWebFooter = isEnableWebFooter,
+                                                        hideWebFooter = !isEnableWebFooter,
                                                         apkPath = resultPath,
                                                         iconPath = savedIconPath
                                                     )
@@ -1186,7 +1188,7 @@ fun BuildScreen(
                                 onForceDarkModeChange(false)
                                 onEnableZoomChange(false)
                                 onAllowCopyingChange(false)
-                                hideWebFooter = true
+                                isEnableWebFooter = false
 
                                 useCustomDownloadFolder = false
                                 customDownloadFolder = ""

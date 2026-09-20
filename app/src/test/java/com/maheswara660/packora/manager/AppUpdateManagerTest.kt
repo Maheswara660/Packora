@@ -11,24 +11,26 @@ class AppUpdateManagerTest {
     @Test
     fun testIsNewerVersion() {
         // Newer versions
-        assertTrue(AppUpdateManager.isNewerVersion("3.2.1", "3.2.2"))
-        assertTrue(AppUpdateManager.isNewerVersion("3.2.0", "3.2.2"))
-        assertTrue(AppUpdateManager.isNewerVersion("3.1.1", "3.2.2"))
-        assertTrue(AppUpdateManager.isNewerVersion("3.0.0", "3.2.2"))
-        assertTrue(AppUpdateManager.isNewerVersion("3.0.0", "v3.2.2"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.2.2", "3.2.3"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.2.1", "3.2.3"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.2.0", "3.2.3"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.1.1", "3.2.3"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.0.0", "3.2.3"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.0.0", "v3.2.3"))
         assertTrue(AppUpdateManager.isNewerVersion("v3.0.0", "v4.0.0"))
         assertTrue(AppUpdateManager.isNewerVersion("3.0", "3.0.1"))
         assertTrue(AppUpdateManager.isNewerVersion("2.9.9", "3.0.0"))
 
         // Same version
-        assertFalse(AppUpdateManager.isNewerVersion("3.2.2", "3.2.2"))
-        assertFalse(AppUpdateManager.isNewerVersion("3.2.2", "v3.2.2"))
-        assertFalse(AppUpdateManager.isNewerVersion("v3.2.2", "3.2.2"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "3.2.3"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "v3.2.3"))
+        assertFalse(AppUpdateManager.isNewerVersion("v3.2.3", "3.2.3"))
 
         // Older versions
-        assertFalse(AppUpdateManager.isNewerVersion("3.2.2", "3.2.1"))
-        assertFalse(AppUpdateManager.isNewerVersion("3.2.2", "3.2.0"))
-        assertFalse(AppUpdateManager.isNewerVersion("3.2.2", "3.1.1"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "3.2.2"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "3.2.1"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "3.2.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("3.2.3", "3.1.1"))
         assertFalse(AppUpdateManager.isNewerVersion("3.0.1", "3.0.0"))
         assertFalse(AppUpdateManager.isNewerVersion("4.0.0", "v3.5.0"))
     }

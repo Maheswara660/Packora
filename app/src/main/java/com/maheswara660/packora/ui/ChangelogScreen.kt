@@ -31,9 +31,24 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "3.2.2",
+        version = "3.2.3",
         date = "September 20, 2026",
         isLatest = true,
+        summary = "Full Markdown Compiler, Accurate Template Feature Flags & Updates Hub Flag Alignment",
+        changes = listOf(
+            "Complete Markdown Compiler Engine: Rewrote MarkdownText into a full AST-based markdown compiler supporting headings (# to ######), fenced code blocks with language tags and one-tap copy, blockquotes with GitHub-style callouts ([!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]), task lists, ordered & unordered lists, tables, dividers, and clickable hyperlinks.",
+            "Spacious Release Notes in Update Sheets: Upgraded the Check for Updates bottom sheet with an expanded, scrollable release notes container so changelogs can be reviewed clearly without truncation.",
+            "Force Dark Mode System Sync: Aligned Force Dark to accurately switch light and dark modes based on the device's system theme when enabled, and stay in normal mode when disabled.",
+            "Enable Footers Flag Alignment: Realigned the flag to 'Enable Footers'. When enabled, footers are shown and preserved; when disabled, footers are cleanly hidden via the CSS/DOM hider engine.",
+            "Text Copy Active Unlock: When Text Copy is enabled, WebAPKs actively override CSS user-select and unblock copy event listeners so text selection works seamlessly on restricted web pages.",
+            "Desktop UA Viewport Optimization: Desktop mode now configures desktop User-Agent along with wide viewport and overview layout for seamless desktop-grade web rendering.",
+            "Updates Hub Flag Preservation: Verified and aligned all 5 feature flags across batch update, single update, and recompile build invocations in the My Apps & Updates Hub."
+        )
+    ),
+    ReleaseItem(
+        version = "3.2.2",
+        date = "September 20, 2026",
+        isLatest = false,
         summary = "Full BottomSheet Expansion, Robust Web Footer Hiding Engine & Feature Flag Synchronization",
         changes = listOf(
             "Full BottomSheet Expansion: Changelog and What's New bottom sheets now open completely expanded on launch without requiring manual dragging, achieving parity with all modal menus in Packora.",

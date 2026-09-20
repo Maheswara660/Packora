@@ -1170,7 +1170,7 @@ fun AppUpdateBottomSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 220.dp)
+                            .heightIn(min = 120.dp, max = 360.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             .verticalScroll(rememberScrollState())

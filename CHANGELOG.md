@@ -2,6 +2,21 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.2.3] - 2026-09-20
+### Added & Enhanced
+- **Complete Markdown Compiler Engine**:
+  - **Full AST Block Parsing**: Rewrote `MarkdownText` into a full-featured AST markdown compiler supporting headings (`#` to `######`), fenced code blocks with language indicators, blockquotes with GitHub-style callouts (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`), task lists (`- [ ]`, `- [x]`), ordered and unordered lists, tables, and horizontal dividers.
+  - **Interactive Features**: Added one-tap copy buttons to fenced code blocks with copy confirmation feedback and clickable links with `LinkAnnotation.Url` that open directly in the user's browser.
+  - **Spacious Update Bottom Sheet**: Expanded the release notes container in the Check for Updates bottom sheet to allow full, scrollable viewing of release notes without truncation.
+- **Accurate Template Feature Flags**:
+  - **Force Dark Mode System Sync**: Corrected algorithmic darkening logic so that Force Dark accurately switches light/dark modes based on the device's system night mode (`forceDarkMode && isNightMode`) when enabled, and stays disabled when turned off.
+  - **Enable Footers Flag Alignment**: Standardized the flag as "Enable Footers". When enabled, footers are preserved and shown; when disabled, footers are hidden via the CSS/DOM footer hider engine.
+  - **Text Copy Active Unlock**: When Text Copy is enabled, WebAPKs inject active CSS override rules (`user-select: text !important`) and unblock copy event listeners to ensure text copying works on restricted websites.
+  - **Desktop UA Viewport Optimization**: Desktop mode configures desktop User-Agent along with wide viewport (`width=1024`) and overview mode for true desktop-grade web layout.
+  - **Pinch Zoom Viewport Overrides**: Overrides restrictive viewport meta tags (`user-scalable=no`) so pinch-to-zoom functions reliably across all mobile sites.
+- **Updates Hub Flag Alignment**:
+  - **Consistent Flag Preservation**: Verified and aligned all 5 flags across batch update, single update, and recompile build invocations in the My Apps & Updates Hub.
+
 ## [3.2.2] - 2026-09-20
 ### Fixed & Enhanced
 - **Full BottomSheet Expansion Parity Across Menus**:

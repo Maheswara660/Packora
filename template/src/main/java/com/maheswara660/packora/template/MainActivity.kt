@@ -705,7 +705,7 @@ class MainActivity : ComponentActivity() {
         val settings = binding.webView.settings
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                val shouldDarken = forceDarkMode || isNightMode
+                val shouldDarken = forceDarkMode && isNightMode
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                     WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, shouldDarken)
                 } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
@@ -748,20 +748,23 @@ class MainActivity : ComponentActivity() {
         val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
         forceDarkMode = webViewConfig?.optBoolean("forceDarkMode", false) ?: false
         enableZoom = webViewConfig?.optBoolean("enableZoom", false) ?: false
-        hideWebFooter = if (webViewConfig?.has("hideWebFooter") == true) {
-            webViewConfig.optBoolean("hideWebFooter", true)
+        val enableWebFooter = if (webViewConfig?.has("enableWebFooter") == true) {
+            webViewConfig.optBoolean("enableWebFooter", false)
+        } else if (webViewConfig?.has("hideWebFooter") == true) {
+            !webViewConfig.optBoolean("hideWebFooter", true)
         } else {
-            !(webViewConfig?.optBoolean("enableWebFooter", false) ?: false)
+            false
         }
+        hideWebFooter = !enableWebFooter
 
         settings.setSupportZoom(enableZoom)
         settings.builtInZoomControls = enableZoom
         settings.displayZoomControls = false
 
-        // Force Dark / Algorithmic Darkening
+        // Force Dark / Algorithmic Darkening (switches light/dark modes based on system when enabled)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                val shouldDarken = forceDarkMode || isNightMode
+                val shouldDarken = forceDarkMode && isNightMode
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                     WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, shouldDarken)
                 } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
@@ -795,8 +798,8 @@ class MainActivity : ComponentActivity() {
         } else {
             // Clean standard Chrome User Agent so Google OAuth and auth flows work seamlessly without 403
             settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
-            settings.useWideViewPort = false
-            settings.loadWithOverviewMode = false
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
         }
 
         // Strip X-Requested-With header to prevent Google and OAuth providers from returning 403 disallowed_useragent
@@ -869,7 +872,9 @@ class MainActivity : ComponentActivity() {
                         """.trimIndent(), null
                     )
                 }
-                if (!allowCopying) {
+                if (allowCopying) {
+                    injectEnableCopying(view)
+                } else {
                     injectCopyProtection(view)
                 }
 
@@ -932,7 +937,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                if (!allowCopying) {
+                if (allowCopying) {
+                    injectEnableCopying(view)
+                } else {
                     injectCopyProtection(view)
                 }
 
@@ -2056,11 +2063,40 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun injectEnableCopying(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    var prot = document.getElementById('packora-copy-protection');
+                    if (prot) prot.remove();
+
+                    var style = document.getElementById('packora-enable-copying');
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = 'packora-enable-copying';
+                        style.innerHTML = '* { -webkit-user-select: text !important; user-select: text !important; -webkit-touch-callout: default !important; }';
+                        (document.head || document.documentElement).appendChild(style);
+                    }
+                    ['copy', 'cut', 'contextmenu', 'selectstart'].forEach(function(evt) {
+                        document.addEventListener(evt, function(e) {
+                            e.stopImmediatePropagation();
+                        }, true);
+                    });
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
+    }
+
     private fun injectCopyProtection(webView: WebView?) {
         webView?.evaluateJavascript(
             """
             (function() {
                 try {
+                    var en = document.getElementById('packora-enable-copying');
+                    if (en) en.remove();
+
                     var style = document.getElementById('packora-copy-protection');
                     if (!style) {
                         style = document.createElement('style');

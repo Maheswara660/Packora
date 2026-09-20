@@ -2,6 +2,21 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.2.2] - 2026-09-20
+### Fixed & Enhanced
+- **Full BottomSheet Expansion Parity Across Menus**:
+  - **Complete Expansion on Open**: Resolved partial-height opening in `LatestChangelogBottomSheet` by configuring `rememberModalBottomSheetState(skipPartiallyExpanded = true)`. Changelog and What's New dialogs now open fully expanded without requiring manual drag interaction, achieving complete behavioral consistency across all bottom sheets in Packora.
+- **Web Footer Hiding Engine Overhaul**:
+  - **Instant Head CSS Injection**: Injected immediate stylesheet rules targeting semantic `<footer>`, `[role="contentinfo"]`, `#footer`, and common footer classes during both `onPageStarted` and `onPageFinished`, completely preventing footer pop-in.
+  - **Refined DOM Cleaner**: Removed the overly aggressive check where newsletter forms, search inputs, or footer navigation links disabled footer hiding. Only genuine docked bottom navigation tab bars (`[role="tablist"]`) are preserved.
+  - **SPA Mutation Observer & Watchdog**: Added dynamic DOM monitoring with `MutationObserver` and periodic polling to catch and hide single-page app (SPA) footers rendered after initial page load.
+  - **Safe Config Default**: Fixed fallback config resolution in `setupWebView` so footers are hidden by default when `hideWebFooter` or `!enableWebFooter` is requested.
+- **Feature Flag Synchronization & Standardized Terminology**:
+  - **Standardized "Hide Footers" Chip**: Renamed the Build screen chip to "Hide Footers" (selected by default = `true`), matching the "Hide Footer" status badge in My Apps and build history.
+  - **Force Dark Mode Light Theme Fix**: Decoupled algorithmic darkening from the device system night mode so that `forceDarkMode` operates reliably even when the host system is in light mode (`forceDarkMode || isNightMode`).
+  - **Pinch Zoom Viewport Meta Override**: Dynamically rewrites mobile viewport meta tags (`user-scalable=no`) to `user-scalable=yes` and `maximum-scale=5.0` to guarantee pinch zoom works on all responsive sites when enabled.
+  - **ApkBuilder Fallback Parity**: Guaranteed that `hideWebFooter` and `enableWebFooter` are correctly written in both standard and fallback configuration branches during APK generation.
+
 ## [3.2.1] - 2026-09-20
 ### Fixed & Enhanced
 - **Universal Scheme Hijacking Elimination**:

@@ -92,7 +92,15 @@ fun BuildScreen(
 
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
-    var isEnableWebFooter by remember { mutableStateOf(sharedPrefs.getBoolean("enable_web_footer", false)) }
+    var hideWebFooter by remember {
+        mutableStateOf(
+            if (sharedPrefs.contains("hide_web_footer")) {
+                sharedPrefs.getBoolean("hide_web_footer", true)
+            } else {
+                !sharedPrefs.getBoolean("enable_web_footer", false)
+            }
+        )
+    }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
     var isFetchingIcon by remember { mutableStateOf(false) }
@@ -558,15 +566,18 @@ fun BuildScreen(
                 )
 
                 FilterChip(
-                    selected = isEnableWebFooter,
+                    selected = hideWebFooter,
                     onClick = {
-                        isEnableWebFooter = !isEnableWebFooter
-                        sharedPrefs.edit().putBoolean("enable_web_footer", isEnableWebFooter).apply()
+                        hideWebFooter = !hideWebFooter
+                        sharedPrefs.edit()
+                            .putBoolean("hide_web_footer", hideWebFooter)
+                            .putBoolean("enable_web_footer", !hideWebFooter)
+                            .apply()
                     },
-                    label = { Text("Enable Footers") },
+                    label = { Text("Hide Footers") },
                     leadingIcon = {
                         Icon(
-                            if (isEnableWebFooter) Icons.Filled.Check else Icons.Outlined.CallToAction,
+                            if (hideWebFooter) Icons.Filled.Check else Icons.Outlined.VisibilityOff,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -970,8 +981,8 @@ fun BuildScreen(
                                         allowCopying = allowCopying,
                                         isForceDarkMode = isForceDarkMode,
                                         enableZoom = enableZoom,
-                                        enableWebFooter = isEnableWebFooter,
-                                        hideWebFooter = !isEnableWebFooter,
+                                        enableWebFooter = !hideWebFooter,
+                                        hideWebFooter = hideWebFooter,
                                         keystorePassword = if (useCustomKeystore && keystorePassword.isNotBlank()) keystorePassword else null,
                                         keyAlias = if (useCustomKeystore && keyAlias.isNotBlank()) keyAlias else null,
                                         commonName = if (useCustomKeystore && commonName.isNotBlank()) commonName else null,
@@ -1026,7 +1037,8 @@ fun BuildScreen(
                                                         allowCopying = allowCopying,
                                                         isForceDarkMode = isForceDarkMode,
                                                         enableZoom = enableZoom,
-                                                        enableWebFooter = isEnableWebFooter,
+                                                        enableWebFooter = !hideWebFooter,
+                                                        hideWebFooter = hideWebFooter,
                                                         apkPath = resultPath,
                                                         iconPath = savedIconPath
                                                     )
@@ -1174,7 +1186,7 @@ fun BuildScreen(
                                 onForceDarkModeChange(false)
                                 onEnableZoomChange(false)
                                 onAllowCopyingChange(false)
-                                isEnableWebFooter = false
+                                hideWebFooter = true
 
                                 useCustomDownloadFolder = false
                                 customDownloadFolder = ""

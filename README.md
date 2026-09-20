@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.2.1</h1>
+<h1 align="center">Packora v3.2.2</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.2.1-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.2.1"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.2.2-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.2.2"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -30,7 +30,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.2.1](#-whats-new-in-v321)
+- [What's New in v3.2.2](#-whats-new-in-v322)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -82,21 +82,19 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.2.1
+## 🚀 What's New in v3.2.2
 
-- **Universal Scheme Hijacking Elimination**:
-  - Completely removed open-ended scheme-only intent filters (`<data android:scheme="https" />`) from `AxmlRebuilder` and `ApkBuilder`, ensuring WebAPKs never advertise themselves as universal device web browsers or hijack links in Chrome.
-  - Strict host-paired deep links ensure links only open in the specific app compiled for that domain (e.g. GitHub links open GitHub WebAPK).
-- **Cross-App WebAPK Isolation**:
-  - Excluded Packora packages and WebAPK activities from external native app delegation so WebAPKs never cross-launch or bounce between each other.
-  - Intra-domain links and query routes stay strictly locked within the current app's WebView.
-- **Auth, Login & Sign Up Sandboxing**:
-  - Comprehensive SSO and identity provider routes (Google, GitHub, Apple, Microsoft, Twitter/X, Discord, Auth0, Okta, Supabase, Firebase, Cognito, Keycloak, etc.) load directly inside the app WebView without triggering external app delegations.
-  - WebChromeClient `onCreateWindow` routes same-domain `target="_blank"` links directly into the primary WebView and wraps external OAuth popups in a safe, touch-responsive modal dialog with a visible Close button header and progress bar.
-- **Touch Freeze & Black Screen Fixes**:
-  - Eliminated unmanaged fullscreen dialogs that previously trapped touch focus and caused screens to become untouchable.
-  - Replaced transparent WebView backgrounds with solid theme backgrounds (`#FFFFFF` in light mode, `#121212` in dark mode, or dynamic webpage theme color), resolving GPU compositing failures and black screen dropouts.
-  - Added `android:taskAffinity=""` for complete task stack isolation across all generated WebAPKs.
+- **Full BottomSheet Expansion Across All Menus**:
+  - `LatestChangelogBottomSheet` now opens completely expanded on launch via `rememberModalBottomSheetState(skipPartiallyExpanded = true)`, eliminating half-collapsed states and matching all modal sheets in Packora.
+- **Robust Web Footer Hiding Engine Overhaul**:
+  - Injected instant stylesheet CSS (`footer, [role="contentinfo"], .site-footer, etc. { display: none !important; }`) into `<head>` during both `onPageStarted` and `onPageFinished` to immediately hide footers.
+  - Refined the DOM cleaner by removing overly aggressive form/input/nav exclusions that previously aborted footer hiding on sites with newsletter forms or search bars, while strictly preserving genuine docked bottom navigation tab bars.
+  - Integrated `MutationObserver` and periodic watchdog checks to instantly detect and eliminate dynamically rendered SPA footers.
+- **Feature Flag Synchronization & Standardized Terminology**:
+  - Realigned the Build Screen footer chip to **"Hide Footers"** (selected by default = `true`), seamlessly synchronizing with "Hide Footer" badges in My Apps and APK generation.
+  - Fixed Force Dark mode algorithmic darkening condition (`forceDarkMode || isNightMode`) so dark mode operates reliably regardless of whether the system theme is dark or light.
+  - Added dynamic mobile viewport meta tag overrides (`user-scalable=yes`, `maximum-scale=5.0`) when Pinch Zoom is enabled, ensuring zoom controls are never blocked by responsive websites.
+  - Guaranteed `hideWebFooter` and `enableWebFooter` serialization in all ApkBuilder fallback branches.
 
 ---
 
@@ -174,9 +172,9 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
 | **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
-| **Page Alignment** | In-House `ElfAligner16k` | `v3.2.1` | 16KB ELF boundary alignment |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.2.1` | Low-level byte-level binary manifest rewriter |
-| **Template Engine** | In-House `:template` Shell | `v3.2.1` | High-performance standalone WebAPK wrapper |
+| **Page Alignment** | In-House `ElfAligner16k` | `v3.2.2` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.2.2` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v3.2.2` | High-performance standalone WebAPK wrapper |
 
 ---
 
@@ -279,6 +277,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.2.1 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.2.2 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

@@ -285,6 +285,8 @@ class ApkBuilder(private val context: Context) {
                                 put("allowCopying", allowCopying)
                                 put("forceDarkMode", isForceDarkMode)
                                 put("enableZoom", enableZoom)
+                                put("enableWebFooter", enableWebFooter)
+                                put("hideWebFooter", hideWebFooter)
                                 if (isDesktopMode) {
                                     put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
                                 }

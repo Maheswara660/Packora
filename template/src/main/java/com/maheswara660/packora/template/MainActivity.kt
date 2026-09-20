@@ -89,6 +89,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var insetsController: WindowInsetsControllerCompat
     private var isNightMode: Boolean = false
     private var hideWebFooter: Boolean = false
+    private var forceDarkMode: Boolean = false
+    private var enableZoom: Boolean = false
     private lateinit var webView: WebView
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -703,13 +705,14 @@ class MainActivity : ComponentActivity() {
         val settings = binding.webView.settings
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
+                val shouldDarken = forceDarkMode || isNightMode
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isNightMode)
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, shouldDarken)
                 } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                     @Suppress("DEPRECATION")
                     WebSettingsCompat.setForceDark(
                         settings,
-                        if (isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                        if (shouldDarken) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
                     )
                 }
             } catch (e: Exception) { }
@@ -743,24 +746,29 @@ class MainActivity : ComponentActivity() {
         val webViewConfig = config?.optJSONObject("webViewConfig")
         val isDesktopMode = webViewConfig?.optBoolean("desktopMode", false) ?: false
         val allowCopying = webViewConfig?.optBoolean("allowCopying", false) ?: false
-        val forceDarkMode = webViewConfig?.optBoolean("forceDarkMode", false) ?: false
-        val enableZoom = webViewConfig?.optBoolean("enableZoom", false) ?: false
-        hideWebFooter = webViewConfig?.optBoolean("hideWebFooter", false) ?: false
+        forceDarkMode = webViewConfig?.optBoolean("forceDarkMode", false) ?: false
+        enableZoom = webViewConfig?.optBoolean("enableZoom", false) ?: false
+        hideWebFooter = if (webViewConfig?.has("hideWebFooter") == true) {
+            webViewConfig.optBoolean("hideWebFooter", true)
+        } else {
+            !(webViewConfig?.optBoolean("enableWebFooter", false) ?: false)
+        }
 
         settings.setSupportZoom(enableZoom)
         settings.builtInZoomControls = enableZoom
         settings.displayZoomControls = false
 
-        // Force Dark / Algorithmic Darkening (Only if explicitly enabled by user)
+        // Force Dark / Algorithmic Darkening
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
+                val shouldDarken = forceDarkMode || isNightMode
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDarkMode && isNightMode)
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, shouldDarken)
                 } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                     @Suppress("DEPRECATION")
                     WebSettingsCompat.setForceDark(
                         settings,
-                        if (forceDarkMode && isNightMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                        if (shouldDarken) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
                     )
                 }
             } catch (e: Exception) { }
@@ -865,6 +873,14 @@ class MainActivity : ComponentActivity() {
                     injectCopyProtection(view)
                 }
 
+                if (hideWebFooter) {
+                    injectWebFooterHider(view)
+                }
+
+                if (enableZoom) {
+                    injectZoomViewportOverride(view)
+                }
+
                 // Block window.open ad/gambling popunder redirects
                 view?.evaluateJavascript(
                     """
@@ -922,6 +938,10 @@ class MainActivity : ComponentActivity() {
 
                 if (hideWebFooter) {
                     injectWebFooterHider(view)
+                }
+
+                if (enableZoom) {
+                    injectZoomViewportOverride(view)
                 }
 
                 // Inject Google SSO button click interceptor & GIS client_id detector
@@ -2069,6 +2089,32 @@ class MainActivity : ComponentActivity() {
             """
             (function() {
                 try {
+                    // 1. Instant CSS style injection
+                    if (!document.getElementById('__packora_footer_style')) {
+                        var style = document.createElement('style');
+                        style.id = '__packora_footer_style';
+                        style.textContent = `
+                            footer, [role="contentinfo"], .site-footer, .main-footer, .page-footer, .global-footer, .app-footer,
+                            #footer, #colophon, .colophon, .footer-container, .footer-content, .footer-wrapper, .footer-bottom,
+                            div[class*="site-footer" i], div[class*="main-footer" i], div[class*="page-footer" i],
+                            div[class*="global-footer" i], div[class*="copyright" i], p[class*="copyright" i],
+                            section[class*="site-footer" i], section[class*="main-footer" i] {
+                                display: none !important;
+                                visibility: hidden !important;
+                                height: 0px !important;
+                                min-height: 0px !important;
+                                max-height: 0px !important;
+                                margin: 0px !important;
+                                padding: 0px !important;
+                                opacity: 0 !important;
+                                overflow: hidden !important;
+                                pointer-events: none !important;
+                            }
+                        `;
+                        (document.head || document.documentElement).appendChild(style);
+                    }
+
+                    // 2. Intelligent DOM cleaner
                     function queryAll(selector, root) {
                         root = root || document;
                         var list = [];
@@ -2099,98 +2145,52 @@ class MainActivity : ComponentActivity() {
                         return false;
                     };
 
-                        var selectors = [
-                            'footer', '#footer', '[id*="footer" i]', '#colophon', '.colophon', '[id*="colophon" i]',
-                            '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.sub-footer', '.footer',
-                            '[class*="footer" i]', '[class*="Footer" i]', '[class*="subfooter" i]', '[class*="prefooter" i]',
-                            '[class*="fat-footer" i]', '[class*="socket" i]', '[class*="site-bottom" i]', '[class*="attribution" i]',
-                            'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
-                            'div[class*="copyright" i]', 'section[class*="copyright" i]', 'p[class*="copyright" i]', 'span[class*="copyright" i]',
-                            'div[class*="site-info" i]', 'div[class*="legal" i]', 'section[class*="legal" i]', 'div[class*="policy" i]', 'section[class*="policy" i]',
-                            'div[class*="disclaimer" i]', 'section[class*="disclaimer" i]', 'div[id*="disclaimer" i]',
-                            'div[data-component*="footer" i]', 'div[data-test-id*="footer" i]', 'div[data-testid*="footer" i]', 'div[data-cy*="footer" i]',
-                            '[data-section="footer"]', '[data-area="footer"]', '[data-widget-type="footer"]',
-                            '[aria-label*="footer" i]', '.cookie-banner', '.privacy-banner', '.gdpr-banner', '.ccpa-banner', '.consent-banner',
-                            '.footer-container', '.footer-wrapper', '.footer-content', '.footer-links', '.footer-nav', '.footer-bottom', '.bottom-footer',
-                            '.site-subfooter', '.site_footer'
-                        ];
-                        
-                        var keywords = [
-                            // Copyright & Ownership
-                            '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
-                            'all trademarks are property', 'registered trademark', 'trademark notice', 'intellectual property',
-                            'licensed under', 'mit license', 'apache license',
-                            
-                            // Terms, Privacy & Cookies
-                            'terms', 'privacy', 'cookie', 'cookies', 'security', 'status', 'legal', 'disclaimer', 'imprint', 'impressum',
-                            'privacy policy', 'terms of service', 'terms of use', 'terms & conditions', 'site policy', 'code of conduct',
-                            'content policy', 'user agreement', 'manage cookies', 'cookie preferences', 'cookie choices', 'cookie settings',
-                            'privacy notice', 'refund policy', 'shipping policy', 'return policy', 'cancellation policy', 'delivery information',
-                            'acceptable use policy', 'community guidelines', 'whistleblower policy', 'modern slavery statement',
-                            
-                            // Regulatory, Compliance & Consumer Privacy
-                            'do not share my personal', 'do not sell', 'do not sell or share', 'do not sell my personal', 'your privacy choices',
-                            'california consumer privacy', 'california privacy notice', 'ccpa', 'gdpr', 'uk gdpr', 'lgpd', 'privacy shield',
-                            'regulatory disclosures', 'regulatory info', 'accessibility statement', 'accessibility policy', 'accessibility notice',
-                            'terms of sale', 'commercial terms', 'merchant agreement', 'dispute resolution', 'consumer rights',
-                            
-                            // Disclaimers, Ads & Trust Disclosures
-                            'earnings disclaimer', 'medical disclaimer', 'financial disclaimer', 'risk warning', 'general advice warning',
-                            'affiliate disclosure', 'affiliate program', 'sponsored content', 'advertising disclosures', 'ad choices', 'interest-based ads',
-                            'responsible disclosure', 'vulnerability reporting', 'trust center', 'compliance', 'security policy',
-                            
-                            // CMS & Framework Credits
-                            'powered by', 'built with', 'proudly powered by', 'published with', 'hosted by', 'created with', 'designed by',
-                            'powered by wordpress', 'powered by shopify', 'powered by ghost', 'powered by webflow', 'powered by squarespace', 'built with framer',
-                            'powered by wix', 'running on', 'powered by discourse', 'powered by vbulletin',
-                            
-                            // Corporate, Press & Site Info
-                            'sitemap', 'site map', 'contact us', 'about us', 'help center', 'documentation', 'editorial guidelines',
-                            'system status', 'footer navigation', 'investor relations', 'press releases', 'press center', 'media kit', 'newsroom',
-                            'careers', 'work with us', 'job openings', 'hiring', 'corporate information', 'company details',
+                    var selectors = [
+                        'footer', '#footer', '[id*="footer" i]', '#colophon', '.colophon', '[id*="colophon" i]',
+                        '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.sub-footer', '.footer',
+                        '[class*="footer" i]', '[class*="Footer" i]', '[class*="subfooter" i]', '[class*="prefooter" i]',
+                        '[class*="fat-footer" i]', '[class*="socket" i]', '[class*="site-bottom" i]', '[class*="attribution" i]',
+                        'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
+                        'div[class*="copyright" i]', 'section[class*="copyright" i]', 'p[class*="copyright" i]', 'span[class*="copyright" i]',
+                        'div[class*="site-info" i]', 'div[class*="legal" i]', 'section[class*="legal" i]', 'div[class*="policy" i]', 'section[class*="policy" i]',
+                        'div[class*="disclaimer" i]', 'section[class*="disclaimer" i]', 'div[id*="disclaimer" i]',
+                        'div[data-component*="footer" i]', 'div[data-test-id*="footer" i]', 'div[data-testid*="footer" i]', 'div[data-cy*="footer" i]',
+                        '[data-section="footer"]', '[data-area="footer"]', '[data-widget-type="footer"]',
+                        '[aria-label*="footer" i]', '.cookie-banner', '.privacy-banner', '.gdpr-banner', '.ccpa-banner', '.consent-banner',
+                        '.footer-container', '.footer-wrapper', '.footer-content', '.footer-links', '.footer-nav', '.footer-bottom', '.bottom-footer',
+                        '.site-subfooter', '.site_footer'
+                    ];
+                    
+                    var keywords = [
+                        '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
+                        'terms', 'privacy', 'cookie', 'cookies', 'security', 'status', 'legal', 'disclaimer', 'imprint', 'impressum',
+                        'privacy policy', 'terms of service', 'terms of use', 'terms & conditions', 'site policy', 'manage cookies',
+                        'do not sell', 'your privacy choices', 'ccpa', 'gdpr', 'affiliate disclosure', 'powered by', 'built with',
+                        'sitemap', 'site map', 'contact us', 'about us', 'help center', 'footer navigation',
+                        'subscribe to our newsletter', 'newsletter signup', 'sign up for newsletter',
+                        'haftungsausschluss', 'datenschutz', 'mentions légales', 'politique de confidentialité',
+                        'términos y condiciones', 'política de privacidad', 'informativa sulla privacy',
+                        'termos de uso', 'algemene voorwaarden', 'användarvillkor', 'regulamin',
+                        'все права защищены', '版权所有', '無断転載を禁じます', '모든 권리 보유', 'सर्वाधिकार सुरक्षित'
+                    ];
 
-                            // Newsletter / Subscription Footers
-                            'subscribe to our newsletter', 'stay connected', 'get our latest updates', 'newsletter signup', 'sign up for newsletter',
-                            
-                            // Multilingual Legal Notices
-                            // German
-                            'haftungsausschluss', 'datenschutz', 'datenschutzerklärung', 'allgemeine geschäftsbedingungen', 'agb', 'alle rechte vorbehalten',
-                            // French
-                            'mentions légales', 'politique de confidentialité', 'conditions générales', 'tous droits réservés', 'gestion des cookies',
-                            // Spanish
-                            'términos y condiciones', 'política de privacidad', 'aviso legal', 'política de cookies', 'todos los derechos reservados',
-                            // Italian
-                            'termini e condizioni', 'informativa sulla privacy', 'tutti i diritti riservati', 'note legali',
-                            // Portuguese
-                            'termos de uso', 'todos os direitos reservados', 'preferências de cookies', 'política de privacidade',
-                            // Dutch
-                            'algemene voorwaarden', 'privacybeleid', 'alle rechten voorbehouden',
-                            // Swedish
-                            'användarvillkor', 'integritetspolicy', 'alla rättigheter förbehållna',
-                            // Polish
-                            'regulamin', 'polityka prywatności', 'wszystkie prawa zastrzeżone',
-                            // Russian
-                            'все права защищены', 'политика конфиденциальности', 'пользовательское соглашение',
-                            // Chinese
-                            '版权所有', '保留所有权利', '隐私政策', '服务条款', '使用条款',
-                            // Japanese
-                            '無断転載を禁じます', 'プライバシーポリシー', '利用規約', '特定商取引法に基づく表記',
-                            // Korean
-                            '모든 권리 보유', '개인정보처리방침', '이용약관',
-                            // Hindi
-                            'सर्वाधिकार सुरक्षित', 'गोपनीयता नीति', 'नियम और शर्तें'
-                        ];
-                        
+                    var hideInfoFooters = function() {
                         var footerCandidates = queryAll(selectors.join(', '));
                         footerCandidates.forEach(function(el) {
+                            var tag = (el.tagName || '').toUpperCase();
+                            var role = (el.getAttribute('role') || '').toLowerCase();
+                            var id = (el.id || '').toLowerCase();
+                            var bottomDocked = isBottomDocked(el);
+
+                            // Only protect genuine app bottom navigation tab bars (e.g. fixed bottom bar with tabs)
+                            var isAppTabBar = bottomDocked && el.querySelector('[role="tablist"], [class*="tab-bar" i], [class*="tabbar" i], [class*="bottom-nav" i]');
+                            if (isAppTabBar) return;
+
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
-                            var bottomDocked = isBottomDocked(el);
-                            
-                            // Protection safeguard: Do NOT hide if element contains tab bars, chat inputs, or app controls
-                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i], [class*="bottom-nav" i]');
-                            
-                            if ((hasInfoKeyword || (bottomDocked && keywords.slice(0, 10).some(function(kw) { return text.includes(kw); }))) && !isAppNav) {
+                            var isSemanticFooter = (tag === 'FOOTER' || role === 'contentinfo' || id === 'footer');
+
+                            if (isSemanticFooter || hasInfoKeyword || (bottomDocked && keywords.slice(0, 10).some(function(kw) { return text.includes(kw); }))) {
                                 el.style.setProperty('display', 'none', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');
@@ -2200,13 +2200,37 @@ class MainActivity : ComponentActivity() {
                                 el.style.setProperty('visibility', 'hidden', 'important');
                                 el.style.setProperty('opacity', '0', 'important');
                                 el.style.setProperty('overflow', 'hidden', 'important');
+                                el.style.setProperty('pointer-events', 'none', 'important');
                             }
                         });
                     };
+
                     hideInfoFooters();
-                    var observer = new MutationObserver(hideInfoFooters);
-                    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-                    setInterval(hideInfoFooters, 1500);
+                    if (!window.__packora_footer_observer) {
+                        window.__packora_footer_observer = new MutationObserver(hideInfoFooters);
+                        window.__packora_footer_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                        setInterval(hideInfoFooters, 1500);
+                    }
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
+    }
+
+    private fun injectZoomViewportOverride(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    var metas = document.querySelectorAll('meta[name="viewport"]');
+                    metas.forEach(function(meta) {
+                        var content = meta.getAttribute('content') || '';
+                        if (content.includes('user-scalable=no') || content.includes('maximum-scale=1')) {
+                            content = content.replace(/user-scalable\s*=\s*no/gi, 'user-scalable=yes')
+                                             .replace(/maximum-scale\s*=\s*[0-9.]+/gi, 'maximum-scale=5.0');
+                            meta.setAttribute('content', content);
+                        }
+                    });
                 } catch(e) {}
             })();
             """.trimIndent(), null

@@ -31,9 +31,23 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "3.2.1",
+        version = "3.2.2",
         date = "September 20, 2026",
         isLatest = true,
+        summary = "Full BottomSheet Expansion, Robust Web Footer Hiding Engine & Feature Flag Synchronization",
+        changes = listOf(
+            "Full BottomSheet Expansion: Changelog and What's New bottom sheets now open completely expanded on launch without requiring manual dragging, achieving parity with all modal menus in Packora.",
+            "Web Footer Hiding Engine Overhaul: Injected instant head CSS rules during onPageStarted and onPageFinished, plus refined the DOM cleaner with MutationObserver to reliably eliminate footers without breaking fixed bottom navigation bars.",
+            "Feature Flag Synchronization & Standardized Terminology: Realigned the Build Screen footer chip to 'Hide Footers' (selected by default = true), matching the 'Hide Footer' badges in My Apps and APK configurations.",
+            "Force Dark Mode Light Theme Fix: Fixed algorithmic darkening condition so Force Dark operates reliably regardless of whether the system theme is dark or light.",
+            "Pinch Zoom Viewport Meta Override: Dynamically overrides mobile viewport meta tags to ensure pinch zoom works on all responsive websites when enabled.",
+            "ApkBuilder Fallback Parity: Ensured footer hiding configuration is correctly written across all APK rebuilder and fallback paths."
+        )
+    ),
+    ReleaseItem(
+        version = "3.2.1",
+        date = "September 20, 2026",
+        isLatest = false,
         summary = "WebAPK Deep Link Isolation, Anti-Hijacking Fixes, Auth & Login Sandboxing & Touch Freeze Elimination",
         changes = listOf(
             "Complete Removal of Universal Scheme Hijacking: Eliminated open-ended scheme-only intent filters from AxmlRebuilder and ApkBuilder so WebAPKs never hijack unrelated web links in Chrome or external apps.",
@@ -369,8 +383,10 @@ fun LatestChangelogBottomSheet(
     release: ReleaseItem = getLatestRelease(),
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         dragHandle = { BottomSheetDefaults.DragHandle() }

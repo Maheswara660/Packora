@@ -21,6 +21,7 @@ data class HistoryItem(
     val isForceDarkMode: Boolean = false,
     val enableZoom: Boolean = false,
     val enableWebFooter: Boolean = false,
+    val hideWebFooter: Boolean = !enableWebFooter,
     val disableHeader: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null,
@@ -49,6 +50,8 @@ class BuildHistoryManager(context: Context) {
             val list = mutableListOf<HistoryItem>()
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
+                val enableFooter = obj.optBoolean("enableWebFooter", false)
+                val hideFooter = if (obj.has("hideWebFooter")) obj.optBoolean("hideWebFooter", true) else !enableFooter
                 list.add(
                     HistoryItem(
                         id = obj.optString("id", UUID.randomUUID().toString()),
@@ -62,7 +65,8 @@ class BuildHistoryManager(context: Context) {
                         allowCopying = obj.optBoolean("allowCopying", false),
                         isForceDarkMode = obj.optBoolean("isForceDarkMode", false),
                         enableZoom = obj.optBoolean("enableZoom", false),
-                        enableWebFooter = obj.optBoolean("enableWebFooter", false),
+                        enableWebFooter = enableFooter,
+                        hideWebFooter = hideFooter,
                         disableHeader = obj.optBoolean("disableHeader", true),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
@@ -110,6 +114,7 @@ class BuildHistoryManager(context: Context) {
                 put("isForceDarkMode", item.isForceDarkMode)
                 put("enableZoom", item.enableZoom)
                 put("enableWebFooter", item.enableWebFooter)
+                put("hideWebFooter", item.hideWebFooter)
                 put("disableHeader", item.disableHeader)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)

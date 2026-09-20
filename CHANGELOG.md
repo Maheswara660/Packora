@@ -2,6 +2,22 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.3.0] - 2026-09-20
+### Added & Enhanced
+- **Continuous 1..100% Build Progression**:
+  - **Smooth Step-by-Step Progress**: Eliminated jarring jumping compilation progress across all compiling screens (`BuildScreen`, My Apps single update, batch update, and recompile dialog).
+  - **Strict Incremental Ticking**: Progress strictly ticks 1% at a time (`1, 2, 3... 100%`) without skipping values, smoothly pacing through compilation phases and holding briefly at 100% before completion transitions.
+- **Dashboard Footer Flag Default OFF & Vibrant Theme**:
+  - **Default OFF Configuration**: Initialized the "Enable Footers" chip on the dashboard to default `false` (OFF).
+  - **Vibrant Blue Tonal Styling**: When toggled ON, the chip turns rich, vibrant primary blue (`primaryContainer` / `primary`) with clear visual elevation.
+- **Balanced 2-Buttons-Per-Row Grid in App Cards**:
+  - **Two Buttons Per Row**: Reorganized previously congested single-row action buttons in both `MyAppsScreen` and `HistoryScreen` cards into a structured, symmetrical two-buttons-per-row grid.
+  - **Full Button Delete & Uninstall**: Replaced tiny icon buttons with prominent full-width/weighted "Uninstall" and "Remove" action buttons styled with error-tonal container accents.
+- **History Screen Delete Confirmation BottomSheet**:
+  - **Comprehensive Confirmation Dialog**: Added a dedicated `ModalBottomSheet` for confirming deletion of history build records, featuring app icon, package name, version details, and safety warning matching the My Apps uninstall dialog.
+- **History Screen Dedicated Refresh Action**:
+  - **Convenient TopBar Placement**: Added a dedicated Refresh button in the Build History top bar positioned squarely between Sort and Clear History for quick, manual list refreshes.
+
 ## [3.2.3] - 2026-09-20
 ### Added & Enhanced
 - **Complete Markdown Compiler Engine**:

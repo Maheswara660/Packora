@@ -93,15 +93,7 @@ fun BuildScreen(
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
     var isEnableWebFooter by remember {
-        mutableStateOf(
-            if (sharedPrefs.contains("enable_web_footer")) {
-                sharedPrefs.getBoolean("enable_web_footer", false)
-            } else if (sharedPrefs.contains("hide_web_footer")) {
-                !sharedPrefs.getBoolean("hide_web_footer", true)
-            } else {
-                false
-            }
-        )
+        mutableStateOf(sharedPrefs.getBoolean("enable_web_footer", false))
     }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
@@ -125,11 +117,16 @@ fun BuildScreen(
     var targetProgressPercent by remember { mutableIntStateOf(0) }
     var animatedProgressPercent by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(isBuilding, targetProgressPercent) {
+    LaunchedEffect(isBuilding) {
         if (isBuilding) {
-            while (animatedProgressPercent < targetProgressPercent && animatedProgressPercent <= 100) {
-                animatedProgressPercent++
-                delay(12)
+            animatedProgressPercent = 1
+            while (isBuilding && animatedProgressPercent < 100) {
+                val target = targetProgressPercent
+                val maxAllowed = if (target >= 100) 100 else minOf(maxOf(target, animatedProgressPercent + 1), 92)
+                if (animatedProgressPercent < maxAllowed) {
+                    animatedProgressPercent++
+                }
+                delay(if (target >= 100) 8L else 20L)
             }
         } else {
             animatedProgressPercent = 0
@@ -584,6 +581,11 @@ fun BuildScreen(
                             modifier = Modifier.size(16.dp)
                         )
                     },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                    ),
                     shape = RoundedCornerShape(16.dp)
                 )
             }
@@ -1002,8 +1004,9 @@ fun BuildScreen(
                                         targetProgressPercent = 100
                                         coroutineScope.launch {
                                             while (animatedProgressPercent < 100) {
-                                                delay(12)
+                                                delay(10)
                                             }
+                                            delay(200)
                                             isBuilding = false
                                             if (resultPath != null) {
                                                 lastBuiltApkPath = resultPath

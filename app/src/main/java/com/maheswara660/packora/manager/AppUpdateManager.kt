@@ -52,13 +52,13 @@ object AppUpdateManager {
                 context.packageManager.getPackageInfo(
                     context.packageName,
                     PackageManager.PackageInfoFlags.of(0)
-                ).versionName ?: "3.2.3"
+                ).versionName ?: "3.3.0"
             } else {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.2.3"
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.3.0"
             }
         } catch (e: Exception) {
-            "3.2.3"
+            "3.3.0"
         }
     }
 

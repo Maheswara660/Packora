@@ -52,10 +52,12 @@ import com.maheswara660.packora.manager.PackoraPreferencesManager
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 enum class AppSortMode {
     NAME_AZ, NEWEST, UPDATES_FIRST
@@ -202,8 +204,23 @@ fun MyAppsScreen(
             toUpdate.forEachIndexed { index, app ->
                 val item = app.historyItem ?: return@forEachIndexed
                 buildingPackages.add(app.packageName)
-                buildProgress[app.packageName] = 0
+                buildProgress[app.packageName] = 1
                 updateAllProgressText = "Compiling ${index + 1}/${toUpdate.size}: ${app.appName}..."
+
+                val isBuildFinished = AtomicBoolean(false)
+                var currentProgress = 1
+                val tickerJob = launch(Dispatchers.Default) {
+                    while (currentProgress < 100) {
+                        val maxAllowed = if (isBuildFinished.get()) 100 else minOf(currentProgress + 1, 92)
+                        if (currentProgress < maxAllowed) {
+                            currentProgress++
+                            withContext(Dispatchers.Main) {
+                                buildProgress[app.packageName] = currentProgress
+                            }
+                        }
+                        delay(if (isBuildFinished.get()) 8L else 20L)
+                    }
+                }
 
                 val newVersionCode = item.versionCode + 1
                 val newVersionName = incrementVersionString(item.versionName)
@@ -247,8 +264,7 @@ fun MyAppsScreen(
                             organization = null,
                             organizationalUnit = null,
                             validityYears = 25,
-                            keyPassword = null,
-                            onProgress = { pct, _ -> Handler(Looper.getMainLooper()).post { buildProgress[app.packageName] = pct } }
+                            keyPassword = null
                         )?.also { path ->
                             historyManager.addHistoryItem(
                                 item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
@@ -257,8 +273,14 @@ fun MyAppsScreen(
                     } catch (e: Exception) { null }
                 }
 
+                isBuildFinished.set(true)
+                tickerJob.join()
+                withContext(Dispatchers.Main) {
+                    buildProgress[app.packageName] = 100
+                }
+                delay(200L)
+
                 buildingPackages.remove(app.packageName)
-                buildProgress[app.packageName] = 100
 
                 if (resultPath != null) {
                     compiledTasks.add(
@@ -298,7 +320,22 @@ fun MyAppsScreen(
         val item = app.historyItem ?: return
         coroutineScope.launch {
             buildingPackages.add(app.packageName)
-            buildProgress[app.packageName] = 0
+            buildProgress[app.packageName] = 1
+
+            val isBuildFinished = AtomicBoolean(false)
+            var currentProgress = 1
+            val tickerJob = launch(Dispatchers.Default) {
+                while (currentProgress < 100) {
+                    val maxAllowed = if (isBuildFinished.get()) 100 else minOf(currentProgress + 1, 92)
+                    if (currentProgress < maxAllowed) {
+                        currentProgress++
+                        withContext(Dispatchers.Main) {
+                            buildProgress[app.packageName] = currentProgress
+                        }
+                    }
+                    delay(if (isBuildFinished.get()) 8L else 20L)
+                }
+            }
 
             val newVersionCode = item.versionCode + 1
             val newVersionName = incrementVersionString(item.versionName)
@@ -342,8 +379,7 @@ fun MyAppsScreen(
                         organization = null,
                         organizationalUnit = null,
                         validityYears = 25,
-                        keyPassword = null,
-                        onProgress = { pct, _ -> Handler(Looper.getMainLooper()).post { buildProgress[app.packageName] = pct } }
+                        keyPassword = null
                     )?.also { path ->
                         historyManager.addHistoryItem(
                             item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
@@ -352,8 +388,14 @@ fun MyAppsScreen(
                 } catch (e: Exception) { null }
             }
 
+            isBuildFinished.set(true)
+            tickerJob.join()
+            withContext(Dispatchers.Main) {
+                buildProgress[app.packageName] = 100
+            }
+            delay(200L)
+
             buildingPackages.remove(app.packageName)
-            buildProgress[app.packageName] = 100
 
             refreshApps()
 
@@ -1033,36 +1075,68 @@ private fun CompiledUpdateCard(
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
             Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onInstallUpdate,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    modifier = Modifier.weight(1f).height(38.dp)
-                ) {
-                    Icon(Icons.Outlined.InstallMobile, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("INSTALL UPDATE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                if (onReuseConfig != null && app.historyItem != null) {
-                    FilledTonalIconButton(
-                        onClick = { onReuseConfig(app.historyItem) },
+            val actions = buildList<@Composable (Modifier) -> Unit> {
+                add { modifier ->
+                    Button(
+                        onClick = onInstallUpdate,
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.size(38.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = modifier.height(38.dp)
                     ) {
-                        Icon(Icons.Outlined.AutoMode, contentDescription = "Reuse Config", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.InstallMobile, null, Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("INSTALL UPDATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                IconButton(
-                    onClick = onUninstall,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(Icons.Outlined.DeleteOutline, "Uninstall", Modifier.size(20.dp))
+                if (onReuseConfig != null && app.historyItem != null) {
+                    add { modifier ->
+                        FilledTonalButton(
+                            onClick = { onReuseConfig(app.historyItem) },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = modifier.height(38.dp)
+                        ) {
+                            Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Reuse Config", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                add { modifier ->
+                    FilledTonalButton(
+                        onClick = onUninstall,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = modifier.height(38.dp)
+                    ) {
+                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                actions.chunked(2).forEach { rowActions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (rowActions.size == 2) {
+                            rowActions[0](Modifier.weight(1f))
+                            rowActions[1](Modifier.weight(1f))
+                        } else {
+                            rowActions[0](Modifier.fillMaxWidth())
+                        }
+                    }
                 }
             }
         }
@@ -1319,55 +1393,100 @@ private fun AppCard(
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalButton(
-                    onClick = onOpen,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.weight(1f).height(38.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Open", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            val actions = buildList<@Composable (Modifier) -> Unit> {
+                add { modifier ->
+                    FilledTonalButton(
+                        onClick = onOpen,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = modifier.height(38.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Open", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 if (onUpdate != null && !isBuilding) {
-                    Button(
-                        onClick = onUpdate,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Rounded.Update, null, Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    add { modifier ->
+                        Button(
+                            onClick = onUpdate,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = modifier.height(38.dp)
+                        ) {
+                            Icon(Icons.Rounded.Update, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
                 if (onReuseConfig != null && app.historyItem != null) {
-                    FilledTonalIconButton(
-                        onClick = { onReuseConfig(app.historyItem) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.AutoMode, contentDescription = "Reuse Config", modifier = Modifier.size(18.dp))
+                    add { modifier ->
+                        FilledTonalButton(
+                            onClick = { onReuseConfig(app.historyItem) },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = modifier.height(38.dp)
+                        ) {
+                            Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Reuse Config", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
+
                 if (app.historyItem?.apkPath != null && File(app.historyItem.apkPath).exists()) {
-                    FilledTonalIconButton(
-                        onClick = { installApkFile(context, app.historyItem.apkPath) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.InstallMobile, contentDescription = "Install APK", modifier = Modifier.size(18.dp))
+                    add { modifier ->
+                        FilledTonalButton(
+                            onClick = { installApkFile(context, app.historyItem.apkPath) },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = modifier.height(38.dp)
+                        ) {
+                            Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Install APK", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
-                IconButton(
-                    onClick = onUninstall,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(Icons.Outlined.DeleteOutline, "Uninstall", Modifier.size(20.dp))
+
+                add { modifier ->
+                    FilledTonalButton(
+                        onClick = onUninstall,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = modifier.height(38.dp)
+                    ) {
+                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                actions.chunked(2).forEach { rowActions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (rowActions.size == 2) {
+                            rowActions[0](Modifier.weight(1f))
+                            rowActions[1](Modifier.weight(1f))
+                        } else {
+                            rowActions[0](Modifier.fillMaxWidth())
+                        }
+                    }
                 }
             }
         }
@@ -1412,9 +1531,25 @@ suspend fun buildAndInstall(
     onProgressUpdate: (Int) -> Unit,
     onBuildingChange: (Boolean) -> Unit,
     onDone: () -> Unit
-) {
+) = coroutineScope {
     onBuildingChange(true)
-    onProgressUpdate(0)
+    onProgressUpdate(1)
+
+    val isBuildFinished = AtomicBoolean(false)
+    var currentProgress = 1
+    val tickerJob = launch(Dispatchers.Default) {
+        while (currentProgress < 100) {
+            val maxAllowed = if (isBuildFinished.get()) 100 else minOf(currentProgress + 1, 92)
+            if (currentProgress < maxAllowed) {
+                currentProgress++
+                withContext(Dispatchers.Main) {
+                    onProgressUpdate(currentProgress)
+                }
+            }
+            delay(if (isBuildFinished.get()) 8L else 20L)
+        }
+    }
+
     withContext(Dispatchers.IO) {
         try {
             val builder = ApkBuilder(context)
@@ -1452,10 +1587,12 @@ suspend fun buildAndInstall(
                 organization = null,
                 organizationalUnit = null,
                 validityYears = 25,
-                keyPassword = null,
-                onProgress = { pct, _ -> Handler(Looper.getMainLooper()).post { onProgressUpdate(pct) } }
+                keyPassword = null
             )
+            isBuildFinished.set(true)
+            tickerJob.join()
             withContext(Dispatchers.Main) { onProgressUpdate(100) }
+            delay(200L)
             if (resultPath != null) {
                 // Update history with new version
                 historyManager.addHistoryItem(
@@ -1471,6 +1608,8 @@ suspend fun buildAndInstall(
                 }
             }
         } catch (e: Exception) {
+            isBuildFinished.set(true)
+            tickerJob.cancel()
             withContext(Dispatchers.Main) {
                 Toast.makeText(context, "Build error: ${e.message}", Toast.LENGTH_LONG).show()
             }

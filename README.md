@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.2.3</h1>
+<h1 align="center">Packora v3.3.0</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.2.3-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.2.3"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.3.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.3.0"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -30,7 +30,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.2.3](#-whats-new-in-v323)
+- [What's New in v3.3.0](#-whats-new-in-v330)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -82,19 +82,21 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.2.3
+## 🚀 What's New in v3.3.0
 
-- **Complete Markdown Compiler Engine**:
-  - Rewrote `MarkdownText` into a full AST-based markdown compiler supporting headings (`#` to `######`), fenced code blocks with language indicators and one-tap copy buttons, blockquotes with GitHub-style callouts (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`), task lists, ordered & unordered lists, tables, and clickable links.
-  - Expanded the release notes container in the Check for Updates bottom sheet to allow full, comfortable scrolling without truncation.
-- **Accurate Template Feature Flags**:
-  - **Force Dark Mode**: Switched to system-following darkening (`forceDarkMode && isNightMode`), accurately following system light/dark theme when enabled, and staying disabled when turned off.
-  - **Enable Footers**: Realigned the flag to "Enable Footers" (when enabled, footers are shown; when disabled, footers are hidden via CSS/DOM hider).
-  - **Text Copy Active Unlock**: Injects active CSS overrides (`user-select: text !important`) and unblocks copy event listeners on restricted pages.
-  - **Desktop UA Viewport**: Configures desktop User-Agent, wide viewport (`1024px`), and overview layout for true desktop rendering.
-  - **Pinch Zoom**: Reliably overrides viewport meta tags (`user-scalable=yes`, `maximum-scale=5.0`).
-- **Updates Hub Flag Alignment**:
-  - Verified and aligned all 5 feature flags across batch update, single update, and recompile build invocations in the My Apps & Updates Hub.
+- **Continuous 1..100% Build Progress**:
+  - Eliminated jumping compilation progress across `BuildScreen`, My Apps single/batch updates, and recompile dialogs; progress now advances strictly 1% at a time (`1, 2, 3... 100%`).
+- **Dashboard Footer Flag Default OFF & Vibrant Theme**:
+  - Configured "Enable Footers" on the dashboard to default `false` (OFF).
+  - Toggling it ON lights it up in rich, vibrant blue (`primaryContainer` / `primary`) with prominent tonal depth.
+- **Balanced 2-Buttons-Per-Row Grid in App Cards**:
+  - Reorganized app card action buttons across `MyAppsScreen` and `HistoryScreen` into a structured, responsive two-buttons-per-row grid layout.
+- **Full Button Delete & Uninstall Actions**:
+  - Upgraded compact delete icon buttons into full, prominent "Uninstall" and "Remove" action buttons styled with error-tonal color accents.
+- **Build History Delete Confirmation BottomSheet**:
+  - Integrated a dedicated `ModalBottomSheet` for confirming history removals with app details, package identifier, and safety notice.
+- **Build History Dedicated Refresh Action**:
+  - Added a dedicated Refresh button in the Build History top bar positioned between Sort and Clear History.
 
 ---
 
@@ -277,6 +279,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.2.3 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.3.0 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

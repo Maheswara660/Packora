@@ -31,9 +31,23 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "3.2.3",
+        version = "3.3.0",
         date = "September 20, 2026",
         isLatest = true,
+        summary = "Continuous 1..100% Build Progress, Default-OFF Footer Flag, 2-Buttons-Per-Row Grid, & History Refresh & Remove Confirmation",
+        changes = listOf(
+            "Continuous 1..100% Build Progression: Eliminated jumping compilation progress across BuildScreen, My Apps single/batch updates, and recompile dialogs; progress now advances smoothly 1% at a time from 1 to 100%.",
+            "Dashboard Footer Flag Default OFF & Vibrant Theme: Configured 'Enable Footers' on the dashboard to default OFF (false) and turn vibrant blue with elevated tonal styling when toggled ON.",
+            "Balanced 2-Buttons-Per-Row Card Actions: Reorganized action buttons in both My Apps and Build History cards into a clean, balanced two-buttons-per-row grid.",
+            "Full Button Delete & Uninstall Actions: Replaced small delete icon buttons with styled, prominent 'Uninstall' and 'Remove' full buttons with error-tonal color schemes and icons.",
+            "Build History Delete Confirmation BottomSheet: Added a comprehensive delete confirmation bottom sheet for removing history entries, matching the My Apps uninstall dialog with app overview and safeguards.",
+            "Build History Refresh Action: Added a dedicated Refresh button in the History screen top bar, conveniently positioned between Sort and Clear History."
+        )
+    ),
+    ReleaseItem(
+        version = "3.2.3",
+        date = "September 20, 2026",
+        isLatest = false,
         summary = "Full Markdown Compiler, Accurate Template Feature Flags & Updates Hub Flag Alignment",
         changes = listOf(
             "Complete Markdown Compiler Engine: Rewrote MarkdownText into a full AST-based markdown compiler supporting headings (# to ######), fenced code blocks with language tags and one-tap copy, blockquotes with GitHub-style callouts ([!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]), task lists, ordered & unordered lists, tables, dividers, and clickable hyperlinks.",

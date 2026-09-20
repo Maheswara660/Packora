@@ -15,6 +15,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -22,10 +23,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.autofill.AutofillManager
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
@@ -1066,30 +1072,31 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 2. Keep Google OAuth, Account Chooser, SSO, MFA, Password Reset & Auth URLs strictly inside the app WebView
-                if (url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
+                val targetUrl = config?.optString("targetUrl", "") ?: ""
+                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
+                val currentHost = uri.host?.lowercase()
+
+                val isSameDomainFamily = targetHost != null && currentHost != null && (
+                    currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost) ||
+                    currentHost.removePrefix("www.") == targetHost.removePrefix("www.") ||
+                    currentHost.split(".").takeLast(2) == targetHost.split(".").takeLast(2)
+                )
+
+                // 2. Intra-domain navigation and auth flows MUST remain directly inside this app's WebView
+                if (isSameDomainFamily || url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
                     view?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                     return false // Load internally in app WebView!
                 }
 
-                // 3. Deep Linking to Popular Installed Native Apps (YouTube, Instagram, etc.)
+                // 3. Deep Linking to Popular Installed Native Apps (YouTube, Maps, etc.) - never other Packora apps
                 if (tryLaunchInInstalledNativeApp(url)) {
                     return true
                 }
 
                 val openExternalLinks = webViewConfig?.optBoolean("openExternalLinks", false) ?: false
-                val targetUrl = config?.optString("targetUrl", "") ?: ""
 
                 if (openExternalLinks && targetUrl.isNotEmpty()) {
-                    val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
-                    val currentHost = uri.host?.lowercase()
-
-                    val isSameDomainFamily = targetHost != null && currentHost != null && (
-                        currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost) ||
-                        currentHost.split(".").takeLast(2) == targetHost.split(".").takeLast(2)
-                    )
-
-                    // Keep intra-site links and auth flows inside WebView; only open external non-auth links in Custom Tabs
+                    // Only open external non-auth links in Custom Tabs
                     if (!isSameDomainFamily && !isAuthOrLoginUrl(url, uri.host) && isMainFrame && !isRedirect) {
                         try {
                             val customTabsIntent = CustomTabsIntent.Builder().build()
@@ -1123,6 +1130,28 @@ class MainActivity : ComponentActivity() {
 
                 val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
 
+                // Check if the popup target belongs to the current app's domain
+                val targetUrl = config?.optString("targetUrl", "") ?: ""
+                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
+                val popupHost = try { if (!popupUrl.isNullOrBlank()) Uri.parse(popupUrl).host?.lowercase() else null } catch (e: Exception) { null }
+
+                if (targetHost != null && popupHost != null) {
+                    val cleanTarget = targetHost.removePrefix("www.")
+                    val cleanPopup = popupHost.removePrefix("www.")
+                    if (cleanPopup == cleanTarget || cleanPopup.endsWith(".$cleanTarget") || cleanTarget.endsWith(".$cleanPopup")) {
+                        // Same domain link with target="_blank" -> Load directly in main WebView, no popup dialog needed!
+                        transport.webView = view
+                        resultMsg.sendToTarget()
+                        return true
+                    }
+                }
+
+                val isDark = isNightMode
+                val popupBgColor = if (isDark) Color.parseColor("#121212") else Color.WHITE
+                val topBarBgColor = if (isDark) Color.parseColor("#1E293B") else Color.parseColor("#F1F5F9")
+                val textColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
+                val subtextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+
                 val popupWebView = WebView(this@MainActivity).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
@@ -1133,6 +1162,7 @@ class MainActivity : ComponentActivity() {
                     settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    setBackgroundColor(popupBgColor)
 
                     // Strip X-Requested-With header on popup WebView so Google doesn't block with 403 disallowed_useragent
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1144,13 +1174,58 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val container = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(popupBgColor)
+                }
+
+                val topBar = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt())
+                    gravity = Gravity.CENTER_VERTICAL
+                    setBackgroundColor(topBarBgColor)
+                    setPadding((16 * resources.displayMetrics.density).toInt(), 0, (12 * resources.displayMetrics.density).toInt(), 0)
+                }
+
+                val titleView = TextView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    text = "Sign In / Secure Window"
+                    textSize = 14f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(textColor)
+                }
+
+                val closeBtn = ImageView(this@MainActivity).apply {
+                    val size = (36 * resources.displayMetrics.density).toInt()
+                    layoutParams = LinearLayout.LayoutParams(size, size)
+                    setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    setColorFilter(subtextColor)
+                    setPadding((6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt())
+                    contentDescription = "Close"
+                }
+
+                val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (3 * resources.displayMetrics.density).toInt())
+                    max = 100
+                    progress = 10
+                }
+
+                topBar.addView(titleView)
+                topBar.addView(closeBtn)
+                container.addView(topBar)
+                container.addView(progressBar)
+
+                popupWebView.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+                container.addView(popupWebView)
+
                 val popupDialog = Dialog(this@MainActivity, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen).apply {
-                    setContentView(popupWebView)
+                    setContentView(container)
                     window?.apply {
                         setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                        setBackgroundDrawable(ColorDrawable(Color.argb(170, 0, 0, 0)))
                     }
-                    popupWebView.setBackgroundColor(Color.TRANSPARENT)
+                    setCanceledOnTouchOutside(true)
+                    setCancelable(true)
                     setOnDismissListener {
                         try {
                             popupWebView.stopLoading()
@@ -1170,9 +1245,26 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                closeBtn.setOnClickListener {
+                    try { popupDialog.dismiss() } catch (e: Exception) {}
+                }
+
                 popupWebView.webChromeClient = object : WebChromeClient() {
                     override fun onCloseWindow(window: WebView?) {
                         try { popupDialog.dismiss() } catch (e: Exception) {}
+                    }
+
+                    override fun onProgressChanged(v: WebView?, newProgress: Int) {
+                        super.onProgressChanged(v, newProgress)
+                        progressBar.progress = newProgress
+                        progressBar.visibility = if (newProgress >= 100) View.GONE else View.VISIBLE
+                    }
+
+                    override fun onReceivedTitle(v: WebView?, title: String?) {
+                        super.onReceivedTitle(v, title)
+                        if (!title.isNullOrBlank()) {
+                            titleView.text = title
+                        }
                     }
                 }
 
@@ -1190,7 +1282,6 @@ class MainActivity : ComponentActivity() {
                         injectAutoAcceptCookies(v)
 
                         // If login flow completed in popup and navigated back to target app domain, auto-close popup & refresh main WebView
-                        val targetHost = try { Uri.parse(config?.optString("targetUrl", "") ?: "").host?.lowercase() } catch (e: Exception) { null }
                         val currentHost = try { Uri.parse(url ?: "").host?.lowercase() } catch (e: Exception) { null }
                         if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(url)) {
                             try {
@@ -1208,6 +1299,15 @@ class MainActivity : ComponentActivity() {
                             v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                             return false
                         }
+                        // Check if returned to main app
+                        val currentHost = try { Uri.parse(url).host?.lowercase() } catch (e: Exception) { null }
+                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(url)) {
+                            try {
+                                popupDialog.dismiss()
+                                binding.webView.loadUrl(url)
+                                return true
+                            } catch (e: Exception) {}
+                        }
                         return false
                     }
 
@@ -1219,6 +1319,15 @@ class MainActivity : ComponentActivity() {
                         if (target.contains("accounts.google.com") || isAuthOrLoginUrl(target)) {
                             v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                             return false // Let Google Account Chooser & Auth load inside popup window!
+                        }
+                        // Check if returned to main app
+                        val currentHost = try { req.url?.host?.lowercase() } catch (e: Exception) { null }
+                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(target)) {
+                            try {
+                                popupDialog.dismiss()
+                                binding.webView.loadUrl(target)
+                                return true
+                            } catch (e: Exception) {}
                         }
                         if (tryLaunchInInstalledNativeApp(target)) {
                             try { popupDialog.dismiss() } catch (e: Exception) {}
@@ -1442,8 +1551,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Check if ANY installed native app or Packora-created WebAPK handles this link/domain
+            // Check if ANY installed external native app handles this link/domain
             if (scheme == "http" || scheme == "https") {
+                // NEVER delegate intra-domain links or login/auth links externally
+                val targetUrl = config?.optString("targetUrl", "") ?: ""
+                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
+                val currentHost = uri.host?.lowercase()
+
+                if (targetHost != null && currentHost != null) {
+                    val cleanTarget = targetHost.removePrefix("www.")
+                    val cleanCurrent = currentHost.removePrefix("www.")
+                    if (cleanCurrent == cleanTarget ||
+                        cleanCurrent.endsWith(".$cleanTarget") ||
+                        cleanTarget.endsWith(".$cleanCurrent") ||
+                        cleanCurrent.split(".").takeLast(2) == cleanTarget.split(".").takeLast(2)
+                    ) {
+                        return false // Must stay inside current app's WebView!
+                    }
+                }
+
                 val intent = Intent(Intent.ACTION_VIEW, uri)
                 val resolveInfoList = try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -1460,12 +1586,20 @@ class MainActivity : ComponentActivity() {
                 val browserPackages = setOf(
                     "com.android.chrome", "org.mozilla.firefox", "com.sec.android.app.sbrowser",
                     "com.opera.browser", "com.microsoft.emmx", "com.brave.browser", "com.duckduckgo.mobile.android",
-                    "com.android.browser", packageName
+                    "com.android.browser", "com.google.android.apps.chrome", packageName
                 )
 
+                // Strictly match real external native apps (YouTube, Maps, etc.) and NEVER match other Packora-compiled apps
                 val matchingApp = resolveInfoList.firstOrNull { info ->
                     val pkg = info.activityInfo.packageName
-                    pkg != packageName && pkg !in browserPackages && !pkg.contains("browser")
+                    val activityName = info.activityInfo.name
+                    pkg != packageName &&
+                        pkg !in browserPackages &&
+                        !pkg.contains("browser") &&
+                        !pkg.startsWith("com.maheswara660.packora") &&
+                        !pkg.contains("packora") &&
+                        activityName != "com.maheswara660.packora.template.MainActivity" &&
+                        !activityName.endsWith(".MainActivity")
                 }
 
                 if (matchingApp != null) {
@@ -2150,9 +2284,17 @@ class MainActivity : ComponentActivity() {
             window.navigationBarColor = bottomColor
         }
 
+        val webViewBg = if (bottomColor != 0 && bottomColor != Color.TRANSPARENT) {
+            bottomColor
+        } else if (isNightMode) {
+            Color.parseColor("#121212")
+        } else {
+            Color.WHITE
+        }
+
         window.decorView.setBackgroundColor(topColor)
         binding.root.setBackgroundColor(topColor)
-        binding.webView.setBackgroundColor(Color.TRANSPARENT)
+        binding.webView.setBackgroundColor(webViewBg)
     }
 
     private fun parseCssColor(cssStr: String): Int? {

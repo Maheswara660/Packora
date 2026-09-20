@@ -537,16 +537,9 @@ class AxmlRebuilder {
             newChunks.add(buildEndElement(androidNsIndex, intentFilterNameIndex))
         }
 
-        if (schemes.isNotEmpty()) {
-            addViewFilterHeader()
-            for (scheme in schemes) {
-                val schemeValueIndex = getOrAddString(parsed.stringPool, scheme)
-
-                newChunks.add(buildSchemeOnlyDataElement(androidNsIndex, dataNameIndex, currentSchemeAttrIndex, schemeValueIndex))
-                newChunks.add(buildEndElement(androidNsIndex, dataNameIndex))
-            }
-            newChunks.add(buildEndElement(androidNsIndex, intentFilterNameIndex))
-        }
+        // Note: Do NOT add scheme-only intent filters (e.g. scheme="https" without a host)
+        // because that turns the compiled app into an open system-wide web browser, hijacking all links device-wide.
+        // Deep links must strictly pair both scheme and host together.
 
         val currentEndIndex = findActivityEndIndex(parsed, "com.maheswara660.packora.template.MainActivity")
             .takeIf { it >= 0 }

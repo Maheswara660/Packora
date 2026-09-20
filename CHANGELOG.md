@@ -2,6 +2,22 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.2.1] - 2026-09-20
+### Fixed & Enhanced
+- **Universal Scheme Hijacking Elimination**:
+  - **Removed Open-Ended Scheme Filters**: Removed standalone `<data android:scheme="https" />` and `<data android:scheme="http" />` intent filters from `AxmlRebuilder` and `ApkBuilder`. Compiled WebAPKs no longer advertise themselves as universal device-wide web browsers, completely eliminating unwanted app suggestions and chooser prompts when clicking links in Chrome or third-party apps.
+  - **Strict Scheme-Host Pairing**: Deep link intent filters strictly pair both scheme and host together (`<data android:scheme="https" android:host="domain.com" />`), ensuring deep link intents only trigger for the exact domain the WebAPK was built for.
+- **Cross-App WebAPK Isolation**:
+  - **No Cross-App Launching**: Excluded Packora packages and WebAPK template activities from external intent resolution in `tryLaunchInInstalledNativeApp`. Compiled apps will never bounce between each other or launch other Packora apps.
+  - **Intra-Domain Link Locking**: Enforced that intra-domain links, subdomains, query routes, and auth flows unconditionally open directly inside the active app's WebView without querying external native handlers.
+- **Auth, Login & Sign Up Sandboxing**:
+  - **Seamless Authentication**: Comprehensive SSO and identity provider routes (Google, GitHub, Apple, Microsoft, Twitter/X, Discord, Auth0, Okta, Supabase, Firebase, Cognito, Keycloak, etc.) load directly inside the app WebView without triggering external app delegations.
+  - **Multi-Window OAuth Dialogue Safety**: Redesigned WebChromeClient `onCreateWindow` to route same-domain `target="_blank"` navigations directly into the primary WebView, while wrapping external OAuth popups in a managed dialog with a visible Close button header, progress bar, `setCanceledOnTouchOutside(true)`, and automatic dismissal on authentication completion.
+- **Touch Freeze & Black Screen Fixes**:
+  - **Touch Unresponsive State Fixed**: Eliminated unmanaged fullscreen transparent dialogs from `onCreateWindow` that previously trapped touch focus and froze user interaction.
+  - **Black Screen GPU Compositing Resolved**: Replaced `binding.webView.setBackgroundColor(Color.TRANSPARENT)` with solid theme background colors (`#FFFFFF` in light mode, `#121212` in dark mode, or dynamic webpage theme color), preventing hardware acceleration buffer failures and transparent-canvas black screens.
+  - **Manifest Task Isolation**: Configured `android:taskAffinity=""` on the template Activity to ensure every compiled WebAPK maintains a dedicated, isolated task stack.
+
 ## [3.2.0] - 2026-09-19
 ### Added & Enhanced
 - **Unified My Apps & Updates Hub**:

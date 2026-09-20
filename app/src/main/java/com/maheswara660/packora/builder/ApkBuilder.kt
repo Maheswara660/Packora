@@ -153,7 +153,7 @@ class ApkBuilder(private val context: Context) {
                                     versionCode = versionCode,
                                     versionName = versionName,
                                     deepLinkHosts = deepLinkHosts,
-                                    deepLinkSchemes = if (deepLinkHosts.isNotEmpty()) listOf("https", "http") else emptyList(),
+                                    deepLinkSchemes = emptyList(),
                                     permissions = listOf(
                                         "android.permission.INTERNET",
                                         "android.permission.ACCESS_NETWORK_STATE",

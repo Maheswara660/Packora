@@ -70,6 +70,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|uiMode|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask"
+            android:taskAffinity=""
             android:alwaysRetainTaskState="true"
             android:resizeableActivity="true"
             android:exported="true">

@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.2.0</h1>
+<h1 align="center">Packora v3.2.1</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.2.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.2.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.2.1-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.2.1"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -30,7 +30,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.2.0](#-whats-new-in-v320)
+- [What's New in v3.2.1](#-whats-new-in-v321)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -82,27 +82,21 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.2.0
+## 🚀 What's New in v3.2.1
 
-- **Unified My Apps & Updates Hub**:
-  - Merged the Updates screen into My Apps with an intelligent `Updates Available` summary banner, eliminating screen redundancy and establishing a clean 4-tab bottom navigation bar (Build, My Apps, History, Settings).
-  - Pinned `Updates Available (X)` banner with 1-tap `UPDATE ALL` batch compiling and live background status indicator.
-- **F-Droid & Aurora Store Style Sequential Install Queue**:
-  - `UPDATE ALL` compiles all eligible updates silently in the background, then triggers the native package installer for one app at a time.
-  - Registers system broadcast receiver (`ACTION_PACKAGE_REPLACED`) to automatically pop and launch the next installer prompt the instant the current app installation finishes.
-  - Resume check verifies version codes and provides a `SKIP` button if users choose not to install a specific app.
-  - Collision-proof output APK naming formatted as `<package_name>_v<versionCode>.apk`.
-- **Markdown-Formatted In-App Release Notes**:
-  - GitHub release notes inside the `App Update Ready!` bottom sheet now render with rich markdown formatting (`MarkdownText` component) supporting headers, bullet lists, bold/italics, and inline code pills.
-- **One-Time "What's New" Changelog Bottom Sheet**:
-  - Automatically presents a modal bottom sheet highlighting the latest update highlights on initial launch following an update or fresh install, with an `UNDERSTOOD` confirmation button.
-- **WebAPK Shell Stability & Blackscreen Elimination**:
-  - Added `android:launchMode="singleTask"` and `alwaysRetainTaskState="true"` to prevent WebAPKs from attaching to the installer task or cross-launching into other instances.
-  - Added `webView.onResume()` and `webView.onPause()` lifecycle triggers resuming Chromium rasterization surfaces and JS timers on reopen.
-  - Removed lingering `splashScreen.setOnExitAnimationListener` intercepts on Android 12+ that caused black splash screen freezes.
-  - Added `onRenderProcessGone` recovery handler in `WebViewClient`.
-- **GitHub Sponsors Integration**:
-  - Added dedicated `Sponsor on GitHub` action tile (`https://github.com/sponsors/maheswara660`) in the About screen alongside Ko-fi.
+- **Universal Scheme Hijacking Elimination**:
+  - Completely removed open-ended scheme-only intent filters (`<data android:scheme="https" />`) from `AxmlRebuilder` and `ApkBuilder`, ensuring WebAPKs never advertise themselves as universal device web browsers or hijack links in Chrome.
+  - Strict host-paired deep links ensure links only open in the specific app compiled for that domain (e.g. GitHub links open GitHub WebAPK).
+- **Cross-App WebAPK Isolation**:
+  - Excluded Packora packages and WebAPK activities from external native app delegation so WebAPKs never cross-launch or bounce between each other.
+  - Intra-domain links and query routes stay strictly locked within the current app's WebView.
+- **Auth, Login & Sign Up Sandboxing**:
+  - Comprehensive SSO and identity provider routes (Google, GitHub, Apple, Microsoft, Twitter/X, Discord, Auth0, Okta, Supabase, Firebase, Cognito, Keycloak, etc.) load directly inside the app WebView without triggering external app delegations.
+  - WebChromeClient `onCreateWindow` routes same-domain `target="_blank"` links directly into the primary WebView and wraps external OAuth popups in a safe, touch-responsive modal dialog with a visible Close button header and progress bar.
+- **Touch Freeze & Black Screen Fixes**:
+  - Eliminated unmanaged fullscreen dialogs that previously trapped touch focus and caused screens to become untouchable.
+  - Replaced transparent WebView backgrounds with solid theme backgrounds (`#FFFFFF` in light mode, `#121212` in dark mode, or dynamic webpage theme color), resolving GPU compositing failures and black screen dropouts.
+  - Added `android:taskAffinity=""` for complete task stack isolation across all generated WebAPKs.
 
 ---
 
@@ -180,9 +174,9 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
 | **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
-| **Page Alignment** | In-House `ElfAligner16k` | `v3.2.0` | 16KB ELF boundary alignment |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.2.0` | Low-level byte-level binary manifest rewriter |
-| **Template Engine** | In-House `:template` Shell | `v3.2.0` | High-performance standalone WebAPK wrapper |
+| **Page Alignment** | In-House `ElfAligner16k` | `v3.2.1` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v3.2.1` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v3.2.1` | High-performance standalone WebAPK wrapper |
 
 ---
 
@@ -285,6 +279,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.2.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.2.1 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

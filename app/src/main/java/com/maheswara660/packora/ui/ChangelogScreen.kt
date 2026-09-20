@@ -31,9 +31,24 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "3.2.1",
+        date = "September 20, 2026",
+        isLatest = true,
+        summary = "WebAPK Deep Link Isolation, Anti-Hijacking Fixes, Auth & Login Sandboxing & Touch Freeze Elimination",
+        changes = listOf(
+            "Complete Removal of Universal Scheme Hijacking: Eliminated open-ended scheme-only intent filters from AxmlRebuilder and ApkBuilder so WebAPKs never hijack unrelated web links in Chrome or external apps.",
+            "Strict Deep Link Host Pairing: Deep link intent filters strictly require both scheme and host together, ensuring links only open in the specific app compiled for that domain.",
+            "Cross-App WebAPK Isolation: Excluded all Packora-compiled apps from native app delegation so WebAPKs never cross-launch or bounce between each other.",
+            "Auth & Login Sandboxing: Intra-domain navigation, query redirects, and SSO/OAuth logins (Google, GitHub, Apple, Microsoft, Auth0, etc.) are strictly locked to the app's internal WebView.",
+            "Touch Freeze & Invisible Dialog Elimination: Redesigned multi-window popup handling in WebChromeClient with same-domain routing, visible Close toolbar, progress bar, and touch-outside dismissal.",
+            "Black Screen & Compositing Fix: Removed transparent WebView background and enforced solid theme backgrounds to prevent GPU compositing failures and black screen dropouts.",
+            "Task Affinity Isolation: Configured isolated task affinity in template manifest to ensure WebAPKs never clash with each other or the installer in Android's task stack."
+        )
+    ),
+    ReleaseItem(
         version = "3.2.0",
         date = "September 19, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Unified My Apps & Updates Hub, Sequential Install Queue, Markdown Release Notes & WebAPK Stability Fixes",
         changes = listOf(
             "Unified My Apps & Updates Hub: Merged the updates screen into My Apps with an Updates Available summary banner and streamlined 4-tab bottom navigation.",

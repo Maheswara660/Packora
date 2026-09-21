@@ -51,7 +51,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import android.content.ClipboardManager
-import androidx.appcompat.app.AlertDialog
+import android.app.AlertDialog
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private var isShowingError: Boolean = false
+    private var hasPageLoadError: Boolean = false
     private var lastCheckedMagicLink: String? = null
     private var activeCustomTabAuth: Boolean = false
 
@@ -156,46 +157,66 @@ class MainActivity : ComponentActivity() {
 
     private fun promptOpenMagicLoginLink(url: String) {
         runOnUiThread {
-            AlertDialog.Builder(this)
-                .setTitle("Email Login Link Detected")
-                .setMessage("A login link from your email was copied to your clipboard. Would you like to sign in with it inside this app now?")
-                .setPositiveButton("SIGN IN NOW") { _, _ ->
-                    binding.webView.loadUrl(url)
-                }
-                .setNegativeButton("DISMISS", null)
-                .show()
+            try {
+                val dialogTheme = if (isNightMode) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+                AlertDialog.Builder(this, dialogTheme)
+                    .setTitle("Email Login Link Detected")
+                    .setMessage("A login link from your email was copied to your clipboard. Would you like to sign in with it inside this app now?")
+                    .setPositiveButton("SIGN IN NOW") { _, _ ->
+                        hasPageLoadError = false
+                        hideErrorOverlay()
+                        binding.webView.loadUrl(url)
+                    }
+                    .setNegativeButton("DISMISS", null)
+                    .show()
+            } catch (e: Exception) {}
         }
     }
 
     fun showPasteMagicLinkDialog() {
-        val input = android.widget.EditText(this).apply {
-            hint = "https://... magic login link from email"
-            maxLines = 3
-            setPadding(48, 32, 48, 32)
+        runOnUiThread {
             try {
-                val clip = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
-                    ?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
-                if (clip != null && (clip.startsWith("http://") || clip.startsWith("https://"))) {
-                    setText(clip)
-                    setSelection(clip.length)
+                val isDark = isNightMode
+                val dialogTheme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+                val container = android.widget.FrameLayout(this).apply {
+                    setPadding(48, 24, 48, 16)
                 }
-            } catch (e: Exception) {}
-        }
+                val input = android.widget.EditText(this).apply {
+                    hint = "https://... magic login link from email"
+                    maxLines = 3
+                    setTextColor(if (isDark) Color.WHITE else Color.BLACK)
+                    setHintTextColor(if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+                    try {
+                        val clip = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+                            ?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+                        if (clip != null && (clip.startsWith("http://") || clip.startsWith("https://"))) {
+                            setText(clip)
+                            setSelection(clip.length)
+                        }
+                    } catch (e: Exception) {}
+                }
+                container.addView(input)
 
-        AlertDialog.Builder(this)
-            .setTitle("Sign In with Email Link")
-            .setMessage("If this website sent a login or magic link to your email, paste it below to log in directly inside this app:")
-            .setView(input)
-            .setPositiveButton("SIGN IN") { _, _ ->
-                val pasted = input.text.toString().trim()
-                if (pasted.startsWith("http://") || pasted.startsWith("https://")) {
-                    binding.webView.loadUrl(pasted)
-                } else {
-                    Toast.makeText(this, "Please paste a valid link starting with http:// or https://", Toast.LENGTH_SHORT).show()
-                }
+                AlertDialog.Builder(this, dialogTheme)
+                    .setTitle("Sign In with Email Link")
+                    .setMessage("If this website sent a login or magic link to your email, paste it below to log in directly inside this app:")
+                    .setView(container)
+                    .setPositiveButton("SIGN IN") { _, _ ->
+                        val pasted = input.text.toString().trim()
+                        if (pasted.startsWith("http://") || pasted.startsWith("https://")) {
+                            hasPageLoadError = false
+                            hideErrorOverlay()
+                            binding.webView.loadUrl(pasted)
+                        } else {
+                            Toast.makeText(this, "Please paste a valid link starting with http:// or https://", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("CANCEL", null)
+                    .show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Unable to open sign-in dialog: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("CANCEL", null)
-            .show()
+        }
     }
 
     fun launchGoogleSignIn(authUrl: String, serverClientId: String? = null) {
@@ -543,6 +564,7 @@ class MainActivity : ComponentActivity() {
                 return@setOnClickListener
             }
 
+            hasPageLoadError = false
             // Keep error overlay visible while loading; display connecting state
             binding.btnRetry.isEnabled = false
             binding.btnRetryText.text = "CONNECTING..."
@@ -687,12 +709,14 @@ class MainActivity : ComponentActivity() {
 
             binding.errorOverlay.visibility = View.VISIBLE
             binding.webView.visibility = View.GONE
+            try { binding.errorScrollView.scrollTo(0, 0) } catch (e: Exception) {}
         }
     }
 
     private fun hideErrorOverlay() {
         runOnUiThread {
             isShowingError = false
+            hasPageLoadError = false
             binding.errorOverlay.visibility = View.GONE
             binding.webView.visibility = View.VISIBLE
         }
@@ -731,6 +755,10 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         settings.databaseEnabled = true
         settings.allowFileAccess = true
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.loadsImagesAutomatically = true
+        settings.blockNetworkImage = false
+        settings.blockNetworkLoads = false
         settings.mediaPlaybackRequiresUserGesture = false
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = true
@@ -817,8 +845,17 @@ class MainActivity : ComponentActivity() {
             ): WebResourceResponse? {
                 if (request == null) return null
 
-                // 1. Never block the main website frame
+                // 1. Never block the main website frame or assets/API requests from the app's target domain
                 if (request.isForMainFrame) {
+                    return null
+                }
+                val targetUrl = config?.optString("targetUrl", "") ?: ""
+                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
+                val reqHost = request.url?.host?.lowercase()
+                if (targetHost != null && reqHost != null && (
+                    reqHost.endsWith(targetHost) || targetHost.endsWith(reqHost) ||
+                    reqHost.removePrefix("www.") == targetHost.removePrefix("www.")
+                )) {
                     return null
                 }
 
@@ -850,7 +887,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                // Note: Do not hide error overlay here; error overlay is hidden in onPageFinished once page loads successfully
+                hasPageLoadError = false
                 syncWebPageThemeColor(view)
                 injectPasskeyPolyfill(view)
                 injectAutoAcceptCookies(view)
@@ -914,7 +951,9 @@ class MainActivity : ComponentActivity() {
                 try { CookieManager.getInstance().flush() } catch (e: Exception) {}
 
                 // Hide error screen only when page has finished loading successfully with a valid URL
-                if (isShowingError && url != null && url != "about:blank" && !url.startsWith("data:")) {
+                if (hasPageLoadError) {
+                    showErrorOverlay()
+                } else if (isShowingError && url != null && url != "about:blank" && !url.startsWith("data:")) {
                     hideErrorOverlay()
                 }
 
@@ -1031,6 +1070,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
+                    hasPageLoadError = true
                     showErrorOverlay()
                 }
             }
@@ -1043,6 +1083,7 @@ class MainActivity : ComponentActivity() {
                 super.onReceivedHttpError(view, request, errorResponse)
                 val code = errorResponse?.statusCode ?: 0
                 if (request?.isForMainFrame == true && (code in 500..599 || code == 404)) {
+                    hasPageLoadError = true
                     showErrorOverlay()
                 }
             }
@@ -1120,27 +1161,35 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
 
-                val openExternalLinks = webViewConfig?.optBoolean("openExternalLinks", false) ?: false
-
-                if (openExternalLinks && targetUrl.isNotEmpty()) {
-                    // Only open external non-auth links in Custom Tabs
-                    if (!isSameDomainFamily && !isAuthOrLoginUrl(url, uri.host) && isMainFrame && !isRedirect) {
-                        try {
-                            val customTabsIntent = CustomTabsIntent.Builder().build()
-                            customTabsIntent.launchUrl(this@MainActivity, uri)
-                            return true
-                        } catch (e: Exception) {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, uri)
-                                startActivity(intent)
-                                return true
-                            } catch (ex: Exception) { }
-                        }
-                    }
+                // 4. Block automatic redirects to random websites not belonging to this app
+                if (isRedirect) {
+                    return true // Intercept and block unauthorized redirects away from the site!
                 }
 
-                // Keep all intra-site navigation inside WebView
-                return false
+                // 5. User-initiated external links:
+                val openExternalLinks = webViewConfig?.optBoolean("openExternalLinks", false) ?: false
+                if (openExternalLinks && targetUrl.isNotEmpty()) {
+                    try {
+                        val customTabsIntent = CustomTabsIntent.Builder().build()
+                        customTabsIntent.launchUrl(this@MainActivity, uri)
+                        return true
+                    } catch (e: Exception) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                            startActivity(intent)
+                            return true
+                        } catch (ex: Exception) { }
+                    }
+                } else {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        startActivity(intent)
+                        return true
+                    } catch (e: Exception) { }
+                }
+
+                // Never navigate the app's WebView to a foreign/random domain!
+                return true
             }
         }
 
@@ -2125,15 +2174,13 @@ class MainActivity : ComponentActivity() {
             """
             (function() {
                 try {
-                    // 1. Instant CSS style injection
+                    // 1. Instant CSS style injection for high-confidence footer containers
                     if (!document.getElementById('__packora_footer_style')) {
                         var style = document.createElement('style');
                         style.id = '__packora_footer_style';
                         style.textContent = `
-                            footer, [role="contentinfo"], .site-footer, .main-footer, .page-footer, .global-footer, .app-footer,
-                            #footer, #colophon, .colophon, .footer-container, .footer-content, .footer-wrapper, .footer-bottom,
-                            div[class*="site-footer" i], div[class*="main-footer" i], div[class*="page-footer" i],
-                            div[class*="global-footer" i], div[class*="copyright" i], p[class*="copyright" i],
+                            footer, .site-footer, .main-footer, .page-footer, .global-footer, .app-footer,
+                            #colophon, .colophon, .footer-bottom, .sub-footer,
                             section[class*="site-footer" i], section[class*="main-footer" i] {
                                 display: none !important;
                                 visibility: hidden !important;
@@ -2194,20 +2241,85 @@ class MainActivity : ComponentActivity() {
                         '[data-section="footer"]', '[data-area="footer"]', '[data-widget-type="footer"]',
                         '[aria-label*="footer" i]', '.cookie-banner', '.privacy-banner', '.gdpr-banner', '.ccpa-banner', '.consent-banner',
                         '.footer-container', '.footer-wrapper', '.footer-content', '.footer-links', '.footer-nav', '.footer-bottom', '.bottom-footer',
-                        '.site-subfooter', '.site_footer'
+                        '.site-subfooter', '.site_footer', '[class*="credits" i]', '[class*="imprint" i]', '[id*="imprint" i]'
                     ];
-                    
+
                     var keywords = [
+                        // English Legal, Copyright & Attribution
                         '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
-                        'terms', 'privacy', 'cookie', 'cookies', 'security', 'status', 'legal', 'disclaimer', 'imprint', 'impressum',
-                        'privacy policy', 'terms of service', 'terms of use', 'terms & conditions', 'site policy', 'manage cookies',
-                        'do not sell', 'your privacy choices', 'ccpa', 'gdpr', 'affiliate disclosure', 'powered by', 'built with',
-                        'sitemap', 'site map', 'contact us', 'about us', 'help center', 'footer navigation',
-                        'subscribe to our newsletter', 'newsletter signup', 'sign up for newsletter',
-                        'haftungsausschluss', 'datenschutz', 'mentions légales', 'politique de confidentialité',
-                        'términos y condiciones', 'política de privacidad', 'informativa sulla privacy',
-                        'termos de uso', 'algemene voorwaarden', 'användarvillkor', 'regulamin',
-                        'все права защищены', '版权所有', '無断転載を禁じます', '모든 권리 보유', 'सर्वाधिकार सुरक्षित'
+                        'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'privacy policy',
+                        'privacy notice', 'privacy statement', 'cookie policy', 'cookie settings', 'manage cookies',
+                        'cookie preferences', 'legal notice', 'disclaimer', 'imprint', 'impressum', 'user agreement',
+                        'site policy', 'community guidelines', 'code of conduct', 'accessibility statement', 'security policy',
+                        'trust center', 'system status', 'report abuse', 'do not sell', 'do not share my personal information',
+                        'your privacy choices', 'notice at collection', 'ccpa', 'gdpr', 'affiliate disclosure', 'powered by',
+                        'built with', 'sitemap', 'site map', 'contact us', 'about us', 'help center', 'support center',
+                        'customer support', 'knowledge base', 'careers', 'jobs', 'press', 'media kit', 'investors',
+                        'corporate information', 'company info', 'advertising', 'partner with us', 'affiliates', 'faq',
+                        'frequently asked questions', 'newsletter signup', 'subscribe to our newsletter', 'sign up for newsletter',
+                        'footer navigation', 'bottom navigation', 'all content copyright', 'registered trademark', 'patents',
+                        'licensing', 'modern slavery statement', 'tax strategy', 'whistleblower policy', 'billing terms',
+                        'refund policy', 'cancellation policy', 'shipping policy', 'return policy', 'acceptable use policy',
+                        // German (Deutsch)
+                        'urheberrecht', 'alle rechte vorbehalten', 'datenschutz', 'datenschutzerklärung', 'datenschutzhinweis',
+                        'haftungsausschluss', 'nutzungsbedingungen', 'agb', 'allgemeine geschäftsbedingungen', 'kontakt',
+                        'über uns', 'karriere', 'widerrufsbelehrung', 'cookie-einstellungen', 'cookie-richtlinie',
+                        'barrierefreiheit', 'hilfe & support', 'kundenservice', 'partnerprogramm', 'zahlungsmethoden',
+                        'versandinformationen', 'rechtliche hinweise', 'streitbeilegung',
+                        // French (Français)
+                        'droits réservés', 'tous droits réservés', 'mentions légales', 'politique de confidentialité',
+                        'conditions générales', 'cgu', 'cgv', 'gestion des cookies', 'politique relative aux cookies',
+                        'accessibilité', 'plan du site', 'qui sommes-nous', 'contactez-nous', 'service client',
+                        'aide et contact', 'recrutement', 'données personnelles', 'conditions d’utilisation',
+                        'conditions d\'utilisation', 'avis de non-responsabilité', 'nos engagements',
+                        // Spanish (Español)
+                        'derechos reservados', 'todos los derechos reservados', 'política de privacidad', 'términos y condiciones',
+                        'términos de uso', 'aviso legal', 'configuración de cookies', 'política de cookies', 'mapa del sitio',
+                        'sobre nosotros', 'atención al cliente', 'centro de ayuda', 'trabaja con nosotros', 'preguntas frecuentes',
+                        'aviso de privacidad', 'propiedad intelectual', 'declaración de accesibilidad', 'información legal',
+                        'preferencias de cookies',
+                        // Portuguese (Português)
+                        'termos de uso', 'termos e condições', 'preferências de cookies', 'sobre nós', 'quem somos',
+                        'fale conosco', 'central de ajuda', 'trabalhe conosco', 'informações corporativas',
+                        // Italian (Italiano)
+                        'tutti i diritti riservati', 'diritti riservati', 'informativa sulla privacy', 'note legali',
+                        'informativa cookie', 'preferenze cookie', 'chi siamo', 'contattaci', 'assistenza clienti',
+                        'centro assistenza', 'lavora con noi', 'domande frequenti', 'dichiarazione di accessibilità',
+                        // Dutch (Nederlands)
+                        'alle rechten voorbehouden', 'privacybeleid', 'algemene voorwaarden', 'gebruiksvoorwaarden',
+                        'cookiebeleid', 'cookievoorkeuren', 'colofon', 'over ons', 'contacteer ons', 'klantenservice',
+                        'helpcentrum', 'werken bij', 'veelgestelde vragen', 'toegankelijkheid',
+                        // Polish (Polski)
+                        'wszystkie prawa zastrzeżone', 'polityka prywatności', 'regulamin', 'warunki korzystania',
+                        'polityka cookies', 'ustawienia cookies', 'o nas', 'obsługa klienta', 'mapa strony',
+                        // Swedish & Scandinavian
+                        'alla rättigheter förbehållna', 'integritetspolicy', 'användarvillkor', 'cookiepolicy',
+                        'cookie-inställningar', 'kontakta oss', 'kundservice', 'hjälpcenter', 'webbplatskarta',
+                        // Russian (Русский)
+                        'все права защищены', 'права защищены', 'политика конфиденциальности', 'пользовательское соглашение',
+                        'условия использования', 'правила сайта', 'политика в отношении файлов cookie', 'настройки файлов cookie',
+                        'карта сайта', 'о компании', 'служба поддержки', 'обратная связь', 'вакансии',
+                        // Japanese (日本語)
+                        '無断転載を禁じます', 'すべての権利を保有', '利用規約', 'プライバシーポリシー',
+                        '特定商取引法に基づく表記', 'クッキーポリシー', 'クッキー設定', '会社概要',
+                        'お問い合わせ', '採用情報', 'よくある質問', '著作権について',
+                        // Chinese (中文 - 简体 & 繁體)
+                        '版权所有', '保留所有权利', '保留所有權利', '隐私政策', '隱私政策', '服务条款',
+                        '服務條款', '用户协议', '用戶協議', '法律声明', '免责声明', '免責聲明', '网站地图',
+                        '網站地圖', '关于我们', '關於我們', '联系我们', '聯繫我們', '帮助中心', '幫助中心',
+                        '常见问题', '常見問題', '增值电信业务', '粤icp备', '京icp备', '沪icp备', '浙icp备', 'icp备',
+                        // Korean (한국어)
+                        '모든 권리 보유', '개인정보처리방침', '이용약관', '법적고지', '쿠키 정책', '쿠키 설정',
+                        '회사소개', '문의하기', '자주 묻는 질문', '사업자정보확인',
+                        // Hindi (हिन्दी)
+                        'सर्वाधिकार सुरक्षित', 'गोपनीयता नीति', 'सेवा की शर्तें', 'नियम और शर्तें', 'नियम व शर्तें',
+                        'हमसे संपर्क करें', 'हमारे बारे में', 'सहायता केंद्र', 'अक्सर पूछे जाने वाले प्रश्न',
+                        // Arabic (العربية)
+                        'جميع الحقوق محفوظة', 'سياسة الخصوصية', 'شروط الاستخدام', 'الشروط والأحكام', 'إخلاء المسؤولية',
+                        'ملفات تعريف الارتباط', 'اتصل بنا', 'من نحن', 'مركز المساعدة',
+                        // Turkish (Türkçe)
+                        'tüm hakları saklıdır', 'gizlilik politikası', 'kullanım koşulları', 'çerez politikası',
+                        'çerez ayarları', 'hakkımızda', 'iletişim', 'yardım merkezi', 'site haritası'
                     ];
 
                     var hideInfoFooters = function() {
@@ -2218,15 +2330,31 @@ class MainActivity : ComponentActivity() {
                             var id = (el.id || '').toLowerCase();
                             var bottomDocked = isBottomDocked(el);
 
-                            // Only protect genuine app bottom navigation tab bars (e.g. fixed bottom bar with tabs)
-                            var isAppTabBar = bottomDocked && el.querySelector('[role="tablist"], [class*="tab-bar" i], [class*="tabbar" i], [class*="bottom-nav" i]');
+                            // Safeguard 1: Never hide root, body, or direct content containers
+                            if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') return;
+
+                            // Safeguard 2: Never hide elements that contain main content, articles, forms, feeds, or major views
+                            if (el.querySelector('main, article, form, [role="main"], [role="feed"], #content, #main, .main-content')) return;
+                            try {
+                                if (document.querySelector('main') && el.contains(document.querySelector('main'))) return;
+                                if (document.querySelector('article') && el.contains(document.querySelector('article'))) return;
+                            } catch(e) {}
+
+                            // Safeguard 3: Never collapse large containers (> 75% screen height) to prevent skeleton hiding
+                            try {
+                                var rect = el.getBoundingClientRect();
+                                if (rect.height > window.innerHeight * 0.75) return;
+                            } catch(e) {}
+
+                            // Safeguard 4: Protect genuine app bottom navigation tab bars (e.g. fixed bottom bar with tabs)
+                            var isAppTabBar = bottomDocked && el.querySelector('[role="tablist"], [class*="tab-bar" i], [class*="tabbar" i], [class*="bottom-nav" i], nav[class*="nav" i]');
                             if (isAppTabBar) return;
 
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
                             var isSemanticFooter = (tag === 'FOOTER' || role === 'contentinfo' || id === 'footer');
 
-                            if (isSemanticFooter || hasInfoKeyword || (bottomDocked && keywords.slice(0, 10).some(function(kw) { return text.includes(kw); }))) {
+                            if (isSemanticFooter || hasInfoKeyword || (bottomDocked && keywords.slice(0, 15).some(function(kw) { return text.includes(kw); }))) {
                                 el.style.setProperty('display', 'none', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');

@@ -25,184 +25,200 @@
         android:clickable="true"
         android:focusable="true">
 
-        <androidx.cardview.widget.CardView
-            android:id="@+id/errorCard"
+        <ScrollView
+            android:id="@+id/errorScrollView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="8dp"
-            app:cardBackgroundColor="#1E293B">
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none">
 
-            <LinearLayout
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:paddingLeft="24dp"
-                android:paddingRight="24dp"
-                android:paddingTop="32dp"
-                android:paddingBottom="28dp">
+                android:layout_gravity="center">
 
-                <!-- 64dp Harmonized Circular Badge (Packora Design System) -->
-                <FrameLayout
-                    android:id="@+id/iconBadge"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
-                    android:background="@drawable/bg_icon_badge">
-
-                    <ImageView
-                        android:id="@+id/errorIcon"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_wifi_off"
-                        app:tint="#EF4444"
-                        android:contentDescription="No Connection Icon" />
-                </FrameLayout>
-
-                <!-- Domain / Status Indicator Chip -->
-                <TextView
-                    android:id="@+id/errorStatusChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:background="@drawable/bg_chip"
-                    android:paddingLeft="12dp"
-                    android:paddingRight="12dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp"
-                    android:text="NETWORK OFFLINE"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.08"
-                    android:textStyle="bold"
-                    android:textColor="#94A3B8" />
-
-                <!-- Error Title -->
-                <TextView
-                    android:id="@+id/errorTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:textColor="#F8FAFC"
-                    android:gravity="center"
-                    android:text="Connection Offline" />
-
-                <!-- Error Message -->
-                <TextView
-                    android:id="@+id/errorMessage"
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/errorCard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:textSize="14sp"
-                    android:lineSpacingExtra="3dp"
-                    android:textColor="#94A3B8"
-                    android:gravity="center"
-                    android:text="Unable to reach website servers. Please check your Wi-Fi or mobile data network and retry." />
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="8dp"
+                    app:cardBackgroundColor="#1E293B">
 
-                <!-- Primary Action: RETRY CONNECTION (54dp, 20dp Shape) -->
-                <LinearLayout
-                    android:id="@+id/btnRetry"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="26dp"
-                    android:background="@drawable/bg_retry_button"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="horizontal"
-                    android:paddingLeft="20dp"
-                    android:paddingRight="20dp">
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_refresh"
-                        app:tint="#FFFFFF"
-                        android:contentDescription="Retry" />
-
-                    <TextView
-                        android:id="@+id/btnRetryText"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:text="RETRY CONNECTION"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.06"
-                        android:textColor="#FFFFFF" />
-                </LinearLayout>
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal"
+                        android:paddingLeft="24dp"
+                        android:paddingRight="24dp"
+                        android:paddingTop="32dp"
+                        android:paddingBottom="28dp">
 
-                <!-- Secondary Action: NETWORK SETTINGS -->
-                <LinearLayout
-                    android:id="@+id/btnSettings"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/bg_secondary_button"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="horizontal"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="16dp">
+                        <!-- 64dp Harmonized Circular Badge (Packora Design System) -->
+                        <FrameLayout
+                            android:id="@+id/iconBadge"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:background="@drawable/bg_icon_badge">
 
-                    <ImageView
-                        android:id="@+id/settingsIcon"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_settings"
-                        app:tint="#94A3B8"
-                        android:contentDescription="Settings" />
+                            <ImageView
+                                android:id="@+id/errorIcon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_wifi_off"
+                                app:tint="#EF4444"
+                                android:contentDescription="No Connection Icon" />
+                        </FrameLayout>
 
-                    <TextView
-                        android:id="@+id/btnSettingsText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Network Settings"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="#94A3B8" />
-                </LinearLayout>
+                        <!-- Domain / Status Indicator Chip -->
+                        <TextView
+                            android:id="@+id/errorStatusChip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="18dp"
+                            android:background="@drawable/bg_chip"
+                            android:paddingLeft="12dp"
+                            android:paddingRight="12dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp"
+                            android:text="NETWORK OFFLINE"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.08"
+                            android:textStyle="bold"
+                            android:textColor="#94A3B8" />
 
-                <!-- Helpful Action: PASTE EMAIL / MAGIC LOGIN LINK -->
-                <LinearLayout
-                    android:id="@+id/btnMagicLink"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_secondary_button"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="horizontal"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="16dp">
+                        <!-- Error Title -->
+                        <TextView
+                            android:id="@+id/errorTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="#F8FAFC"
+                            android:gravity="center"
+                            android:text="Connection Offline" />
 
-                    <ImageView
-                        android:id="@+id/magicLinkIcon"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_magic_link"
-                        app:tint="#94A3B8"
-                        android:contentDescription="Magic Link" />
+                        <!-- Error Message -->
+                        <TextView
+                            android:id="@+id/errorMessage"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:textSize="14sp"
+                            android:lineSpacingExtra="3dp"
+                            android:textColor="#94A3B8"
+                            android:gravity="center"
+                            android:text="Unable to reach website servers. Please check your Wi-Fi or mobile data network and retry." />
 
-                    <TextView
-                        android:id="@+id/btnMagicLinkText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Paste Email / Magic Login Link"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="#94A3B8" />
-                </LinearLayout>
+                        <!-- Primary Action: RETRY CONNECTION (54dp, 20dp Shape) -->
+                        <LinearLayout
+                            android:id="@+id/btnRetry"
+                            android:layout_width="match_parent"
+                            android:layout_height="54dp"
+                            android:layout_marginTop="26dp"
+                            android:background="@drawable/bg_retry_button"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:orientation="horizontal"
+                            android:paddingLeft="20dp"
+                            android:paddingRight="20dp">
 
-            </LinearLayout>
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_refresh"
+                                app:tint="#FFFFFF"
+                                android:contentDescription="Retry" />
 
-        </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/btnRetryText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:text="RETRY CONNECTION"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:letterSpacing="0.06"
+                                android:textColor="#FFFFFF" />
+                        </LinearLayout>
+
+                        <!-- Secondary Action: NETWORK SETTINGS -->
+                        <LinearLayout
+                            android:id="@+id/btnSettings"
+                            android:layout_width="match_parent"
+                            android:layout_height="46dp"
+                            android:layout_marginTop="10dp"
+                            android:background="@drawable/bg_secondary_button"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:orientation="horizontal"
+                            android:paddingLeft="16dp"
+                            android:paddingRight="16dp">
+
+                            <ImageView
+                                android:id="@+id/settingsIcon"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@drawable/ic_settings"
+                                app:tint="#94A3B8"
+                                android:contentDescription="Settings" />
+
+                            <TextView
+                                android:id="@+id/btnSettingsText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="Network Settings"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="#94A3B8" />
+                        </LinearLayout>
+
+                        <!-- Helpful Action: PASTE EMAIL / MAGIC LOGIN LINK -->
+                        <LinearLayout
+                            android:id="@+id/btnMagicLink"
+                            android:layout_width="match_parent"
+                            android:layout_height="46dp"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_secondary_button"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:orientation="horizontal"
+                            android:paddingLeft="16dp"
+                            android:paddingRight="16dp">
+
+                            <ImageView
+                                android:id="@+id/magicLinkIcon"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:src="@drawable/ic_magic_link"
+                                app:tint="#94A3B8"
+                                android:contentDescription="Magic Link" />
+
+                            <TextView
+                                android:id="@+id/btnMagicLinkText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="Paste Email / Magic Login Link"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="#94A3B8" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
+            </FrameLayout>
+
+        </ScrollView>
 
     </LinearLayout>
 

@@ -2,6 +2,24 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.3.1] - 2026-09-21
+### Added & Enhanced
+- **Updater Skip Button Redesign**:
+  - **App Cards Design System Alignment**: Redesigned the "Skip" button in `UpdatesAvailableBanner` during sequential updates from an outlined button into a prominent `FilledTonalButton` with `Icons.Outlined.SkipNext`, 38.dp height, 12.dp rounded corners, and 11.sp semi-bold typography matching all app cards in the suite.
+- **200+ Multi-Language Footer Hiding**:
+  - **Global Language Coverage**: Expanded intelligent footer detection from ~35 keywords to over 260+ keywords across 12 languages (English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, Turkish).
+  - **Framework & Class Expansion**: Added modern frontend component selectors (`data-section`, `data-area`, `site-info`, `sub-footer`, `imprint`, `credits`, `legal`).
+- **Skeleton & Content Hydration Safeguards**:
+  - **Anti-Skeleton Collapsing Rules**: Added strict DOM safety guards preventing the footer hider from collapsing `<main>`, `<article>`, forms, dynamic feeds, or large containers (> 75% viewport height), resolving cases where Single Page Applications were stuck showing only skeleton loaders.
+  - **WebView Engine Optimizations**: Configured `LOAD_DEFAULT` cache mode and network load allowances in `WebSettings`, and whitelisted target domain family requests from ad-blocker interception.
+- **Foreign Domain Redirect Shield**:
+  - **Automatic Redirect Blocker**: Blocked automatic HTTP 301/302, popunder, and script-based redirects to external domains outside the website's domain family (`isRedirect == true -> return true`), preventing random third-party websites from hijacking the app.
+  - **Secure External Link Handling**: User-initiated external links are routed cleanly to Custom Tabs or the external browser, never loading untrusted foreign sites in the app's internal WebView.
+- **Error Overlay & Magic Link Fixes**:
+  - **Paste Magic Link Crash Resolved**: Switched dialog creation in `ComponentActivity` from `androidx.appcompat.app.AlertDialog` to native themed `android.app.AlertDialog`, preventing fatal `IllegalStateException` crashes.
+  - **Error Screen Stability**: Added `hasPageLoadError` tracking to ensure the connection error overlay remains visible on failed page loads and is not prematurely dismissed by Chromium's `onPageFinished` callback.
+  - **Responsive Error Card Scrolling**: Wrapped the error card in a `ScrollView` with `fillViewport` so all action buttons remain fully accessible on compact screens, landscape mode, and when the keyboard is open.
+
 ## [3.3.0] - 2026-09-20
 ### Added & Enhanced
 - **Continuous 1..100% Build Progression**:

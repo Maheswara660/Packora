@@ -31,9 +31,23 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "3.3.1",
+        date = "September 21, 2026",
+        isLatest = true,
+        summary = "Updater Skip Redesign, 200+ Footer Keywords, Foreign Redirect Shield, Skeleton Loading Fix, & Error Overlay Stability",
+        changes = listOf(
+            "Updater Banner Redesign: Redesigned the 'Skip' button during sequential updates as a prominent FilledTonalButton with SkipNext icon, 38.dp height, and 12.dp rounded corners matching the app cards design system.",
+            "200+ Multi-Language Footer Removal: Expanded the intelligent footer hider to detect and remove footers across 200+ global keywords in 12 languages (English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, Turkish).",
+            "Skeleton & Content Safeguards: Introduced structural safeguards to prevent the footer hider from collapsing <main>, <article>, dynamic feeds, or containers exceeding 75% screen height, ensuring skeletons hydrate into content seamlessly.",
+            "Foreign Domain Redirect Shield: Blocked automatic redirects (HTTP 301/302, popunders, script redirects) to random external websites not belonging to the website's domain family.",
+            "Paste Magic Link Dialog Fix: Switched from AppCompat AlertDialog to platform AlertDialog in ComponentActivity, resolving the fatal IllegalStateException crash when tapping the paste login link button.",
+            "Error Overlay Display Stability: Fixed premature dismissal of the connection error overlay by onPageFinished, ensuring retry and offline screens persist reliably until successful reconnection."
+        )
+    ),
+    ReleaseItem(
         version = "3.3.0",
         date = "September 20, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Continuous 1..100% Build Progress, Default-OFF Footer Flag, 2-Buttons-Per-Row Grid, & History Refresh & Remove Confirmation",
         changes = listOf(
             "Continuous 1..100% Build Progression: Eliminated jumping compilation progress across BuildScreen, My Apps single/batch updates, and recompile dialogs; progress now advances smoothly 1% at a time from 1 to 100%.",

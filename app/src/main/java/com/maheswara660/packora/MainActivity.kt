@@ -295,9 +295,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "3.3.0"
+        pInfo.versionName ?: "3.3.1"
     } catch (e: Exception) {
-        "3.3.0"
+        "3.3.1"
     }
 }
 

@@ -1234,22 +1234,26 @@ fun UpdatesAvailableBanner(
                     Button(
                         onClick = onUpdateAll,
                         shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
                     ) {
-                        Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("PROMPT INSTALLER", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("PROMPT INSTALLER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
                     if (onSkipCurrentInstall != null) {
-                        OutlinedButton(
+                        FilledTonalButton(
                             onClick = onSkipCurrentInstall,
                             shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.height(38.dp)
                         ) {
-                            Text("SKIP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Outlined.SkipNext, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Skip", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -1257,13 +1261,14 @@ fun UpdatesAvailableBanner(
                 Button(
                     onClick = onUpdateAll,
                     shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(38.dp)
                 ) {
-                    Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("UPDATE ALL ($updateCount)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("UPDATE ALL ($updateCount)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

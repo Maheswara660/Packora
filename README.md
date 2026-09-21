@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.3.0</h1>
+<h1 align="center">Packora v3.3.1</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.3.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.3.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.3.1-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.3.1"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -30,7 +30,7 @@
 
 - [Overview](#-overview)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v3.3.0](#-whats-new-in-v330)
+- [What's New in v3.3.1](#-whats-new-in-v331)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [My Apps Management Hub](#-my-apps-management-hub)
@@ -82,21 +82,21 @@ flowchart TD
 
 ---
 
-## 🚀 What's New in v3.3.0
+## 🚀 What's New in v3.3.1
 
-- **Continuous 1..100% Build Progress**:
-  - Eliminated jumping compilation progress across `BuildScreen`, My Apps single/batch updates, and recompile dialogs; progress now advances strictly 1% at a time (`1, 2, 3... 100%`).
-- **Dashboard Footer Flag Default OFF & Vibrant Theme**:
-  - Configured "Enable Footers" on the dashboard to default `false` (OFF).
-  - Toggling it ON lights it up in rich, vibrant blue (`primaryContainer` / `primary`) with prominent tonal depth.
-- **Balanced 2-Buttons-Per-Row Grid in App Cards**:
-  - Reorganized app card action buttons across `MyAppsScreen` and `HistoryScreen` into a structured, responsive two-buttons-per-row grid layout.
-- **Full Button Delete & Uninstall Actions**:
-  - Upgraded compact delete icon buttons into full, prominent "Uninstall" and "Remove" action buttons styled with error-tonal color accents.
-- **Build History Delete Confirmation BottomSheet**:
-  - Integrated a dedicated `ModalBottomSheet` for confirming history removals with app details, package identifier, and safety notice.
-- **Build History Dedicated Refresh Action**:
-  - Added a dedicated Refresh button in the Build History top bar positioned between Sort and Clear History.
+- **Updater "Skip" Button Redesign**:
+  - Redesigned the "Skip" button during batch updates (`installQueue`) as a prominent `FilledTonalButton` with `Icons.Outlined.SkipNext`, 38.dp height, 12.dp radius, and 11.sp typography matching the app cards design system.
+- **200+ Multi-Language Footer Hiding**:
+  - Expanded intelligent footer detection to over 260+ keywords across 12 languages (English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, Turkish) and modern frontend selectors.
+- **Skeleton & Content Hydration Safeguards**:
+  - Added structural safeguards protecting `<main>`, `<article>`, dynamic feeds, and containers exceeding 75% viewport height from being hidden, ensuring Single Page Application skeleton screens cleanly hydrate into real content.
+  - Configured `LOAD_DEFAULT` cache mode and network allowances in WebSettings, and whitelisted same-domain family requests from ad-blocker interception.
+- **Foreign Domain Redirect Shield**:
+  - Blocked automatic redirects (HTTP 301/302, popunders, script redirects) to random external websites outside the app's domain family (`return true`). User-initiated external links are routed cleanly via Custom Tabs or external browsers.
+- **Error Overlay & Magic Link Dialog Fixes**:
+  - Replaced AppCompat `AlertDialog` with native themed `android.app.AlertDialog` in `ComponentActivity`, resolving the fatal `IllegalStateException` crash when clicking the "Paste Email / Magic Login Link" button.
+  - Added `hasPageLoadError` tracking to ensure the connection error overlay remains visible on failed page loads rather than being prematurely dismissed by `onPageFinished`.
+  - Wrapped error card in a `ScrollView` with `fillViewport` for responsive layout on compact screens and landscape orientation.
 
 ---
 
@@ -279,6 +279,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v3.3.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v3.3.1 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

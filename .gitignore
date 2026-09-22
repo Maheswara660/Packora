@@ -36,11 +36,15 @@ captures/
 .externalNativeBuild
 .cxx/
 
+# Kotlin
+.kotlin/
+
 # APKs and App Bundles
 *.apk
 *.apks
 *.aab
 *.apxc
+*.idsig
 release/
 app/release/
 
@@ -89,3 +93,5 @@ compose_compiler/
 # Temporary IDE / Brain caches
 .tempmediaStorage/
 .system_generated/
+temp_release
+temp/

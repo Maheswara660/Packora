@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_original_background">#000a32</color>
+    <color name="ic_launcher_cyber_lime_background">#283c0a</color>
+    <color name="ic_launcher_ruby_blaze_background">#1e0000</color>
+    <color name="ic_launcher_ocean_teal_background">#001e3c</color>
+    <color name="ic_launcher_frost_white_background">#144678</color>
+    <color name="ic_launcher_neon_indigo_background">#140046</color>
+    <color name="ic_launcher_deep_sapphire_background">#000a28</color>
+    <color name="ic_launcher_electric_azure_background">#00468c</color>
+    <color name="ic_launcher_emerald_green_background">#001400</color>
+    <color name="ic_launcher_royal_violet_background">#1e0046</color>
+    <color name="ic_launcher_amber_sunset_background">#1e0a28</color>
+    <color name="ic_launcher_stealth_onyx_background">#141414</color>
+</resources>

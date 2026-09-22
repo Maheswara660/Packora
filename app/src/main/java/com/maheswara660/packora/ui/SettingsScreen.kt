@@ -4,10 +4,15 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,28 +29,40 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maheswara660.packora.installApkFile
+import com.maheswara660.packora.installer.PackageInstallerHelper
 import com.maheswara660.packora.manager.AppColorAccent
+import com.maheswara660.packora.manager.AppIconItem
+import com.maheswara660.packora.manager.AppIconManager
 import com.maheswara660.packora.manager.AppReleaseInfo
+import com.maheswara660.packora.manager.ReleaseAsset
 import com.maheswara660.packora.manager.AppThemeMode
 import com.maheswara660.packora.manager.AppUpdateManager
 import com.maheswara660.packora.manager.PackoraPreferencesManager
-import com.maheswara660.packora.manager.ReleaseAsset
 import com.maheswara660.packora.manager.UpdateCheckResult
+import com.maheswara660.packora.manager.UpdateInstallMode
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.Check
 import com.maheswara660.packora.ui.components.MarkdownText
+import com.maheswara660.packora.ui.theme.getAppColorAccentColor
 import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
+    onBack: () -> Unit = {},
     onNavigateAbout: () -> Unit,
     onNavigateChangelog: () -> Unit = {},
     onThemeModeChange: (AppThemeMode) -> Unit,
@@ -59,11 +76,16 @@ fun SettingsScreen(
 
     var currentTheme by remember { mutableStateOf(prefsManager.themeMode) }
     var currentAccent by remember { mutableStateOf(prefsManager.colorAccent) }
+    var currentAppIcon by remember { mutableStateOf(prefsManager.activeAppIcon) }
+    var autoDeleteApks by remember { mutableStateOf(prefsManager.autoDeleteApkAfterInstall) }
     var customStorageFolder by remember { mutableStateOf(prefsManager.customStorageFolder) }
     var useCustomStorage by remember { mutableStateOf(prefsManager.useCustomStorageFolder) }
 
     var showThemeSheet by remember { mutableStateOf(false) }
     var showAccentSheet by remember { mutableStateOf(false) }
+    var showIconSheet by remember { mutableStateOf(false) }
+    var updateInstallMode by remember { mutableStateOf(prefsManager.updateInstallMode) }
+    var showUpdateInstallModeSheet by remember { mutableStateOf(false) }
 
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var availableRelease by remember { mutableStateOf<AppReleaseInfo?>(null) }
@@ -179,29 +201,23 @@ fun SettingsScreen(
                                 AppThemeMode.LIGHT -> "Light Theme"
                                 AppThemeMode.DARK -> "Dark Theme"
                                 AppThemeMode.AMOLED -> "AMOLED Pitch Dark"
+                                AppThemeMode.THEME_ORIGINAL -> "Original (Classic Blue)"
+                                AppThemeMode.THEME_CYBER_LIME -> "Cyber Lime"
+                                AppThemeMode.THEME_RUBY_BLAZE -> "Ruby Blaze"
+                                AppThemeMode.THEME_OCEAN_TEAL -> "Ocean Teal"
+                                AppThemeMode.THEME_FROST_WHITE -> "Frost White"
+                                AppThemeMode.THEME_NEON_INDIGO -> "Neon Indigo"
+                                AppThemeMode.THEME_DEEP_SAPPHIRE -> "Deep Sapphire"
+                                AppThemeMode.THEME_ELECTRIC_AZURE -> "Electric Azure"
+                                AppThemeMode.THEME_EMERALD_GREEN -> "Emerald Green"
+                                AppThemeMode.THEME_ROYAL_VIOLET -> "Royal Violet"
+                                AppThemeMode.THEME_AMBER_SUNSET -> "Amber Sunset"
+                                AppThemeMode.THEME_STEALTH_ONYX -> "Stealth Onyx"
                             }
                             Text(
                                 themeLabel,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            modifier = Modifier.padding(end = 6.dp)
-                        ) {
-                            Text(
-                                when (currentTheme) {
-                                    AppThemeMode.SYSTEM -> "System"
-                                    AppThemeMode.LIGHT -> "Light"
-                                    AppThemeMode.DARK -> "Dark"
-                                    AppThemeMode.AMOLED -> "AMOLED"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                         Icon(
@@ -249,7 +265,19 @@ fun SettingsScreen(
                             )
                             val accentLabel = when (currentAccent) {
                                 AppColorAccent.SYSTEM -> "Material You (System)"
-                                AppColorAccent.EMERALD -> "Emerald Green"
+                                AppColorAccent.ORIGINAL -> "Original (Classic Blue)"
+                                AppColorAccent.CYBER_LIME -> "Cyber Lime"
+                                AppColorAccent.RUBY_BLAZE -> "Ruby Blaze"
+                                AppColorAccent.OCEAN_TEAL -> "Ocean Teal"
+                                AppColorAccent.FROST_WHITE -> "Frost White"
+                                AppColorAccent.NEON_INDIGO -> "Neon Indigo"
+                                AppColorAccent.DEEP_SAPPHIRE -> "Deep Sapphire"
+                                AppColorAccent.ELECTRIC_AZURE -> "Electric Azure"
+                                AppColorAccent.EMERALD_GREEN -> "Emerald Green"
+                                AppColorAccent.ROYAL_VIOLET -> "Royal Violet"
+                                AppColorAccent.AMBER_SUNSET -> "Amber Sunset"
+                                AppColorAccent.STEALTH_ONYX -> "Stealth Onyx"
+                                AppColorAccent.EMERALD -> "Emerald Green (Classic)"
                                 AppColorAccent.OCEAN -> "Ocean Blue"
                                 AppColorAccent.PURPLE -> "Deep Purple"
                                 AppColorAccent.AMBER -> "Warm Amber"
@@ -277,15 +305,58 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Live Accent Color Preview Dot
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    // App Icon Selector Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showIconSheet = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.AppShortcut,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        val currentIconItem = remember(currentAppIcon) {
+                            AppIconManager.ICONS.find { it.id == currentAppIcon } ?: AppIconManager.ICONS.first()
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "App Icon",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                currentIconItem.displayName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Icon(
                             Icons.Outlined.ChevronRight,
                             contentDescription = null,
@@ -387,6 +458,66 @@ fun SettingsScreen(
                                 Text("Reset to Default (Downloads/Packora)", style = MaterialTheme.typography.labelSmall)
                             }
                         }
+                    }
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+
+                    // Auto-Delete APKs Toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                autoDeleteApks = !autoDeleteApks
+                                prefsManager.autoDeleteApkAfterInstall = autoDeleteApks
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.AutoDelete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Auto-Delete APKs After Install",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                if (autoDeleteApks) "Deletes compiled or downloaded APKs after successful installation"
+                                else "Keeps APKs in Downloads/Packora after installation",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = autoDeleteApks,
+                            onCheckedChange = {
+                                autoDeleteApks = it
+                                prefsManager.autoDeleteApkAfterInstall = it
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            )
+                        )
                     }
                 }
             }
@@ -494,6 +625,57 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
 
+                    // Update Installation Mode Tile
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showUpdateInstallModeSheet = true
+                            }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.AutoMode,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Update Installation Mode",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                updateInstallMode.title,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
                     // Manual GitHub Releases Link Tile
                     Row(
                         modifier = Modifier
@@ -542,9 +724,9 @@ fun SettingsScreen(
                 }
             }
 
-            // 3. ABOUT & SYSTEM SECTION
+            // 3. ABOUT SECTION
             Text(
-                "SYSTEM & ABOUT",
+                "ABOUT",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -561,55 +743,6 @@ fun SettingsScreen(
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // About Tile
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateAbout() }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Outlined.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "About Packora",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Version $installedVersion • Features, credits & open source",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            Icons.Outlined.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-
                     // Changelog Tile
                     Row(
                         modifier = Modifier
@@ -659,23 +792,24 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
 
-                    // Pipeline / Compiler Status Tile
+                    // About Tile
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { onNavigateAbout() }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Outlined.Build,
+                                    Icons.Outlined.Info,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -683,40 +817,23 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Packaging Engine",
+                                "About Packora",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "On-Device AAPT2, D8 & ApkSigner",
+                                "Version $installedVersion • Features, credits & open source",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary)
-                                )
-                                Text(
-                                    "Ready",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -726,16 +843,28 @@ fun SettingsScreen(
         if (showThemeSheet) {
             SelectionBottomSheetDialog(
                 title = "Select App Theme",
-                subtitle = "Choose light, dark, or AMOLED pitch black appearance",
+                subtitle = "Choose standard appearance or custom icon themes",
                 icon = Icons.Outlined.DarkMode,
                 options = listOf(
                     AppThemeMode.SYSTEM to "System Default",
                     AppThemeMode.LIGHT to "Light Theme",
                     AppThemeMode.DARK to "Dark Theme",
-                    AppThemeMode.AMOLED to "AMOLED Pitch Dark"
+                    AppThemeMode.AMOLED to "AMOLED Pitch Dark",
+                    AppThemeMode.THEME_ORIGINAL to "Original (Classic Blue)",
+                    AppThemeMode.THEME_CYBER_LIME to "Cyber Lime",
+                    AppThemeMode.THEME_RUBY_BLAZE to "Ruby Blaze",
+                    AppThemeMode.THEME_OCEAN_TEAL to "Ocean Teal",
+                    AppThemeMode.THEME_FROST_WHITE to "Frost White",
+                    AppThemeMode.THEME_NEON_INDIGO to "Neon Indigo",
+                    AppThemeMode.THEME_DEEP_SAPPHIRE to "Deep Sapphire",
+                    AppThemeMode.THEME_ELECTRIC_AZURE to "Electric Azure",
+                    AppThemeMode.THEME_EMERALD_GREEN to "Emerald Green",
+                    AppThemeMode.THEME_ROYAL_VIOLET to "Royal Violet",
+                    AppThemeMode.THEME_AMBER_SUNSET to "Amber Sunset",
+                    AppThemeMode.THEME_STEALTH_ONYX to "Stealth Onyx"
                 ),
                 initialSelection = currentTheme,
-                isScrollable = false,
+                isScrollable = true,
                 onDismiss = { showThemeSheet = false },
                 onConfirm = { selected ->
                     currentTheme = selected
@@ -750,11 +879,25 @@ fun SettingsScreen(
         if (showAccentSheet) {
             SelectionBottomSheetDialog(
                 title = "Select Color Accent",
-                subtitle = "Select system dynamic colors or custom palette",
+                subtitle = "Select system dynamic colors, icon palettes, or accents",
                 icon = Icons.Outlined.Palette,
                 options = listOf(
                     AppColorAccent.SYSTEM to "System Default (Material You)",
-                    AppColorAccent.EMERALD to "Emerald Green",
+                    // 12 App Icon Color Schemes
+                    AppColorAccent.ORIGINAL to "Original (Classic Blue)",
+                    AppColorAccent.CYBER_LIME to "Cyber Lime",
+                    AppColorAccent.RUBY_BLAZE to "Ruby Blaze",
+                    AppColorAccent.OCEAN_TEAL to "Ocean Teal",
+                    AppColorAccent.FROST_WHITE to "Frost White",
+                    AppColorAccent.NEON_INDIGO to "Neon Indigo",
+                    AppColorAccent.DEEP_SAPPHIRE to "Deep Sapphire",
+                    AppColorAccent.ELECTRIC_AZURE to "Electric Azure",
+                    AppColorAccent.EMERALD_GREEN to "Emerald Green",
+                    AppColorAccent.ROYAL_VIOLET to "Royal Violet",
+                    AppColorAccent.AMBER_SUNSET to "Amber Sunset",
+                    AppColorAccent.STEALTH_ONYX to "Stealth Onyx",
+                    // Additional Accents
+                    AppColorAccent.EMERALD to "Emerald Green (Classic)",
                     AppColorAccent.OCEAN to "Ocean Blue",
                     AppColorAccent.PURPLE to "Deep Purple",
                     AppColorAccent.AMBER to "Warm Amber",
@@ -784,6 +927,21 @@ fun SettingsScreen(
                     prefsManager.colorAccent = selected
                     onColorAccentChange(selected)
                     showAccentSheet = false
+                }
+            )
+        }
+
+        // App Icon Bottom Sheet Selector
+        if (showIconSheet) {
+            AppIconBottomSheetDialog(
+                currentIconKey = currentAppIcon,
+                onDismiss = { showIconSheet = false },
+                onSelectIcon = { item ->
+                    AppIconManager.setAppIcon(context, item)
+                    currentAppIcon = item.id
+                    prefsManager.activeAppIcon = item.id
+                    showIconSheet = false
+                    Toast.makeText(context, "Icon set to ${item.displayName}", Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -820,11 +978,25 @@ fun SettingsScreen(
                         isDownloadingUpdate = false
                         result.onSuccess { file ->
                             downloadedApkFile = file
-                            Toast.makeText(
-                                context,
-                                "Update saved to ${file.parentFile?.name}/${file.name}",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            val isSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
+                            if (prefsManager.updateInstallMode != UpdateInstallMode.COMPLETELY_MANUAL) {
+                                PackageInstallerHelper.installPackage(
+                                    context = context,
+                                    apkPath = file.absolutePath,
+                                    packageName = context.packageName,
+                                    appName = "Packora",
+                                    silent = isSilent
+                                )
+                                if (isSilent) {
+                                    showUpdateSheet = false
+                                }
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "Update saved to ${file.parentFile?.name}/${file.name}. Tap 'INSTALL NOW' to install.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
                         }.onFailure { err ->
                             Toast.makeText(
                                 context,
@@ -835,10 +1007,34 @@ fun SettingsScreen(
                     }
                 },
                 onInstallDownloaded = { file ->
-                    installApkFile(context, file.absolutePath)
+                    val isSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
+                    PackageInstallerHelper.installPackage(
+                        context = context,
+                        apkPath = file.absolutePath,
+                        packageName = context.packageName,
+                        appName = "Packora",
+                        silent = isSilent
+                    )
+                    if (isSilent) {
+                        showUpdateSheet = false
+                    }
                 },
                 onOpenBrowser = { url ->
                     uriHandler.openUri(url)
+                }
+            )
+        }
+
+        // Update Installation Mode Bottom Sheet Dialog
+        if (showUpdateInstallModeSheet) {
+            UpdateInstallModeBottomSheetDialog(
+                currentMode = updateInstallMode,
+                onDismiss = { showUpdateInstallModeSheet = false },
+                onConfirm = { newMode ->
+                    updateInstallMode = newMode
+                    prefsManager.updateInstallMode = newMode
+                    showUpdateInstallModeSheet = false
+                    Toast.makeText(context, "Update mode set to ${newMode.title}", Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -859,10 +1055,17 @@ fun <T> SelectionBottomSheetDialog(
 ) {
     var tempSelection by remember { mutableStateOf(initialSelection) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
@@ -922,14 +1125,14 @@ fun <T> SelectionBottomSheetDialog(
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceContainerHigh
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .border(
-                                1.dp,
-                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                RoundedCornerShape(16.dp)
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(16.dp)
                             )
                             .clickable { tempSelection = value }
                     ) {
@@ -939,19 +1142,31 @@ fun <T> SelectionBottomSheetDialog(
                         ) {
                             RadioButton(
                                 selected = isSelected,
-                                onClick = { tempSelection = value }
+                                onClick = { tempSelection = value },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             )
                             Spacer(modifier = Modifier.width(12.dp))
+                            if (value is AppColorAccent) {
+                                val accentColor = getAppColorAccentColor(value) ?: MaterialTheme.colorScheme.primary
+                                Surface(
+                                    shape = CircleShape,
+                                    color = accentColor,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
+                                ) {}
+                                Spacer(modifier = Modifier.width(10.dp))
+                            }
                             Text(
                                 text = label,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (isSelected) {
-                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                            }
                         }
                     }
                 }
@@ -998,18 +1213,26 @@ fun AppUpdateBottomSheet(
     onOpenBrowser: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
 
     ModalBottomSheet(
         onDismissRequest = {
             if (!isDownloading) onDismiss()
         },
-        sheetState = sheetState
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -1161,25 +1384,48 @@ fun AppUpdateBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Release Notes",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 120.dp, max = 360.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .verticalScroll(rememberScrollState())
-                            .padding(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        MarkdownText(
-                            markdown = releaseInfo.changelog,
-                            textColor = MaterialTheme.colorScheme.onSurface
+                        Text(
+                            text = "Release Notes",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                        ) {
+                            Text(
+                                text = "GitHub Markdown",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        ),
+                        border = CardDefaults.outlinedCardBorder(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp)
+                        ) {
+                            MarkdownText(
+                                markdown = releaseInfo.changelog,
+                                textColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
@@ -1223,19 +1469,34 @@ fun AppUpdateBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (downloadedFile != null && downloadedFile.exists()) {
-                    Button(
-                        onClick = { onInstallDownloaded(downloadedFile) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(16.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Outlined.FileDownloadDone, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("INSTALL UPDATE NOW", fontWeight = FontWeight.Bold)
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("LATER", fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { onInstallDownloaded(downloadedFile) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Outlined.FileDownloadDone, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("INSTALL NOW", fontWeight = FontWeight.Bold)
+                        }
                     }
                 } else if (isDownloading) {
                     Button(
@@ -1255,46 +1516,44 @@ fun AppUpdateBottomSheet(
                         Text("DOWNLOADING UPDATE...", fontWeight = FontWeight.Bold)
                     }
                 } else if (bestAsset != null) {
-                    Button(
-                        onClick = { onDownloadAndInstall(bestAsset) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(16.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("DOWNLOAD & INSTALL", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { onOpenBrowser(releaseInfo.htmlUrl) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("VIEW ON GITHUB", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    }
-
-                    if (!isDownloading) {
                         OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(14.dp)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text("LATER", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            Text("LATER", fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { onDownloadAndInstall(bestAsset) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("DOWNLOAD & INSTALL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
+                }
+
+                OutlinedButton(
+                    onClick = { onOpenBrowser(releaseInfo.htmlUrl) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("VIEW ON GITHUB", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -1306,4 +1565,296 @@ private fun formatBytes(bytes: Long): String {
     val mb = bytes.toDouble() / (1024.0 * 1024.0)
     return String.format("%.1f MB", mb)
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppIconBottomSheetDialog(
+    currentIconKey: String,
+    onDismiss: () -> Unit,
+    onSelectIcon: (AppIconItem) -> Unit
+) {
+    val icons = remember { AppIconManager.ICONS }
+    var tempSelectedIcon by remember(currentIconKey) {
+        mutableStateOf(icons.find { it.id == currentIconKey } ?: icons.first())
+    }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AppShortcut,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Select App Icon",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Choose Packora's launcher icon across your system",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                items(icons) { iconItem ->
+                    val isSelected = iconItem.id == tempSelectedIcon.id
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHighest
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        modifier = Modifier
+                            .size(126.dp)
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .clickable { tempSelectedIcon = iconItem }
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                Image(
+                                    painter = painterResource(iconItem.previewRes),
+                                    contentDescription = iconItem.displayName,
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = iconItem.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = {
+                        onSelectIcon(tempSelectedIcon)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("APPLY", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UpdateInstallModeBottomSheetDialog(
+    currentMode: UpdateInstallMode,
+    onDismiss: () -> Unit,
+    onConfirm: (UpdateInstallMode) -> Unit
+) {
+    var tempSelection by remember { mutableStateOf(currentMode) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoMode,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Update Installation Mode",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Choose how Packora installs WebAPK updates across your system",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                UpdateInstallMode.entries.forEach { mode ->
+                    val isSelected = tempSelection == mode
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHighest
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable { tempSelection = mode }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp)
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { tempSelection = mode },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = mode.title,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { onConfirm(tempSelection) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("APPLY", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
 

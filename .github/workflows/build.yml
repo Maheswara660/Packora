@@ -69,7 +69,7 @@ jobs:
         shell: bash
 
       - name: Sign Android Release
-        if: github.event_name != 'pull_request' && env.SIGNING_KEY != null
+        if: github.event_name != 'pull_request' && secrets.SIGNING_KEY != ''
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:

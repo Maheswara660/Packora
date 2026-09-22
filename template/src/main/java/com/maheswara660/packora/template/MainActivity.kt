@@ -274,6 +274,15 @@ class MainActivity : ComponentActivity() {
         launchGoogleOAuthInCustomTab(authUrl)
     }
 
+    private fun getCleanDefaultUserAgent(context: Context): String {
+        return try {
+            val defaultUa = WebSettings.getDefaultUserAgent(context)
+            defaultUa.replace("; wv", "").replace(";wv", "").replace(Regex("Version/\\d+\\.\\d+\\s*"), "")
+        } catch (e: Exception) {
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"
+        }
+    }
+
     private fun launchGoogleOAuthInCustomTab(authUrl: String) {
         try {
             activeCustomTabAuth = true
@@ -285,7 +294,7 @@ class MainActivity : ComponentActivity() {
             customTabsIntent.launchUrl(this@MainActivity, uri)
         } catch (e: Exception) {
             activeCustomTabAuth = false
-            binding.webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+            binding.webView.settings.userAgentString = getCleanDefaultUserAgent(this)
             binding.webView.loadUrl(authUrl)
         }
     }
@@ -832,15 +841,15 @@ class MainActivity : ComponentActivity() {
         if (isDesktopMode) {
             val desktopUA = webViewConfig?.optString("userAgent")
                 ?.takeIf { it.isNotBlank() }
-                ?: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+                ?: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
 
             settings.userAgentString = desktopUA
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
             settings.defaultTextEncodingName = "utf-8"
         } else {
-            // Clean standard Chrome User Agent so Google OAuth and auth flows work seamlessly without 403
-            settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+            // Clean standard Chrome User Agent matching device Chromium build to prevent 403 Forbidden / client-hints mismatch
+            settings.userAgentString = getCleanDefaultUserAgent(this)
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
         }
@@ -1196,7 +1205,7 @@ class MainActivity : ComponentActivity() {
 
                 // 2. Intra-domain navigation and auth flows MUST remain directly inside this app's WebView
                 if (isSameDomainFamily || url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
-                    view?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                    view?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
                     return false // Load internally in app WebView!
                 }
 
@@ -1267,7 +1276,9 @@ class MainActivity : ComponentActivity() {
                 if (targetHost != null && popupHost != null) {
                     val cleanTarget = targetHost.removePrefix("www.")
                     val cleanPopup = popupHost.removePrefix("www.")
-                    if (cleanPopup == cleanTarget || cleanPopup.endsWith(".$cleanTarget") || cleanTarget.endsWith(".$cleanPopup")) {
+                    val targetRoot = cleanTarget.split(".").takeLast(2).joinToString(".")
+                    val popupRoot = cleanPopup.split(".").takeLast(2).joinToString(".")
+                    if (cleanPopup == cleanTarget || cleanPopup.endsWith(".$cleanTarget") || cleanTarget.endsWith(".$cleanPopup") || (targetRoot.isNotEmpty() && targetRoot == popupRoot)) {
                         // Same domain link with target="_blank" -> Load directly in main WebView, no popup dialog needed!
                         transport.webView = view
                         resultMsg.sendToTarget()
@@ -1288,7 +1299,7 @@ class MainActivity : ComponentActivity() {
                     settings.databaseEnabled = true
                     settings.setSupportMultipleWindows(true)
                     settings.javaScriptCanOpenWindowsAutomatically = true
-                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                    settings.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     setBackgroundColor(popupBgColor)
@@ -1425,7 +1436,7 @@ class MainActivity : ComponentActivity() {
                         if (url == null) return false
                         if (isAdOrGamblingUrl(url)) return true
                         if (url.contains("accounts.google.com") || isAuthOrLoginUrl(url)) {
-                            v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                            v?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
                             return false
                         }
                         // Check if returned to main app
@@ -1446,7 +1457,7 @@ class MainActivity : ComponentActivity() {
                             return true
                         }
                         if (target.contains("accounts.google.com") || isAuthOrLoginUrl(target)) {
-                            v?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                            v?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
                             return false // Let Google Account Chooser & Auth load inside popup window!
                         }
                         // Check if returned to main app
@@ -2393,6 +2404,11 @@ class MainActivity : ComponentActivity() {
                                 if (document.querySelector('article') && el.contains(document.querySelector('article'))) return;
                             } catch(e) {}
 
+                            // Safeguard 2.5: Never hide elements inside main, article, or card/simulation/course components (fixes Forage and education platforms)
+                            try {
+                                if (el.closest('main, article, [role="main"], [role="feed"], .card, [class*="card" i], [class*="simulation" i], [class*="course" i], [class*="job" i], [class*="program" i]')) return;
+                            } catch(e) {}
+
                             // Safeguard 3: Never collapse large containers (> 75% screen height) to prevent skeleton hiding
                             try {
                                 var rect = el.getBoundingClientRect();
@@ -2516,7 +2532,10 @@ class MainActivity : ComponentActivity() {
                             backdropSelectors.forEach(function(sel) {
                                 try {
                                     document.querySelectorAll(sel).forEach(function(el) {
-                                        if (el.querySelector('[role="dialog"], video, iframe, form, button, input')) return;
+                                        if (hasVisibleModal) return; // Don't remove backdrops if a modal is actually visible
+                                        if (el.querySelector('[role="dialog"], [role="navigation"], nav, video, iframe, form, button, input, a[href], [role="button"]')) return;
+                                        var text = (el.innerText || '').trim();
+                                        if (text.length > 15) return; // Contains substantial text, do not hide!
                                         var style = window.getComputedStyle(el);
                                         var isFixed = (style.position === 'fixed' || style.position === 'absolute');
                                         var rect = el.getBoundingClientRect();

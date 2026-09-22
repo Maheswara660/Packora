@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -45,10 +46,178 @@
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- 12 Dynamic Launcher Icon Activity Aliases -->
+        <activity-alias
+            android:name=".MainActivityAliasOriginal"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_original"
+            android:roundIcon="@mipmap/ic_launcher_round_original"
+            android:label="@string/app_name"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasCyberLime"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_cyber_lime"
+            android:roundIcon="@mipmap/ic_launcher_round_cyber_lime"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasRubyBlaze"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_ruby_blaze"
+            android:roundIcon="@mipmap/ic_launcher_round_ruby_blaze"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasOceanTeal"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_ocean_teal"
+            android:roundIcon="@mipmap/ic_launcher_round_ocean_teal"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasFrostWhite"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_frost_white"
+            android:roundIcon="@mipmap/ic_launcher_round_frost_white"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasNeonIndigo"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_neon_indigo"
+            android:roundIcon="@mipmap/ic_launcher_round_neon_indigo"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasDeepSapphire"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_deep_sapphire"
+            android:roundIcon="@mipmap/ic_launcher_round_deep_sapphire"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasElectricAzure"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_electric_azure"
+            android:roundIcon="@mipmap/ic_launcher_round_electric_azure"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasEmeraldGreen"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_emerald_green"
+            android:roundIcon="@mipmap/ic_launcher_round_emerald_green"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasRoyalViolet"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_royal_violet"
+            android:roundIcon="@mipmap/ic_launcher_round_royal_violet"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasAmberSunset"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_amber_sunset"
+            android:roundIcon="@mipmap/ic_launcher_round_amber_sunset"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasStealthOnyx"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_stealth_onyx"
+            android:roundIcon="@mipmap/ic_launcher_round_stealth_onyx"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -59,6 +228,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <receiver
+            android:name=".receiver.PackageInstallStatusReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

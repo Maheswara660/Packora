@@ -2,6 +2,50 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [4.0.0] - 2026-09-22
+### Added & Enhanced
+- **Automated Background Update Installation (Unattended Package Installer)**:
+  - **Android 12+ (API 31+) Silent Updates**: Leveraged `PackageInstaller` with `USER_ACTION_NOT_REQUIRED` and `android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION` to install updates seamlessly in the background without prompting the system package installer dialog.
+  - **4 Update Installation Modes**: Added dedicated setting under `APP UPDATES` opening an M3 bottom sheet dialog with 4 selectable modes:
+    1. *Completely Manual*: Compiles updates and requires user to manually tap "Install" on each card without automatic triggers.
+    2. *Manual Upgrade*: Always prompts the system installer dialog automatically upon update compilation.
+    3. *Automate "Update All" Only*: Batch sequential updates install silently in the background, while single manual updates prompt the installer.
+    4. *Automate All Updates* (*Default*): All updates (batch, single, and Packora updates) install silently in the background.
+  - **Packora Self-Update Automation**: Downloaded Packora app updates install silently in the background when *Automate All Updates* is active.
+  - **Real-Time Toast Feedback**: Displays start toast (`"Installing update for {AppName} in the background..."`) and completion toast (`"{AppName} update installed successfully!"`) across background operations.
+  - **Contextual UI Button Rules**: "Skip" button hides in the Updates banner under automated modes; "Install" button hides on app cards when automated installation and auto-delete are both enabled.
+- **Dedicated Updates Screen & Navigation**:
+  - **New Updates Tab**: Added dedicated `Updates` navigation item to the bottom navigation bar (`Icons.Outlined.SystemUpdate`) separating updates from installed applications in My Apps.
+  - **Dual Action Buttons**: Each update card features ergonomic side-by-side `Update` and `Install` buttons once ready.
+  - **Sequential & Batch Compilations**: Includes top `UpdatesAvailableBanner` with sequential update compiling, app icon previews, and styled skip actions.
+- **Full GitHub Flavored Markdown Engine for Release Notes**:
+  - **Rich Markdown Elements**: Added native Compose parsing and rendering for multi-column tables with alignment and zebra striping, shields.io tech badges, collapsible `<details>`/`<summary>` cards, keycaps (`<kbd>`), HTML elements, and autolinked `@mentions` and `#issues`.
+- **Smart Icon Color Palette Extraction**:
+  - **Edge & Core Analysis**: Detects solid background canvas colors and extracts brand and accent colors for 1-tap palette auto-matching in the Icon Editor.
+- **Dynamic App Launcher Icons**:
+  - **12 Curated Icon Variants**: Added dynamic icon switcher supporting 12 launcher themes: Original (Classic Blue), Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx.
+  - **Android Manifest Aliases**: Implemented complete set of `<activity-alias>` declarations with adaptive icon layers (`mipmap-anydpi-v26`) and density assets up to `xxxhdpi`.
+  - **Settings BottomSheet Selector**: Implemented an intuitive `ModalBottomSheet` in Settings displaying the original icon first followed by all styled variants with high-resolution previews, active indicators, and real-time package component enablement.
+- **12 Custom Icon-Matching Themes & Color Accents**:
+  - **Expanded Theme Modes**: Added all 12 app icon color schemes to the Settings Theme Mode picker alongside System, Light, Dark, and AMOLED.
+  - **Matching Accent Colors**: Added all 12 distinct hex color accents with their official icon names to the Color Accent picker.
+- **Auto-Delete APKs Toggle & Custom Switch**:
+  - **Post-Install APK Cleanup**: Added toggle in Settings to automatically delete compiled or downloaded update APKs once installed on device, preserving user storage.
+  - **Safeguard Retainment**: If disabled or if an APK is compiled but not yet installed, the file is safely stored and retained in the device's `Downloads/Packora` directory.
+  - **PackoraCustomSwitch**: Ported custom switch component with 46x24dp pill track, 18dp sliding thumb, glow line effect, and animated checkmark/cross vector icons.
+- **Ergonomic Action Rows & Contextual Sort Menus**:
+  - **Contextual Sort Options**: Screen-tailored sort options for My Apps (installed date), History (build timestamp), and Updates (recently built).
+  - **Balanced Two-Button Rows**: Side-by-side buttons in Build and Check for Updates sheets with automatic keyboard dismissal and anti-stretching.
+- **Action Button Simplification**:
+  - **History Screen**: Cards now display strictly two actions: **Reuse Config** and **Remove** (with error-tonal confirmation bottom sheet).
+  - **My Apps Screen**: Cards now display strictly two actions: **Open** and **Uninstall** (with error-tonal uninstallation bottom sheet).
+- **Check for Updates Sheet Fix**:
+  - **Smooth Scrolling**: Resolved jumping and shaking bug when opening the app updates bottom sheet by removing nested scroll conflicts between `ModalBottomSheet` and inner Markdown text.
+- **Template Runtime & Compatibility Fixes**:
+  - **Dynamic User-Agent (Udacity Cloudflare Fix)**: Dynamically derived user-agent from real Chromium engine (`WebSettings.getDefaultUserAgent`), matching device Client Hints and eliminating Cloudflare 403 Forbidden blocks.
+  - **Forage Skeleton Fix**: Added `closest(...)` structural container checks to the footer hider, preventing removal of footer elements inside course cards, simulations, and job previews.
+  - **Edu & LMS Navigation Unfreezer**: Protected navigation trays, drawers, and overlay dialogs containing links or content text from the backdrop unfreezer on `.edu` and LMS portals (Canvas, Blackboard).
+
 ## [3.3.2] - 2026-09-22
 ### Added & Enhanced
 - **Blank Page Resolution**:

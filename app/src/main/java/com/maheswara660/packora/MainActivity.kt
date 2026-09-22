@@ -1,9 +1,12 @@
 package com.maheswara660.packora
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -28,9 +31,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.maheswara660.packora.manager.AppColorAccent
 import com.maheswara660.packora.manager.AppThemeMode
+import com.maheswara660.packora.manager.BuildHistoryManager
 import com.maheswara660.packora.manager.PackoraPreferencesManager
 import com.maheswara660.packora.ui.AboutScreen
 import com.maheswara660.packora.ui.BuildScreen
@@ -39,17 +44,39 @@ import com.maheswara660.packora.ui.HistoryScreen
 import com.maheswara660.packora.ui.LatestChangelogBottomSheet
 import com.maheswara660.packora.ui.MyAppsScreen
 import com.maheswara660.packora.ui.SettingsScreen
+import com.maheswara660.packora.ui.UpdatesScreen
 import com.maheswara660.packora.ui.getLatestRelease
 import com.maheswara660.packora.ui.theme.PackoraTheme
 import java.io.File
 
 enum class Screen {
-    BUILD, MY_APPS, HISTORY, SETTINGS, ABOUT
+    BUILD, MY_APPS, UPDATES, HISTORY, SETTINGS, ABOUT
 }
 
 class MainActivity : ComponentActivity() {
+    private val packageInstallReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (context == null || intent == null) return
+            val action = intent.action
+            if (action == Intent.ACTION_PACKAGE_ADDED || action == Intent.ACTION_PACKAGE_REPLACED) {
+                val installedPackageName = intent.data?.schemeSpecificPart ?: return
+                val prefs = PackoraPreferencesManager(context)
+                if (prefs.autoDeleteApkAfterInstall) {
+                    deleteApksForPackage(context, installedPackageName)
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        ContextCompat.registerReceiver(this, packageInstallReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -73,6 +100,36 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val prefs = PackoraPreferencesManager(this)
+        if (prefs.autoDeleteApkAfterInstall) {
+            try {
+                val history = BuildHistoryManager(this).getHistoryItems()
+                for (item in history) {
+                    if (!item.apkPath.isNullOrBlank()) {
+                        val file = File(item.apkPath)
+                        if (file.exists()) {
+                            try {
+                                val isInstalled = packageManager.getPackageInfo(item.packageName, 0) != null
+                                if (isInstalled) {
+                                    file.delete()
+                                }
+                            } catch (e: Exception) {}
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(packageInstallReceiver)
+        } catch (e: Exception) {}
     }
 }
 
@@ -149,6 +206,7 @@ fun MainAppNavigation(
     val tabs = listOf(
         TabItem(Screen.BUILD, "Build", Icons.Outlined.Build, Icons.Outlined.Build),
         TabItem(Screen.MY_APPS, "My Apps", Icons.Outlined.Inventory2, Icons.Outlined.Inventory2),
+        TabItem(Screen.UPDATES, "Updates", Icons.Outlined.SystemUpdate, Icons.Outlined.SystemUpdate),
         TabItem(Screen.HISTORY, "History", Icons.Outlined.History, Icons.Outlined.History),
         TabItem(Screen.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Outlined.Settings)
     )
@@ -264,6 +322,7 @@ fun MainAppNavigation(
                         onNavigateSettings = { selectedTab = Screen.SETTINGS }
                     )
                     Screen.MY_APPS -> MyAppsScreen(onReuseConfig = handleReuseConfig)
+                    Screen.UPDATES -> UpdatesScreen()
                     Screen.HISTORY -> HistoryScreen(
                         onBack = { selectedTab = Screen.BUILD },
                         onReuseConfig = handleReuseConfig
@@ -295,9 +354,58 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "3.3.2"
+        pInfo.versionName ?: "4.0.0"
     } catch (e: Exception) {
-        "3.3.2"
+        "4.0.0"
+    }
+}
+
+fun deleteApksForPackage(context: Context, installedPackageName: String) {
+    try {
+        val historyManager = BuildHistoryManager(context)
+        val history = historyManager.getHistoryItems()
+        for (item in history) {
+            if (item.packageName == installedPackageName) {
+                if (!item.apkPath.isNullOrBlank()) {
+                    val file = File(item.apkPath)
+                    if (file.exists()) {
+                        file.delete()
+                    }
+                }
+            }
+        }
+
+        // Also clean up any matching APK in public Downloads/Packora folder
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val packoraDir = File(downloadsDir, "Packora")
+        if (packoraDir.exists() && packoraDir.isDirectory) {
+            packoraDir.walkTopDown().forEach { file ->
+                if (file.isFile && file.extension.equals("apk", ignoreCase = true)) {
+                    try {
+                        val archiveInfo = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+                        if (archiveInfo != null && archiveInfo.packageName == installedPackageName) {
+                            file.delete()
+                        }
+                    } catch (e: Exception) {}
+                }
+            }
+        }
+
+        // If Packora update itself was installed
+        if (installedPackageName == context.packageName) {
+            val prefs = PackoraPreferencesManager(context)
+            val customFolder = prefs.customStorageFolder
+            val updateFolder = if (!customFolder.isNullOrBlank()) File(customFolder) else File(downloadsDir, "Packora")
+            if (updateFolder.exists()) {
+                updateFolder.listFiles()?.forEach { file ->
+                    if (file.isFile && file.name.contains("Packora", ignoreCase = true) && file.extension.equals("apk", ignoreCase = true)) {
+                        file.delete()
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Ignored
     }
 }
 

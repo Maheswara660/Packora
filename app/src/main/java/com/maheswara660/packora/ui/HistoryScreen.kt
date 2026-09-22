@@ -26,6 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,7 +38,7 @@ import com.maheswara660.packora.manager.HistoryItem
 import java.io.File
 
 enum class SortMode {
-    NEWEST, OLDEST, NAME_AZ
+    NEWEST, OLDEST, NAME_AZ, NAME_ZA
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +68,7 @@ fun HistoryScreen(
             SortMode.NEWEST -> list.sortedByDescending { it.timestamp }
             SortMode.OLDEST -> list.sortedBy { it.timestamp }
             SortMode.NAME_AZ -> list.sortedBy { it.appName.lowercase() }
+            SortMode.NAME_ZA -> list.sortedByDescending { it.appName.lowercase() }
         }
         list
     }
@@ -304,91 +307,35 @@ fun HistoryScreen(
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
                                 )
 
-                                val apkExists = !item.apkPath.isNullOrBlank() && File(item.apkPath).exists()
-                                Column(
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (apkExists) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Button(
-                                                onClick = { installApkFile(context, item.apkPath) },
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                modifier = Modifier.weight(1f).height(38.dp)
-                                            ) {
-                                                Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(15.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Install APK", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
+                                    FilledTonalButton(
+                                        onClick = { onReuseConfig(item) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.weight(1f).height(38.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Reuse Config", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
 
-                                            FilledTonalButton(
-                                                onClick = { onReuseConfig(item) },
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                modifier = Modifier.weight(1f).height(38.dp)
-                                            ) {
-                                                Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Reuse Config", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            FilledTonalButton(
-                                                onClick = { itemToRemove = item },
-                                                shape = RoundedCornerShape(12.dp),
-                                                colors = ButtonDefaults.filledTonalButtonColors(
-                                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                                    contentColor = MaterialTheme.colorScheme.error
-                                                ),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                modifier = Modifier.fillMaxWidth().height(38.dp)
-                                            ) {
-                                                Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Remove", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    } else {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            FilledTonalButton(
-                                                onClick = { onReuseConfig(item) },
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                modifier = Modifier.weight(1f).height(38.dp)
-                                            ) {
-                                                Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Reuse Config", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
-
-                                            FilledTonalButton(
-                                                onClick = { itemToRemove = item },
-                                                shape = RoundedCornerShape(12.dp),
-                                                colors = ButtonDefaults.filledTonalButtonColors(
-                                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                                    contentColor = MaterialTheme.colorScheme.error
-                                                ),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                modifier = Modifier.weight(1f).height(38.dp)
-                                            ) {
-                                                Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Remove", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
+                                    FilledTonalButton(
+                                        onClick = { itemToRemove = item },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.weight(1f).height(38.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Remove", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -400,9 +347,16 @@ fun HistoryScreen(
 
         if (showClearConfirmSheet) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            LaunchedEffect(Unit) {
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+            }
             ModalBottomSheet(
                 onDismissRequest = { showClearConfirmSheet = false },
-                sheetState = sheetState
+                sheetState = sheetState,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
             ) {
                 Column(
                     modifier = Modifier
@@ -501,9 +455,16 @@ fun HistoryScreen(
 
         itemToRemove?.let { target ->
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            LaunchedEffect(Unit) {
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+            }
             ModalBottomSheet(
                 onDismissRequest = { itemToRemove = null },
-                sheetState = sheetState
+                sheetState = sheetState,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
             ) {
                 Column(
                     modifier = Modifier
@@ -681,7 +642,8 @@ fun HistoryScreen(
                 options = listOf(
                     SortMode.NEWEST to "Newest First",
                     SortMode.OLDEST to "Oldest First",
-                    SortMode.NAME_AZ to "App Name (A-Z)"
+                    SortMode.NAME_AZ to "App Name (A-Z)",
+                    SortMode.NAME_ZA to "App Name (Z-A)"
                 ),
                 initialSelection = sortMode,
                 isScrollable = false,

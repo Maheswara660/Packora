@@ -52,13 +52,13 @@ object AppUpdateManager {
                 context.packageManager.getPackageInfo(
                     context.packageName,
                     PackageManager.PackageInfoFlags.of(0)
-                ).versionName ?: "3.3.2"
+                ).versionName ?: "4.0.0"
             } else {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.3.2"
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "4.0.0"
             }
         } catch (e: Exception) {
-            "3.3.2"
+            "4.0.0"
         }
     }
 
@@ -319,12 +319,6 @@ object AppUpdateManager {
                 }
             }
             connection.disconnect()
-
-            // Auto-trigger Android package installer
-            withContext(Dispatchers.Main) {
-                installApkFile(context, destinationFile.absolutePath)
-            }
-
             Result.success(destinationFile)
         } catch (e: Exception) {
             Result.failure(e)

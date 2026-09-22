@@ -3,12 +3,40 @@ package com.maheswara660.packora.manager
 import android.content.Context
 
 enum class AppThemeMode {
-    SYSTEM, LIGHT, DARK, AMOLED
+    SYSTEM, LIGHT, DARK, AMOLED,
+    THEME_ORIGINAL, THEME_CYBER_LIME, THEME_RUBY_BLAZE, THEME_OCEAN_TEAL,
+    THEME_FROST_WHITE, THEME_NEON_INDIGO, THEME_DEEP_SAPPHIRE, THEME_ELECTRIC_AZURE,
+    THEME_EMERALD_GREEN, THEME_ROYAL_VIOLET, THEME_AMBER_SUNSET, THEME_STEALTH_ONYX
 }
 
 enum class AppColorAccent {
-    SYSTEM, EMERALD, OCEAN, PURPLE, AMBER, CRIMSON, ROSE, CYAN, ORANGE, INDIGO, TEAL, LIME, CORAL,
+    SYSTEM,
+    // 12 App Icon matched color accents
+    ORIGINAL, CYBER_LIME, RUBY_BLAZE, OCEAN_TEAL,
+    FROST_WHITE, NEON_INDIGO, DEEP_SAPPHIRE, ELECTRIC_AZURE,
+    EMERALD_GREEN, ROYAL_VIOLET, AMBER_SUNSET, STEALTH_ONYX,
+    // Classic color accents
+    EMERALD, OCEAN, PURPLE, AMBER, CRIMSON, ROSE, CYAN, ORANGE, INDIGO, TEAL, LIME, CORAL,
     NEON_GREEN, ELECTRIC_BLUE, DEEP_VIOLET, MAGENTA, GOLD, MINT, PEACH, RUBY, SAPPHIRE
+}
+
+enum class UpdateInstallMode(val title: String, val subtitle: String) {
+    COMPLETELY_MANUAL(
+        title = "Completely Manual",
+        subtitle = "Never triggers installer automatically; build updates and trigger installation on your own"
+    ),
+    MANUAL(
+        title = "Manual Upgrade",
+        subtitle = "Always prompts system installer to confirm before installing any update"
+    ),
+    UPDATE_ALL_ONLY(
+        title = "Automate \"Update All\" Only",
+        subtitle = "Silently installs updates during batch 'Update All'; single updates prompt installer"
+    ),
+    AUTOMATE_ALL(
+        title = "Automate All Updates",
+        subtitle = "Silently installs all WebAPK and Packora updates in the background without installer prompts"
+    )
 }
 
 class PackoraPreferencesManager(context: Context) {
@@ -31,6 +59,23 @@ class PackoraPreferencesManager(context: Context) {
         set(value) {
             prefs.edit().putString("app_color_accent", value.name).apply()
         }
+
+    var updateInstallMode: UpdateInstallMode
+        get() {
+            val name = prefs.getString("update_install_mode", UpdateInstallMode.AUTOMATE_ALL.name) ?: UpdateInstallMode.AUTOMATE_ALL.name
+            return try { UpdateInstallMode.valueOf(name) } catch (e: Exception) { UpdateInstallMode.AUTOMATE_ALL }
+        }
+        set(value) {
+            prefs.edit().putString("update_install_mode", value.name).apply()
+        }
+
+    var autoDeleteApkAfterInstall: Boolean
+        get() = prefs.getBoolean("auto_delete_apk_after_install", true)
+        set(value) = prefs.edit().putBoolean("auto_delete_apk_after_install", value).apply()
+
+    var activeAppIcon: String
+        get() = prefs.getString("active_app_icon", "original") ?: "original"
+        set(value) = prefs.edit().putString("active_app_icon", value).apply()
 
     var useCustomStorageFolder: Boolean
         get() = prefs.getBoolean("use_custom_storage_folder", false)

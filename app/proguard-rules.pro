@@ -5,8 +5,13 @@
 -keep class com.maheswara660.packora.builder.JarSigner$SigningSchemeOptions { *; }
 -keep class com.maheswara660.packora.manager.** { *; }
 -keep class com.maheswara660.packora.ui.InstalledPackoraApp { *; }
+-keep class com.maheswara660.packora.ui.PendingInstallTask { *; }
+-keep class com.maheswara660.packora.ui.PendingUpdateApp { *; }
 -keep class com.maheswara660.packora.ui.AppSortMode { *; }
 -keep class com.maheswara660.packora.ui.ReleaseItem { *; }
+-keep class com.maheswara660.packora.ui.Screen { *; }
+-keep class com.maheswara660.packora.receiver.** { *; }
+-keep class com.maheswara660.packora.installer.** { *; }
 
 # Standard Gson rules
 -keep class sun.misc.Unsafe { *; }

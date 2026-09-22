@@ -11,6 +11,8 @@ class AppUpdateManagerTest {
     @Test
     fun testIsNewerVersion() {
         // Newer versions
+        assertTrue(AppUpdateManager.isNewerVersion("3.3.2", "4.0.0"))
+        assertTrue(AppUpdateManager.isNewerVersion("3.3.1", "4.0.0"))
         assertTrue(AppUpdateManager.isNewerVersion("3.3.1", "3.3.2"))
         assertTrue(AppUpdateManager.isNewerVersion("3.3.0", "3.3.2"))
         assertTrue(AppUpdateManager.isNewerVersion("3.3.0", "3.3.1"))
@@ -26,6 +28,9 @@ class AppUpdateManagerTest {
         assertTrue(AppUpdateManager.isNewerVersion("2.9.9", "3.0.0"))
 
         // Same version
+        assertFalse(AppUpdateManager.isNewerVersion("4.0.0", "4.0.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("4.0.0", "v4.0.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("v4.0.0", "4.0.0"))
         assertFalse(AppUpdateManager.isNewerVersion("3.3.2", "3.3.2"))
         assertFalse(AppUpdateManager.isNewerVersion("3.3.2", "v3.3.2"))
         assertFalse(AppUpdateManager.isNewerVersion("v3.3.2", "3.3.2"))
@@ -37,6 +42,8 @@ class AppUpdateManagerTest {
         assertFalse(AppUpdateManager.isNewerVersion("v3.3.0", "3.3.0"))
 
         // Older versions
+        assertFalse(AppUpdateManager.isNewerVersion("4.0.0", "3.3.2"))
+        assertFalse(AppUpdateManager.isNewerVersion("4.0.0", "3.3.1"))
         assertFalse(AppUpdateManager.isNewerVersion("3.3.2", "3.3.1"))
         assertFalse(AppUpdateManager.isNewerVersion("3.3.2", "3.3.0"))
         assertFalse(AppUpdateManager.isNewerVersion("3.3.1", "3.3.0"))

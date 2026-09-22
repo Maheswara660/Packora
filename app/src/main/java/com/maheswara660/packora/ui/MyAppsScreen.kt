@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,7 +62,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 enum class AppSortMode {
-    NAME_AZ, NEWEST, UPDATES_FIRST
+    NAME_AZ, NAME_ZA, NEWEST, OLDEST
 }
 
 data class InstalledPackoraApp(
@@ -93,12 +95,10 @@ fun MyAppsScreen(
     var isLoading by remember { mutableStateOf(true) }
     var appToUninstall by remember { mutableStateOf<InstalledPackoraApp?>(null) }
 
-    val buildingPackages = remember { mutableStateListOf<String>() }
-    val buildProgress = remember { mutableStateMapOf<String, Int?>() }
-    var isUpdatingAll by remember { mutableStateOf(false) }
-    var updateAllProgressText by remember { mutableStateOf<String?>(null) }
-    val installQueue = remember { mutableStateListOf<PendingInstallTask>() }
-    var currentInstallingApp by remember { mutableStateOf<PendingInstallTask?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
+    var sortMode by remember { mutableStateOf(AppSortMode.NAME_AZ) }
+    var showSortSheet by remember { mutableStateOf(false) }
 
     fun refreshApps() {
         coroutineScope.launch(Dispatchers.IO) {
@@ -106,20 +106,6 @@ fun MyAppsScreen(
             withContext(Dispatchers.Main) {
                 apps = detected
             }
-        }
-    }
-
-    fun advanceInstallQueue() {
-        if (installQueue.isNotEmpty()) {
-            val next = installQueue.removeAt(0)
-            currentInstallingApp = next
-            coroutineScope.launch {
-                delay(600)
-                installApkFile(context, next.apkPath)
-            }
-        } else {
-            currentInstallingApp = null
-            Toast.makeText(context, "All updates installed successfully!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -134,51 +120,10 @@ fun MyAppsScreen(
         }
     }
 
-    // BroadcastReceiver listening for completed package installations to auto-trigger the next queued update
-    DisposableEffect(context, currentInstallingApp) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                val action = intent?.action
-                if (action == Intent.ACTION_PACKAGE_REPLACED || action == Intent.ACTION_PACKAGE_ADDED) {
-                    val data = intent.data?.schemeSpecificPart
-                    val active = currentInstallingApp
-                    if (data != null && active != null && data == active.packageName) {
-                        advanceInstallQueue()
-                        refreshApps()
-                    }
-                }
-            }
-        }
-        val filter = android.content.IntentFilter().apply {
-            addAction(Intent.ACTION_PACKAGE_REPLACED)
-            addAction(Intent.ACTION_PACKAGE_ADDED)
-            addDataScheme("package")
-        }
-        androidx.core.content.ContextCompat.registerReceiver(
-            context,
-            receiver,
-            filter,
-            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-        onDispose {
-            try { context.unregisterReceiver(receiver) } catch (e: Exception) {}
-        }
-    }
-
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                val active = currentInstallingApp
-                if (active != null) {
-                    try {
-                        val pInfo = context.packageManager.getPackageInfo(active.packageName, 0)
-                        val installedVC = PackageInfoCompat.getLongVersionCode(pInfo).toInt()
-                        if (installedVC >= active.targetVersionCode) {
-                            advanceInstallQueue()
-                        }
-                    } catch (e: Exception) {}
-                }
                 refreshApps()
             }
         }
@@ -188,232 +133,6 @@ fun MyAppsScreen(
         }
     }
 
-    // Batch updates: compiles all eligible apps in background, then triggers sequential installer
-    fun triggerUpdateAll() {
-        val toUpdate = apps.filter { it.historyItem != null }
-        if (toUpdate.isEmpty()) {
-            Toast.makeText(context, "No installed apps with build configs to update", Toast.LENGTH_SHORT).show()
-            return
-        }
-        coroutineScope.launch {
-            isUpdatingAll = true
-            installQueue.clear()
-
-            val compiledTasks = mutableListOf<PendingInstallTask>()
-
-            toUpdate.forEachIndexed { index, app ->
-                val item = app.historyItem ?: return@forEachIndexed
-                buildingPackages.add(app.packageName)
-                buildProgress[app.packageName] = 1
-                updateAllProgressText = "Compiling ${index + 1}/${toUpdate.size}: ${app.appName}..."
-
-                val isBuildFinished = AtomicBoolean(false)
-                var currentProgress = 1
-                val tickerJob = launch(Dispatchers.Default) {
-                    while (currentProgress < 100) {
-                        val maxAllowed = if (isBuildFinished.get()) 100 else minOf(currentProgress + 1, 92)
-                        if (currentProgress < maxAllowed) {
-                            currentProgress++
-                            withContext(Dispatchers.Main) {
-                                buildProgress[app.packageName] = currentProgress
-                            }
-                        }
-                        delay(if (isBuildFinished.get()) 8L else 20L)
-                    }
-                }
-
-                val newVersionCode = item.versionCode + 1
-                val newVersionName = incrementVersionString(item.versionName)
-                val outputName = "${item.packageName}_v${newVersionCode}.apk"
-
-                val resultPath = withContext(Dispatchers.IO) {
-                    try {
-                        val builder = ApkBuilder(context)
-                        val prefsManager = PackoraPreferencesManager(context)
-                        val customFolder = prefsManager.customStorageFolder
-                        val effectiveFolder = if (!customFolder.isNullOrBlank() && File(customFolder).exists()) {
-                            customFolder
-                        } else null
-
-                        val inputBitmap = if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
-                            try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
-                        } else {
-                            app.icon
-                        }
-
-                        builder.buildApk(
-                            appName = item.appName,
-                            packageName = item.packageName,
-                            targetUrl = item.targetUrl,
-                            versionCode = newVersionCode,
-                            versionName = newVersionName,
-                            iconBitmap = inputBitmap,
-                            disableHeader = item.disableHeader,
-                            outputPath = outputName,
-                            customDownloadFolder = effectiveFolder,
-                            isDesktopMode = item.isDesktopMode,
-                            browserEngine = item.browserEngine,
-                            allowCopying = item.allowCopying,
-                            isForceDarkMode = item.isForceDarkMode,
-                            enableZoom = item.enableZoom,
-                            enableWebFooter = item.enableWebFooter,
-                            hideWebFooter = !item.enableWebFooter,
-                            keystorePassword = null,
-                            keyAlias = null,
-                            commonName = null,
-                            organization = null,
-                            organizationalUnit = null,
-                            validityYears = 25,
-                            keyPassword = null
-                        )?.also { path ->
-                            historyManager.addHistoryItem(
-                                item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
-                            )
-                        }
-                    } catch (e: Exception) { null }
-                }
-
-                isBuildFinished.set(true)
-                tickerJob.join()
-                withContext(Dispatchers.Main) {
-                    buildProgress[app.packageName] = 100
-                }
-                delay(200L)
-
-                buildingPackages.remove(app.packageName)
-
-                if (resultPath != null) {
-                    compiledTasks.add(
-                        PendingInstallTask(
-                            packageName = app.packageName,
-                            appName = app.appName,
-                            apkPath = resultPath,
-                            targetVersionCode = newVersionCode
-                        )
-                    )
-                }
-            }
-
-            isUpdatingAll = false
-            updateAllProgressText = null
-
-            refreshApps()
-
-            if (compiledTasks.isNotEmpty()) {
-                installQueue.addAll(compiledTasks)
-                val first = installQueue.removeAt(0)
-                currentInstallingApp = first
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Compiled ${compiledTasks.size} updates! Starting installer...", Toast.LENGTH_SHORT).show()
-                    installApkFile(context, first.apkPath)
-                }
-            } else {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Could not compile updates", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    // Single app update compilation and immediate install launch
-    fun triggerSingleUpdate(app: InstalledPackoraApp) {
-        val item = app.historyItem ?: return
-        coroutineScope.launch {
-            buildingPackages.add(app.packageName)
-            buildProgress[app.packageName] = 1
-
-            val isBuildFinished = AtomicBoolean(false)
-            var currentProgress = 1
-            val tickerJob = launch(Dispatchers.Default) {
-                while (currentProgress < 100) {
-                    val maxAllowed = if (isBuildFinished.get()) 100 else minOf(currentProgress + 1, 92)
-                    if (currentProgress < maxAllowed) {
-                        currentProgress++
-                        withContext(Dispatchers.Main) {
-                            buildProgress[app.packageName] = currentProgress
-                        }
-                    }
-                    delay(if (isBuildFinished.get()) 8L else 20L)
-                }
-            }
-
-            val newVersionCode = item.versionCode + 1
-            val newVersionName = incrementVersionString(item.versionName)
-            val outputName = "${item.packageName}_v${newVersionCode}.apk"
-
-            val resultPath = withContext(Dispatchers.IO) {
-                try {
-                    val builder = ApkBuilder(context)
-                    val prefsManager = PackoraPreferencesManager(context)
-                    val customFolder = prefsManager.customStorageFolder
-                    val effectiveFolder = if (!customFolder.isNullOrBlank() && File(customFolder).exists()) {
-                        customFolder
-                    } else null
-
-                    val inputBitmap = if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
-                        try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
-                    } else {
-                        app.icon
-                    }
-
-                    builder.buildApk(
-                        appName = item.appName,
-                        packageName = item.packageName,
-                        targetUrl = item.targetUrl,
-                        versionCode = newVersionCode,
-                        versionName = newVersionName,
-                        iconBitmap = inputBitmap,
-                        disableHeader = item.disableHeader,
-                        outputPath = outputName,
-                        customDownloadFolder = effectiveFolder,
-                        isDesktopMode = item.isDesktopMode,
-                        browserEngine = item.browserEngine,
-                        allowCopying = item.allowCopying,
-                        isForceDarkMode = item.isForceDarkMode,
-                        enableZoom = item.enableZoom,
-                        enableWebFooter = item.enableWebFooter,
-                        hideWebFooter = !item.enableWebFooter,
-                        keystorePassword = null,
-                        keyAlias = null,
-                        commonName = null,
-                        organization = null,
-                        organizationalUnit = null,
-                        validityYears = 25,
-                        keyPassword = null
-                    )?.also { path ->
-                        historyManager.addHistoryItem(
-                            item.copy(versionCode = newVersionCode, versionName = newVersionName, apkPath = path)
-                        )
-                    }
-                } catch (e: Exception) { null }
-            }
-
-            isBuildFinished.set(true)
-            tickerJob.join()
-            withContext(Dispatchers.Main) {
-                buildProgress[app.packageName] = 100
-            }
-            delay(200L)
-
-            buildingPackages.remove(app.packageName)
-
-            refreshApps()
-
-            if (resultPath != null) {
-                installApkFile(context, resultPath)
-            } else {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Failed to compile update for ${app.appName}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    var searchQuery by remember { mutableStateOf("") }
-    var isSearchActive by remember { mutableStateOf(false) }
-    var sortMode by remember { mutableStateOf(AppSortMode.NEWEST) }
-    var showSortSheet by remember { mutableStateOf(false) }
-
     val filteredApps = remember(apps, searchQuery, sortMode) {
         var list = apps.filter {
             it.appName.contains(searchQuery, ignoreCase = true) ||
@@ -421,11 +140,9 @@ fun MyAppsScreen(
         }
         list = when (sortMode) {
             AppSortMode.NAME_AZ -> list.sortedBy { it.appName.lowercase() }
+            AppSortMode.NAME_ZA -> list.sortedByDescending { it.appName.lowercase() }
             AppSortMode.NEWEST -> list.sortedByDescending { it.historyItem?.timestamp ?: 0L }
-            AppSortMode.UPDATES_FIRST -> list.sortedWith(
-                compareByDescending<InstalledPackoraApp> { it.hasUpdate }
-                    .thenBy { it.appName.lowercase() }
-            )
+            AppSortMode.OLDEST -> list.sortedBy { it.historyItem?.timestamp ?: 0L }
         }
         list
     }
@@ -578,96 +295,10 @@ fun MyAppsScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (eligibleForUpdate.isNotEmpty() || isUpdatingAll || currentInstallingApp != null) {
-                            item(key = "banner_updates_available") {
-                                UpdatesAvailableBanner(
-                                    updateCount = eligibleForUpdate.size,
-                                    isUpdatingAll = isUpdatingAll,
-                                    progressText = updateAllProgressText,
-                                    currentInstallingApp = currentInstallingApp,
-                                    queueSize = installQueue.size,
-                                    onUpdateAll = {
-                                        val active = currentInstallingApp
-                                        if (active != null) {
-                                            installApkFile(context, active.apkPath)
-                                        } else {
-                                            triggerUpdateAll()
-                                        }
-                                    },
-                                    onSkipCurrentInstall = if (currentInstallingApp != null) {
-                                        { advanceInstallQueue() }
-                                    } else null
-                                )
-                            }
-                        }
-
-                        if (compiledUpdates.isNotEmpty()) {
-                            item(key = "header_compiled_updates") {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 4.dp, bottom = 4.dp, start = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.SystemUpdate,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Compiled Updates Ready (${compiledUpdates.size})",
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-
-                            items(compiledUpdates, key = { "compiled_update_${it.packageName}" }) { app ->
-                                CompiledUpdateCard(
-                                    app = app,
-                                    onInstallUpdate = { app.historyItem?.apkPath?.let { installApkFile(context, it) } },
-                                    onReuseConfig = onReuseConfig,
-                                    onUninstall = { appToUninstall = app }
-                                )
-                            }
-
-                            if (regularApps.isNotEmpty()) {
-                                item(key = "header_installed_apps") {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 10.dp, bottom = 4.dp, start = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.Apps,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            "Installed Applications (${regularApps.size})",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        items(regularApps, key = { it.packageName }) { app ->
+                        items(apps, key = { it.packageName }) { app ->
                             AppCard(
                                 app = app,
-                                isBuilding = app.packageName in buildingPackages,
-                                progress = buildProgress[app.packageName],
-                                onReuseConfig = onReuseConfig,
                                 onOpen = { openApp(context, app.packageName) },
-                                onUpdate = if (app.historyItem != null) { { triggerSingleUpdate(app) } } else null,
                                 onUninstall = { appToUninstall = app }
                             )
                         }
@@ -680,10 +311,17 @@ fun MyAppsScreen(
     if (appToUninstall != null) {
         val target = appToUninstall!!
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val focusManager = LocalFocusManager.current
+        LaunchedEffect(Unit) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+        }
 
         ModalBottomSheet(
             onDismissRequest = { appToUninstall = null },
-            sheetState = sheetState
+            sheetState = sheetState,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
             Column(
                 modifier = Modifier
@@ -852,9 +490,10 @@ fun MyAppsScreen(
             subtitle = "Choose how your installed WebAPKs are arranged",
             icon = Icons.AutoMirrored.Outlined.Sort,
             options = listOf(
-                AppSortMode.NEWEST to "Recently Installed",
                 AppSortMode.NAME_AZ to "App Name (A-Z)",
-                AppSortMode.UPDATES_FIRST to "Updates Available First"
+                AppSortMode.NAME_ZA to "App Name (Z-A)",
+                AppSortMode.NEWEST to "Recently Installed",
+                AppSortMode.OLDEST to "Oldest Installed"
             ),
             initialSelection = sortMode,
             isScrollable = false,
@@ -972,320 +611,11 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CompiledUpdateCard(
-    app: InstalledPackoraApp,
-    onInstallUpdate: () -> Unit,
-    onReuseConfig: ((HistoryItem) -> Unit)? = null,
-    onUninstall: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                RoundedCornerShape(20.dp)
-            )
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(54.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (app.icon != null) {
-                        Image(
-                            app.icon.asImageBitmap(),
-                            app.appName,
-                            Modifier.size(54.dp).clip(RoundedCornerShape(14.dp))
-                        )
-                    } else {
-                        Icon(
-                            Icons.Rounded.Android,
-                            null,
-                            Modifier.size(30.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            app.appName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                "UPDATE READY",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        app.packageName,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            "Installed: v${app.installedVersionName} ➔ Ready: v${app.historyItem?.versionName ?: "Update"}",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    if (app.historyItem != null) {
-                        Spacer(Modifier.height(4.dp))
-                        CompileSettingsBadges(app.historyItem)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-            Spacer(Modifier.height(8.dp))
-            val actions = buildList<@Composable (Modifier) -> Unit> {
-                add { modifier ->
-                    Button(
-                        onClick = onInstallUpdate,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.InstallMobile, null, Modifier.size(15.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("INSTALL UPDATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (onReuseConfig != null && app.historyItem != null) {
-                    add { modifier ->
-                        FilledTonalButton(
-                            onClick = { onReuseConfig(app.historyItem) },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = modifier.height(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Reuse Config", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                add { modifier ->
-                    FilledTonalButton(
-                        onClick = onUninstall,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                            contentColor = MaterialTheme.colorScheme.error
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                actions.chunked(2).forEach { rowActions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (rowActions.size == 2) {
-                            rowActions[0](Modifier.weight(1f))
-                            rowActions[1](Modifier.weight(1f))
-                        } else {
-                            rowActions[0](Modifier.fillMaxWidth())
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun UpdatesAvailableBanner(
-    updateCount: Int,
-    isUpdatingAll: Boolean,
-    progressText: String?,
-    currentInstallingApp: PendingInstallTask?,
-    queueSize: Int,
-    onUpdateAll: () -> Unit,
-    onSkipCurrentInstall: (() -> Unit)? = null
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                RoundedCornerShape(20.dp)
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Update,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isUpdatingAll) "Compiling Updates"
-                        else if (currentInstallingApp != null) "Installing Updates"
-                        else "Updates Available ($updateCount)",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (isUpdatingAll) (progressText ?: "Compiling in background...")
-                        else if (currentInstallingApp != null) "Installing ${currentInstallingApp.appName} (${queueSize + 1} in queue)"
-                        else "Update your installed WebAPKs sequentially",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (isUpdatingAll) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                )
-            } else if (currentInstallingApp != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = onUpdateAll,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("PROMPT INSTALLER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    if (onSkipCurrentInstall != null) {
-                        FilledTonalButton(
-                            onClick = onSkipCurrentInstall,
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = Modifier.height(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.SkipNext, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Skip", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            } else {
-                Button(
-                    onClick = onUpdateAll,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(38.dp)
-                ) {
-                    Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("UPDATE ALL ($updateCount)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun AppCard(
     app: InstalledPackoraApp,
-    isBuilding: Boolean = false,
-    progress: Int? = null,
-    onReuseConfig: ((HistoryItem) -> Unit)? = null,
     onOpen: () -> Unit,
-    onUpdate: (() -> Unit)? = null,
     onUninstall: () -> Unit
 ) {
-    val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -1296,8 +626,7 @@ private fun AppCard(
             .fillMaxWidth()
             .border(
                 1.dp,
-                if (isBuilding) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 RoundedCornerShape(20.dp)
             )
     ) {
@@ -1361,137 +690,39 @@ private fun AppCard(
                 }
             }
 
-            if (isBuilding) {
-                Spacer(Modifier.height(10.dp))
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Compiling update...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "${progress ?: 0}%",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { (progress ?: 0) / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    )
-                }
-            }
-
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-            Spacer(Modifier.height(8.dp))
-            val actions = buildList<@Composable (Modifier) -> Unit> {
-                add { modifier ->
-                    FilledTonalButton(
-                        onClick = onOpen,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Open", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
+            Spacer(Modifier.height(10.dp))
 
-                if (onUpdate != null && !isBuilding) {
-                    add { modifier ->
-                        Button(
-                            onClick = onUpdate,
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = modifier.height(38.dp)
-                        ) {
-                            Icon(Icons.Rounded.Update, null, Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                if (onReuseConfig != null && app.historyItem != null) {
-                    add { modifier ->
-                        FilledTonalButton(
-                            onClick = { onReuseConfig(app.historyItem) },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = modifier.height(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Reuse Config", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-
-                if (app.historyItem?.apkPath != null && File(app.historyItem.apkPath).exists()) {
-                    add { modifier ->
-                        FilledTonalButton(
-                            onClick = { installApkFile(context, app.historyItem.apkPath) },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = modifier.height(38.dp)
-                        ) {
-                            Icon(Icons.Outlined.InstallMobile, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Install APK", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-
-                add { modifier ->
-                    FilledTonalButton(
-                        onClick = onUninstall,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                            contentColor = MaterialTheme.colorScheme.error
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = modifier.height(38.dp)
-                    ) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                actions.chunked(2).forEach { rowActions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (rowActions.size == 2) {
-                            rowActions[0](Modifier.weight(1f))
-                            rowActions[1](Modifier.weight(1f))
-                        } else {
-                            rowActions[0](Modifier.fillMaxWidth())
-                        }
-                    }
+                FilledTonalButton(
+                    onClick = onOpen,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                FilledTonalButton(
+                    onClick = onUninstall,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

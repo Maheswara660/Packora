@@ -14,8 +14,11 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,9 +34,31 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "4.0.0",
+        date = "September 23, 2026",
+        isLatest = true,
+        summary = "Automated Background Updates, 4 Installation Modes, GitHub Markdown Release Notes, Icon Palette Auto-Matching, 12 Dynamic App Icons & Theming",
+        changes = listOf(
+            "Automated Background Updates: Silent, unattended update installs on Android 12+ (API 31+) using PackageInstaller with UPDATE_PACKAGES_WITHOUT_USER_ACTION, bypassing installer prompts.",
+            "4 Update Installation Modes: Completely Manual, Manual Upgrade, Automate 'Update All' Only, and Automate All Updates (Default) in Settings with clean, focused selection cards.",
+            "Packora Self-Update Automation: Downloaded Packora app updates install silently in the background when Automate All Updates is enabled.",
+            "Real-Time Toast Feedback: Dispatches start ('Installing update for {App} in the background...') and completion ('{App} update installed successfully!') toast alerts.",
+            "Contextual Button Visibility: Automatically hides the 'Skip' button in the Updates banner during automated modes and hides 'Install' on cards when automated updates and auto-delete are both enabled.",
+            "Full GitHub Flavored Markdown Engine: Interactive release notes viewer supporting multi-column tables with alignment and zebra striping, shields.io badges, collapsible <details> cards, and <kbd> keycaps.",
+            "Smart Icon Palette Auto-Matching: Multi-point edge and core image analysis extracts solid background canvas colors, brand logos, and accent colors for 1-tap palette matching.",
+            "Dedicated Updates Screen: Separate Updates tab in bottom navigation with dual side-by-side Update & Install buttons, sequential batch updating, and instant query filtering.",
+            "12 Dynamic App Launcher Icons: Switch between 12 distinct launcher app icons (Original Classic Blue, Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx).",
+            "12 Custom Icon-Matching Themes & Color Accents: 12 complete color schemes added to app theme modes and color accent pickers matching launcher icons.",
+            "Auto-Delete APKs Toggle: Custom animated switch in Settings to automatically delete APK files after installation, preserving device storage while retaining uninstalled APKs in Downloads/Packora.",
+            "Ergonomic UI Polish: Screen-tailored sort options, anti-stretching bottom sheets with keyboard auto-dismissal, and balanced side-by-side action buttons across all sheets.",
+            "Action Button Simplification: Streamlined card actions across History (strictly Reuse Config & Remove) and My Apps (strictly Open & Uninstall).",
+            "Template Runtime Fixes: Dynamically derived user-agent matching real engine fingerprint (resolving Udacity Cloudflare 403 blocks), added closest() container safeguards preventing Forage skeleton hiding, and protected .edu navigation drawers from backdrop hider."
+        )
+    ),
+    ReleaseItem(
         version = "3.3.2",
         date = "September 22, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Blank Screen Fixes, Redirect Error Shield, SPA Hydration Safeguards, & Interaction/Scroll Unfreezer",
         changes = listOf(
             "Blank Page Resolution: Added android:usesCleartextTraffic, MIXED_CONTENT_ALWAYS_ALLOW, and onReceivedSslError graceful certificate handling to prevent blank screens on media mirrors, CDNs, and legacy sites.",
@@ -439,9 +464,16 @@ fun LatestChangelogBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         dragHandle = { BottomSheetDefaults.DragHandle() }
@@ -450,7 +482,8 @@ fun LatestChangelogBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 32.dp)
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(

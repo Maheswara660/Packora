@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -1127,9 +1129,16 @@ fun BuildScreen(
         // Reset form confirmation bottom sheet
         if (showClearConfirmSheet) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            LaunchedEffect(Unit) {
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+            }
             ModalBottomSheet(
                 onDismissRequest = { showClearConfirmSheet = false },
-                sheetState = sheetState
+                sheetState = sheetState,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
             ) {
                 Column(
                     modifier = Modifier
@@ -1236,9 +1245,16 @@ fun BuildScreen(
         // Success dialog
         if (showSuccessDialog && lastBuiltApkPath != null) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val focusManager = LocalFocusManager.current
+            LaunchedEffect(Unit) {
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+            }
             ModalBottomSheet(
                 onDismissRequest = { showSuccessDialog = false },
-                sheetState = sheetState
+                sheetState = sheetState,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
             ) {
                 Column(
                     modifier = Modifier
@@ -1326,7 +1342,23 @@ fun BuildScreen(
                         }
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { showSuccessDialog = false },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("CLOSE", fontWeight = FontWeight.Bold)
+                        }
+
                         Button(
                             onClick = {
                                 val cachedApk = File(context.cacheDir, "built_app.apk")
@@ -1337,20 +1369,14 @@ fun BuildScreen(
                                 }
                                 showSuccessDialog = false
                             },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Icon(Icons.Outlined.Android, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("INSTALL APK", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        }
-
-                        OutlinedButton(
-                            onClick = { showSuccessDialog = false },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("CLOSE", fontWeight = FontWeight.Bold)
+                            Text("INSTALL", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         }
                     }
                 }
@@ -1372,20 +1398,33 @@ fun IconZoomerBottomSheet(
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
+
     var scaleFactor by remember { mutableFloatStateOf(1.0f) }
 
     val baseBitmap = remember(currentBitmap) {
         currentBitmap ?: ApkBuilder.getDefaultMascotIcon(context)
     }
 
-    val autoCornerColor = remember(baseBitmap) { extractDominantCornerColor(baseBitmap) }
+    val iconPalette = remember(baseBitmap) { extractIconColorPalette(baseBitmap) }
     var customColor by remember { mutableStateOf<Color?>(null) }
-    var showCustomHexDialog by remember { mutableStateOf(false) }
+    var showCustomHexSheet by remember { mutableStateOf(false) }
 
-    val colorOptions = remember(autoCornerColor, customColor) {
+    val colorOptions = remember(iconPalette, customColor) {
         val list = mutableListOf<Pair<String, Color>>()
-        if (autoCornerColor != Color.Transparent) {
-            list.add("✨ Auto Match" to autoCornerColor)
+        if (iconPalette.autoBackgroundColor != null) {
+            list.add("✨ Auto Match" to iconPalette.autoBackgroundColor)
+        }
+        if (iconPalette.brandColor != null && iconPalette.brandColor != iconPalette.autoBackgroundColor) {
+            list.add("✨ Brand Color" to iconPalette.brandColor)
+        }
+        if (iconPalette.accentColor != null && iconPalette.accentColor != iconPalette.autoBackgroundColor && iconPalette.accentColor != iconPalette.brandColor) {
+            list.add("✨ Accent Color" to iconPalette.accentColor)
         }
         if (customColor != null) {
             list.add("🎨 Custom Color" to customColor!!)
@@ -1438,237 +1477,214 @@ fun IconZoomerBottomSheet(
         )
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(horizontal = 24.dp)
-                .padding(top = 4.dp, bottom = 16.dp)
-                .navigationBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    if (!showCustomHexSheet) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 4.dp, bottom = 16.dp)
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.ZoomIn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Icon Zoomer & Background Fill",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Scale icon size, auto-match background, or pick custom colors.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(if (selectedColorIndex < colorOptions.size) colorOptions[selectedColorIndex].second else Color.Transparent)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    bitmap = previewBitmap.asImageBitmap(),
-                    contentDescription = "Zoomed Preview",
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Zoom Scale", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = "${(scaleFactor * 100).roundToInt()}%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Decrease by one only (-)
-                    FilledTonalIconButton(
-                        onClick = {
-                            val currentPercent = (scaleFactor * 100).roundToInt()
-                            if (currentPercent > 40) {
-                                scaleFactor = (currentPercent - 1) / 100f
-                            }
-                        },
-                        enabled = (scaleFactor * 100).roundToInt() > 40,
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Remove,
-                            contentDescription = "Decrease Zoom Scale",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Scaler Slider with points at every 10 points (40% to 200% -> 15 steps between)
-                    Slider(
-                        value = scaleFactor,
-                        onValueChange = { scaleFactor = (it * 100).roundToInt() / 100f },
-                        valueRange = 0.4f..2.0f,
-                        steps = 15,
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        imageVector = Icons.Outlined.ZoomIn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
                     )
+                }
 
-                    // Increase by one only (+)
-                    FilledTonalIconButton(
-                        onClick = {
-                            val currentPercent = (scaleFactor * 100).roundToInt()
-                            if (currentPercent < 200) {
-                                scaleFactor = (currentPercent + 1) / 100f
-                            }
-                        },
-                        enabled = (scaleFactor * 100).roundToInt() < 200,
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Icon Zoomer & Background Fill",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Scale icon size, auto-match background, or pick custom colors.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(110.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (selectedColorIndex < colorOptions.size) colorOptions[selectedColorIndex].second else Color.Transparent)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = previewBitmap.asImageBitmap(),
+                        contentDescription = "Zoomed Preview",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = "Increase Zoom Scale",
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Text("Zoom Scale", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = "${(scaleFactor * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
-                }
-            }
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Background Color Fill", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    TextButton(onClick = { showCustomHexDialog = true }) {
-                        Icon(Icons.Outlined.Colorize, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Custom Hex", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(colorOptions.size) { idx ->
-                        val (name, colorVal) = colorOptions[idx]
-                        FilterChip(
-                            selected = selectedColorIndex == idx,
-                            onClick = { selectedColorIndex = idx },
-                            label = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (colorVal != Color.Transparent) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .clip(CircleShape)
-                                                .background(colorVal)
-                                                .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                    }
-                                    Text(name, style = MaterialTheme.typography.labelSmall)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Decrease by one only (-)
+                        FilledTonalIconButton(
+                            onClick = {
+                                val currentPercent = (scaleFactor * 100).roundToInt()
+                                if (currentPercent > 40) {
+                                    scaleFactor = (currentPercent - 1) / 100f
                                 }
-                            }
+                            },
+                            enabled = (scaleFactor * 100).roundToInt() > 40,
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Remove,
+                                contentDescription = "Decrease Zoom Scale",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Scaler Slider with points at every 10 points (40% to 200% -> 15 steps between)
+                        Slider(
+                            value = scaleFactor,
+                            onValueChange = { scaleFactor = (it * 100).roundToInt() / 100f },
+                            valueRange = 0.4f..2.0f,
+                            steps = 15,
+                            modifier = Modifier.weight(1f)
                         )
+
+                        // Increase by one only (+)
+                        FilledTonalIconButton(
+                            onClick = {
+                                val currentPercent = (scaleFactor * 100).roundToInt()
+                                if (currentPercent < 200) {
+                                    scaleFactor = (currentPercent + 1) / 100f
+                                }
+                            },
+                            enabled = (scaleFactor * 100).roundToInt() < 200,
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = "Increase Zoom Scale",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
-            }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Background Color Fill", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        TextButton(onClick = { showCustomHexSheet = true }) {
+                            Icon(Icons.Outlined.Colorize, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Custom Hex", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(colorOptions.size) { idx ->
+                            val (name, colorVal) = colorOptions[idx]
+                            FilterChip(
+                                selected = selectedColorIndex == idx,
+                                onClick = { selectedColorIndex = idx },
+                                label = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (colorVal != Color.Transparent) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .clip(CircleShape)
+                                                    .background(colorVal)
+                                                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                        }
+                                        Text(name, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
-                Button(
-                    onClick = {
-                        onApply(previewBitmap)
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text("APPLY ICON", fontWeight = FontWeight.Bold)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("CANCEL", fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = {
+                            onApply(previewBitmap)
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("APPLY ICON", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
-    }
-
-    if (showCustomHexDialog) {
-        var hexInput by remember { mutableStateOf("#") }
-        AlertDialog(
-            onDismissRequest = { showCustomHexDialog = false },
-            title = { Text("Enter Hex Color", fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = hexInput,
-                    onValueChange = { hexInput = it },
-                    placeholder = { Text("#FFFFFF") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    try {
-                        val parsed = android.graphics.Color.parseColor(hexInput.trim())
-                        customColor = Color(parsed)
-                        showCustomHexDialog = false
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Invalid hex color format", Toast.LENGTH_SHORT).show()
-                    }
-                }) {
-                    Text("SET COLOR")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomHexDialog = false }) {
-                    Text("CANCEL")
-                }
+    } else {
+        EnterHexColorBottomSheet(
+            initialColor = customColor ?: (if (selectedColorIndex < colorOptions.size) colorOptions[selectedColorIndex].second else null),
+            onDismiss = { showCustomHexSheet = false },
+            onColorConfirmed = { chosenColor ->
+                customColor = chosenColor
+                showCustomHexSheet = false
+                selectedColorIndex = 0
             }
         )
     }
@@ -1686,12 +1702,19 @@ fun MultiIconPickerSheet(
     onSelectIcon: (Bitmap?) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
     val context = LocalContext.current
     val mascotBitmap = remember(context) { ApkBuilder.getDefaultMascotIcon(context) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
@@ -2014,18 +2037,283 @@ suspend fun fetchAllAvailableIcons(urlString: String): List<FetchedIconItem> = w
     return@withContext results.distinctBy { "${it.bitmap.width}x${it.bitmap.height}" }
 }
 
-fun extractDominantCornerColor(bitmap: Bitmap?): Color {
-    if (bitmap == null) return Color.Transparent
+data class IconPalette(
+    val autoBackgroundColor: Color? = null,
+    val brandColor: Color? = null,
+    val accentColor: Color? = null
+)
+
+fun extractIconColorPalette(bitmap: Bitmap?): IconPalette {
+    if (bitmap == null) return IconPalette()
     return try {
         val w = bitmap.width
         val h = bitmap.height
-        val c1 = bitmap.getPixel(minOf(4, w - 1), minOf(4, h - 1))
-        val alpha = android.graphics.Color.alpha(c1)
-        if (alpha > 180) {
-            Color(c1)
-        } else Color.Transparent
+        if (w <= 0 || h <= 0) return IconPalette()
+
+        // 1. Edge & Perimeter Color Detection (Inward 3% to 6% to bypass antialiased edge & masks)
+        val edgeInsetX = maxOf(1, (w * 0.04f).toInt())
+        val edgeInsetY = maxOf(1, (h * 0.04f).toInt())
+
+        val edgeColors = mutableListOf<Int>()
+        // Top and bottom edges
+        for (x in edgeInsetX until (w - edgeInsetX) step maxOf(1, w / 40)) {
+            edgeColors.add(bitmap.getPixel(x, edgeInsetY))
+            edgeColors.add(bitmap.getPixel(x, h - 1 - edgeInsetY))
+        }
+        // Left and right edges
+        for (y in edgeInsetY until (h - edgeInsetY) step maxOf(1, h / 40)) {
+            edgeColors.add(bitmap.getPixel(edgeInsetX, y))
+            edgeColors.add(bitmap.getPixel(w - 1 - edgeInsetX, y))
+        }
+
+        fun quantize(color: Int): Int {
+            val a = android.graphics.Color.alpha(color)
+            val r = android.graphics.Color.red(color) and 0xF8
+            val g = android.graphics.Color.green(color) and 0xF8
+            val b = android.graphics.Color.blue(color) and 0xF8
+            return android.graphics.Color.argb(a, r, g, b)
+        }
+
+        val opaqueEdgePixels = edgeColors.filter { android.graphics.Color.alpha(it) > 180 }
+        var detectedBgColor: Color? = null
+
+        if (opaqueEdgePixels.isNotEmpty() && opaqueEdgePixels.size.toFloat() / edgeColors.size > 0.4f) {
+            val edgeFreq = opaqueEdgePixels.groupBy { quantize(it) }.maxByOrNull { it.value.size }
+            if (edgeFreq != null && edgeFreq.value.size.toFloat() / opaqueEdgePixels.size > 0.35f) {
+                detectedBgColor = Color(edgeFreq.value.first())
+            }
+        }
+
+        // 2. Foreground & Brand Color Extraction from inner core (15% to 85%)
+        val innerStartX = (w * 0.15f).toInt()
+        val innerEndX = (w * 0.85f).toInt()
+        val innerStartY = (h * 0.15f).toInt()
+        val innerEndY = (h * 0.85f).toInt()
+
+        val stepX = maxOf(1, (innerEndX - innerStartX) / 30)
+        val stepY = maxOf(1, (innerEndY - innerStartY) / 30)
+
+        val innerColors = mutableListOf<Int>()
+        for (x in innerStartX until innerEndX step stepX) {
+            for (y in innerStartY until innerEndY step stepY) {
+                val pixel = bitmap.getPixel(x, y)
+                if (android.graphics.Color.alpha(pixel) > 180) {
+                    innerColors.add(pixel)
+                }
+            }
+        }
+
+        fun colorDistance(c1: Int, c2: Int): Double {
+            val dr = android.graphics.Color.red(c1) - android.graphics.Color.red(c2)
+            val dg = android.graphics.Color.green(c1) - android.graphics.Color.green(c2)
+            val db = android.graphics.Color.blue(c1) - android.graphics.Color.blue(c2)
+            return kotlin.math.sqrt((dr * dr + dg * dg + db * db).toDouble())
+        }
+
+        val bgInt = detectedBgColor?.toArgb()
+        val foregroundColors = if (bgInt != null) {
+            innerColors.filter { colorDistance(it, bgInt) > 40.0 }
+        } else {
+            innerColors
+        }
+
+        var detectedBrandColor: Color? = null
+        var detectedAccentColor: Color? = null
+
+        if (foregroundColors.isNotEmpty()) {
+            val sortedBuckets = foregroundColors
+                .groupBy { quantize(it) }
+                .entries
+                .sortedByDescending { it.value.size }
+
+            if (sortedBuckets.isNotEmpty()) {
+                val primaryEntry = sortedBuckets.first()
+                detectedBrandColor = Color(primaryEntry.value.first())
+
+                val primaryInt = primaryEntry.value.first()
+                val secondaryEntry = sortedBuckets.drop(1).firstOrNull {
+                    colorDistance(it.value.first(), primaryInt) > 60.0 &&
+                    (bgInt == null || colorDistance(it.value.first(), bgInt) > 40.0)
+                }
+                if (secondaryEntry != null && secondaryEntry.value.size >= 4) {
+                    detectedAccentColor = Color(secondaryEntry.value.first())
+                }
+            }
+        }
+
+        IconPalette(
+            autoBackgroundColor = detectedBgColor,
+            brandColor = detectedBrandColor,
+            accentColor = detectedAccentColor
+        )
     } catch (e: Exception) {
-        Color.Transparent
+        IconPalette()
+    }
+}
+
+fun extractDominantCornerColor(bitmap: Bitmap?): Color {
+    return extractIconColorPalette(bitmap).autoBackgroundColor ?: Color.Transparent
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EnterHexColorBottomSheet(
+    initialColor: Color? = null,
+    onDismiss: () -> Unit,
+    onColorConfirmed: (Color) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    var hexInput by remember {
+        mutableStateOf(
+            initialColor?.let {
+                String.format("#%06X", 0xFFFFFF and it.toArgb())
+            } ?: "#"
+        )
+    }
+    val context = LocalContext.current
+    val parsedColor: Color? = remember(hexInput) {
+        try {
+            val clean = hexInput.trim()
+            if (clean.length in 4..9 && clean.startsWith("#")) {
+                Color(android.graphics.Color.parseColor(clean))
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 4.dp, bottom = 24.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Enter Hex Color",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Specify a custom hex color code for your icon background fill",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            // Live Color Preview Chip
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = parsedColor ?: MaterialTheme.colorScheme.surfaceContainerHighest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (parsedColor != null) {
+                        val isLight = (0.299f * parsedColor.red + 0.587f * parsedColor.green + 0.114f * parsedColor.blue) > 0.5f
+                        Text(
+                            text = hexInput.uppercase(),
+                            fontWeight = FontWeight.Bold,
+                            color = if (isLight) Color.Black else Color.White
+                        )
+                    } else {
+                        Text(
+                            text = "Color Preview",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = hexInput,
+                onValueChange = { input ->
+                    val clean = input.filter { it.isLetterOrDigit() || it == '#' }
+                    hexInput = if (!clean.startsWith("#")) "#$clean" else clean
+                },
+                label = { Text("Hex Code") },
+                placeholder = { Text("#FFFFFF or #1E88E5") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                leadingIcon = {
+                    Icon(Icons.Outlined.Colorize, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus(force = true)
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        if (parsedColor != null) {
+                            keyboardController?.hide()
+                            focusManager.clearFocus(force = true)
+                            onColorConfirmed(parsedColor)
+                        } else {
+                            Toast.makeText(context, "Please enter a valid hex color (e.g. #FF5722)", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = parsedColor != null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("SET COLOR", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 

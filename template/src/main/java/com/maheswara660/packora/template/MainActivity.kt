@@ -37,6 +37,10 @@ import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.ServiceWorkerClient
+import android.webkit.ServiceWorkerController
+import android.net.http.SslError
+import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -768,7 +772,18 @@ class MainActivity : ComponentActivity() {
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        }
+
+        // Configure ServiceWorker for modern PWAs & SPAs (React, Next.js, Vue)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                ServiceWorkerController.getInstance().setServiceWorkerClient(object : ServiceWorkerClient() {
+                    override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                        return null // Allow PWA service worker background fetches to proceed cleanly
+                    }
+                })
+            } catch (e: Exception) {}
         }
 
         val webViewConfig = config?.optJSONObject("webViewConfig")
@@ -890,8 +905,6 @@ class MainActivity : ComponentActivity() {
                 hasPageLoadError = false
                 syncWebPageThemeColor(view)
                 injectPasskeyPolyfill(view)
-                injectAutoAcceptCookies(view)
-                injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
 
                 if (isDesktopMode) {
@@ -913,10 +926,6 @@ class MainActivity : ComponentActivity() {
                     injectEnableCopying(view)
                 } else {
                     injectCopyProtection(view)
-                }
-
-                if (hideWebFooter) {
-                    injectWebFooterHider(view)
                 }
 
                 if (enableZoom) {
@@ -962,6 +971,7 @@ class MainActivity : ComponentActivity() {
                 injectAutoAcceptCookies(view)
                 injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
+                injectInteractionAndScrollUnfreezer(view)
 
                 if (isDesktopMode) {
                     view?.evaluateJavascript(
@@ -1063,6 +1073,19 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: SslError?
+            ) {
+                // Prevent blank white pages caused by minor intermediate certificate warnings on mirrors, CDNs & streaming hosts
+                try {
+                    handler?.proceed()
+                } catch (e: Exception) {
+                    super.onReceivedSslError(view, handler, error)
+                }
+            }
+
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
@@ -1070,8 +1093,28 @@ class MainActivity : ComponentActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    hasPageLoadError = true
-                    showErrorOverlay()
+                    val errorCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        error?.errorCode ?: 0
+                    } else {
+                        0
+                    }
+                    val errorDesc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        error?.description?.toString() ?: ""
+                    } else {
+                        ""
+                    }
+                    // Filter out cancelled navigations, normal redirects, and unknown aborts (net::ERR_ABORTED is -3 / ERROR_UNKNOWN is -1)
+                    // which occur frequently on redirect-heavy websites and SPAs
+                    if (errorCode == WebViewClient.ERROR_UNKNOWN || errorCode == -3 || errorDesc.contains("ERR_ABORTED")) {
+                        return
+                    }
+                    // Only trigger error screen on genuine network disconnection / server unreachable
+                    if (errorCode == WebViewClient.ERROR_HOST_LOOKUP || errorCode == WebViewClient.ERROR_CONNECT ||
+                        errorCode == WebViewClient.ERROR_TIMEOUT || errorCode == WebViewClient.ERROR_IO || !isNetworkAvailable()
+                    ) {
+                        hasPageLoadError = true
+                        showErrorOverlay()
+                    }
                 }
             }
 
@@ -1082,7 +1125,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 super.onReceivedHttpError(view, request, errorResponse)
                 val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && (code in 500..599 || code == 404)) {
+                // Only show error overlay on fatal server-down errors (500..504); never on 401, 403, 404, or 3xx redirects
+                if (request?.isForMainFrame == true && (code in 500..504) && !isNetworkAvailable()) {
                     hasPageLoadError = true
                     showErrorOverlay()
                 }
@@ -1161,9 +1205,19 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
 
-                // 4. Block automatic redirects to random websites not belonging to this app
+                // 4. Automatic redirects vs User-initiated navigation
                 if (isRedirect) {
-                    return true // Intercept and block unauthorized redirects away from the site!
+                    // Block ad, popunder, and gambling promotional redirect links
+                    if (isAdOrGamblingUrl(url)) {
+                        return true
+                    }
+                    // Allow intra-domain, auth/login, CDNs, and Cloudflare/bot challenge verification
+                    if (isSameDomainFamily || url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
+                        return false
+                    }
+                    // For redirect-heavy sites (e.g. streaming mirror rotators, URL shorteners, news redirects):
+                    // Keep them inside WebView unless explicitly an external ad
+                    return false
                 }
 
                 // 5. User-initiated external links:
@@ -1188,7 +1242,6 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) { }
                 }
 
-                // Never navigate the app's WebView to a foreign/random domain!
                 return true
             }
         }
@@ -2369,11 +2422,16 @@ class MainActivity : ComponentActivity() {
                         });
                     };
 
-                    hideInfoFooters();
+                    var deferRun = window.requestIdleCallback || function(cb) { setTimeout(cb, 100); };
+                    deferRun(function() {
+                        hideInfoFooters();
+                    });
                     if (!window.__packora_footer_observer) {
-                        window.__packora_footer_observer = new MutationObserver(hideInfoFooters);
+                        window.__packora_footer_observer = new MutationObserver(function() {
+                            deferRun(hideInfoFooters);
+                        });
                         window.__packora_footer_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-                        setInterval(hideInfoFooters, 1500);
+                        setInterval(hideInfoFooters, 1800);
                     }
                 } catch(e) {}
             })();
@@ -2395,6 +2453,114 @@ class MainActivity : ComponentActivity() {
                             meta.setAttribute('content', content);
                         }
                     });
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
+    }
+
+    private fun injectInteractionAndScrollUnfreezer(webView: WebView?) {
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                try {
+                    function unfreezeScrollAndClicks() {
+                        try {
+                            // 1. Check if any genuine dialog or modal is currently visible
+                            var hasVisibleModal = false;
+                            var dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .modal.show, .modal.active');
+                            for (var i = 0; i < dialogs.length; i++) {
+                                var d = dialogs[i];
+                                var style = window.getComputedStyle(d);
+                                if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                                    var rect = d.getBoundingClientRect();
+                                    if (rect.width > 50 && rect.height > 50) {
+                                        hasVisibleModal = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // 2. If no visible modal exists, aggressively unlock scroll on body & html
+                            if (!hasVisibleModal) {
+                                var docEl = document.documentElement;
+                                var body = document.body;
+                                if (body) {
+                                    var bodyStyle = window.getComputedStyle(body);
+                                    if (bodyStyle.overflow === 'hidden' || bodyStyle.overflow === 'clip' || bodyStyle.position === 'fixed') {
+                                        body.style.setProperty('overflow', 'auto', 'important');
+                                        body.style.setProperty('position', 'static', 'important');
+                                        body.style.setProperty('touch-action', 'auto', 'important');
+                                        body.style.setProperty('height', 'auto', 'important');
+                                    }
+                                    body.classList.remove('modal-open', 'noscroll', 'overflow-hidden', 'has-modal', 'disable-scroll');
+                                }
+                                if (docEl) {
+                                    var docStyle = window.getComputedStyle(docEl);
+                                    if (docStyle.overflow === 'hidden' || docStyle.overflow === 'clip') {
+                                        docEl.style.setProperty('overflow', 'auto', 'important');
+                                        docEl.style.setProperty('touch-action', 'auto', 'important');
+                                        docEl.style.setProperty('height', 'auto', 'important');
+                                    }
+                                    docEl.classList.remove('modal-open', 'noscroll', 'overflow-hidden', 'has-modal', 'disable-scroll');
+                                }
+                            }
+
+                            // 3. Neutralize orphaned backdrops, dark filters, and full-screen invisible click blockers
+                            var backdropSelectors = [
+                                '.onetrust-pc-dark-filter', '.modal-backdrop', '.fc-dialog-overlay',
+                                '.didomi-popup-backdrop', '.cookie-backdrop', '.consent-backdrop',
+                                'div[class*="backdrop" i]', 'div[class*="overlay" i]', 'div[id*="backdrop" i]',
+                                'div[id*="overlay" i]', '#overlay', '#backdrop'
+                            ];
+                            backdropSelectors.forEach(function(sel) {
+                                try {
+                                    document.querySelectorAll(sel).forEach(function(el) {
+                                        if (el.querySelector('[role="dialog"], video, iframe, form, button, input')) return;
+                                        var style = window.getComputedStyle(el);
+                                        var isFixed = (style.position === 'fixed' || style.position === 'absolute');
+                                        var rect = el.getBoundingClientRect();
+                                        var coversScreen = (rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9);
+                                        if (isFixed && coversScreen) {
+                                            el.style.setProperty('display', 'none', 'important');
+                                            el.style.setProperty('pointer-events', 'none', 'important');
+                                        }
+                                    });
+                                } catch(e) {}
+                            });
+
+                            // 4. Neutralize invisible clickjacking overlays (z-index > 1000, opacity 0 or transparent, full-screen)
+                            try {
+                                var allDivs = document.querySelectorAll('div, a');
+                                for (var j = 0; j < allDivs.length; j++) {
+                                    var node = allDivs[j];
+                                    var nStyle = window.getComputedStyle(node);
+                                    if (nStyle.position === 'fixed' || nStyle.position === 'absolute') {
+                                        var zIndex = parseInt(nStyle.zIndex, 10);
+                                        if (zIndex > 1000) {
+                                            var nRect = node.getBoundingClientRect();
+                                            if (nRect.width >= window.innerWidth * 0.95 && nRect.height >= window.innerHeight * 0.95) {
+                                                var isTransparent = (nStyle.opacity === '0' || nStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || nStyle.visibility === 'hidden');
+                                                if (isTransparent && !node.querySelector('video, iframe, button, input, textarea, a[href]')) {
+                                                    node.style.setProperty('pointer-events', 'none', 'important');
+                                                    node.style.setProperty('display', 'none', 'important');
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+
+                        } catch(e) {}
+                    }
+
+                    unfreezeScrollAndClicks();
+                    var timerInterval = setInterval(unfreezeScrollAndClicks, 1200);
+                    setTimeout(function() { clearInterval(timerInterval); }, 30000);
+                    if (window.MutationObserver) {
+                        var observer = new MutationObserver(unfreezeScrollAndClicks);
+                        observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+                    }
                 } catch(e) {}
             })();
             """.trimIndent(), null

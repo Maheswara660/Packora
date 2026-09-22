@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v3.3.1</h1>
+<h1 align="center">Packora v3.3.2</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.3.1-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.3.1"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v3.3.2-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 3.3.2"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>

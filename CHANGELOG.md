@@ -2,6 +2,23 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [3.3.2] - 2026-09-22
+### Added & Enhanced
+- **Blank Page Resolution**:
+  - **Cleartext & Mixed Content Support**: Configured `android:usesCleartextTraffic="true"` and `MIXED_CONTENT_ALWAYS_ALLOW`, resolving blank pages caused by Android 9+ blocking HTTP media mirrors, local network servers, and live video streams (`ERR_CLEARTEXT_NOT_PERMITTED`).
+  - **Graceful SSL Handshake**: Implemented `onReceivedSslError` with `handler?.proceed()` to prevent silent blank white screens on streaming, manga, and mirror sites with intermediate certificate chain issues.
+- **Redirect False-Alarm Blocker**:
+  - **Filter Cancelled Navigations**: Filtered out `net::ERR_ABORTED` (-3 / `ERROR_FAILED` -1) and `ERROR_UNKNOWN` in `onReceivedError` to stop false-positive reload/retry overlays from interrupting users during standard HTTP 301/302/307 redirects and single-page routing.
+  - **Scoped HTTP Status Codes**: Restricted `onReceivedHttpError` to fatal 5xx server-down codes (500..504), ensuring 401, 403, 404 (used for SPA fallback routing), and 3xx redirects never trigger offline/reload screens.
+  - **Permissive Non-Ad Redirects**: Allowed legitimate mirror rotators, URL shorteners, and Cloudflare Turnstile/challenge verification domains to navigate freely within WebView while continuing to block malicious ad and gambling redirects.
+- **SPA Skeleton Hydration Fix**:
+  - **Deferred DOM Injections**: Shifted DOM tree modifications to `onPageFinished` via `requestIdleCallback`, allowing React 18/19, Next.js, and Vue 3 to finish client hydration without encountering DOM mismatch crashes.
+  - **ServiceWorker PWA Controller**: Registered pass-through `ServiceWorkerClient` via `ServiceWorkerController` so PWA offline caches and background data fetches operate seamlessly.
+- **Active Interaction & Scroll Unfreezer**:
+  - **Orphaned Backdrop Neutralizer**: Actively detects full-screen CMP and modal backdrops (OneTrust, Cookiebot, etc.) that trap clicks and neutralizes them (`pointer-events: none !important; display: none !important;`).
+  - **Clickjacking Overlay Stripper**: Strips transparent, fixed-position clickjacking overlays (`z-index: 999999`) commonly injected by pirated and streaming websites.
+  - **Automatic Scroll Unlocking**: Monitors `document.body` and `document.documentElement` to aggressively restore `overflow: auto !important` and `position: static !important` whenever modals are dismissed.
+
 ## [3.3.1] - 2026-09-21
 ### Added & Enhanced
 - **Updater Skip Button Redesign**:

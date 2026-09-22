@@ -31,9 +31,21 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "3.3.2",
+        date = "September 22, 2026",
+        isLatest = true,
+        summary = "Blank Screen Fixes, Redirect Error Shield, SPA Hydration Safeguards, & Interaction/Scroll Unfreezer",
+        changes = listOf(
+            "Blank Page Resolution: Added android:usesCleartextTraffic, MIXED_CONTENT_ALWAYS_ALLOW, and onReceivedSslError graceful certificate handling to prevent blank screens on media mirrors, CDNs, and legacy sites.",
+            "Redirect False-Alarm Blocker: Filtered out net::ERR_ABORTED (-3 / ERROR_FAILED) and intermediate redirects in onReceivedError and onReceivedHttpError, eliminating annoying reload/retry overlays on redirect-heavy websites.",
+            "SPA Skeleton Hydration Fix: Deferred DOM modifying injections to onPageFinished via requestIdleCallback and configured ServiceWorkerController, allowing React 18/19, Next.js, and Vue 3 to hydrate without DOM mismatch crashes.",
+            "Active Interaction & Scroll Unfreezer: Neutralized orphaned CMP backdrops (OneTrust, Cookiebot, etc.) and transparent clickjacking overlays, while actively unlocking body and html scroll-locks (overflow: auto, position: static)."
+        )
+    ),
+    ReleaseItem(
         version = "3.3.1",
         date = "September 21, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Updater Skip Redesign, 200+ Footer Keywords, Foreign Redirect Shield, Skeleton Loading Fix, & Error Overlay Stability",
         changes = listOf(
             "Updater Banner Redesign: Redesigned the 'Skip' button during sequential updates as a prominent FilledTonalButton with SkipNext icon, 38.dp height, and 12.dp rounded corners matching the app cards design system.",

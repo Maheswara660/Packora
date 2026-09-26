@@ -52,13 +52,13 @@ object AppUpdateManager {
                 context.packageManager.getPackageInfo(
                     context.packageName,
                     PackageManager.PackageInfoFlags.of(0)
-                ).versionName ?: "4.0.0"
+                ).versionName ?: "4.1.0"
             } else {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "4.0.0"
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "4.1.0"
             }
         } catch (e: Exception) {
-            "4.0.0"
+            "4.1.0"
         }
     }
 

@@ -51,6 +51,19 @@ fun HistoryScreen(
     val historyManager = remember { BuildHistoryManager(context) }
     var historyList by remember { mutableStateOf(historyManager.getHistoryItems()) }
 
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                historyList = historyManager.getHistoryItems()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var sortMode by remember { mutableStateOf(SortMode.NEWEST) }
@@ -59,18 +72,18 @@ fun HistoryScreen(
     var itemToRemove by remember { mutableStateOf<HistoryItem?>(null) }
 
     val filteredList = remember(historyList, searchQuery, sortMode) {
-        var list = historyList.filter {
+        val list = if (searchQuery.isBlank()) historyList
+        else historyList.filter {
             it.appName.contains(searchQuery, ignoreCase = true) ||
             it.packageName.contains(searchQuery, ignoreCase = true) ||
             it.targetUrl.contains(searchQuery, ignoreCase = true)
         }
-        list = when (sortMode) {
+        when (sortMode) {
+            SortMode.NAME_AZ -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
+            SortMode.NAME_ZA -> list.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
             SortMode.NEWEST -> list.sortedByDescending { it.timestamp }
             SortMode.OLDEST -> list.sortedBy { it.timestamp }
-            SortMode.NAME_AZ -> list.sortedBy { it.appName.lowercase() }
-            SortMode.NAME_ZA -> list.sortedByDescending { it.appName.lowercase() }
         }
-        list
     }
 
     var showSortSheet by remember { mutableStateOf(false) }
@@ -218,6 +231,7 @@ fun HistoryScreen(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                             modifier = Modifier
+                                .animateItem()
                                 .fillMaxWidth()
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                         ) {

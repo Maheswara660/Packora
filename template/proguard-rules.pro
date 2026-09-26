@@ -14,9 +14,11 @@
 -keep class * extends android.webkit.WebViewClient { *; }
 -keep class * extends android.webkit.WebChromeClient { *; }
 
-# 4. AndroidX WebView Compat (WebSettingsCompat, WebViewFeature) — used via reflection
+# 4. AndroidX WebView Compat & Custom Tabs
 -keep class androidx.webkit.** { *; }
 -dontwarn androidx.webkit.**
+-keep class androidx.browser.customtabs.** { *; }
+-dontwarn androidx.browser.customtabs.**
 
 # 5. Credential Manager & Google Play Services Auth synchronization
 -keep class androidx.credentials.** { *; }

@@ -21,21 +21,13 @@ enum class AppColorAccent {
 }
 
 enum class UpdateInstallMode(val title: String, val subtitle: String) {
-    COMPLETELY_MANUAL(
-        title = "Completely Manual",
-        subtitle = "Never triggers installer automatically; build updates and trigger installation on your own"
-    ),
     MANUAL(
-        title = "Manual Upgrade",
-        subtitle = "Always prompts system installer to confirm before installing any update"
+        title = "Manual",
+        subtitle = "Never prompts installer automatically; build updates and tap Install on each card"
     ),
-    UPDATE_ALL_ONLY(
-        title = "Automate \"Update All\" Only",
-        subtitle = "Silently installs updates during batch 'Update All'; single updates prompt installer"
-    ),
-    AUTOMATE_ALL(
-        title = "Automate All Updates",
-        subtitle = "Silently installs all WebAPK and Packora updates in the background without installer prompts"
+    AUTO_PROMPT(
+        title = "Auto-Prompt",
+        subtitle = "Automatically launches the package installer dialog once an update is compiled"
     )
 }
 
@@ -62,8 +54,11 @@ class PackoraPreferencesManager(context: Context) {
 
     var updateInstallMode: UpdateInstallMode
         get() {
-            val name = prefs.getString("update_install_mode", UpdateInstallMode.AUTOMATE_ALL.name) ?: UpdateInstallMode.AUTOMATE_ALL.name
-            return try { UpdateInstallMode.valueOf(name) } catch (e: Exception) { UpdateInstallMode.AUTOMATE_ALL }
+            val name = prefs.getString("update_install_mode", UpdateInstallMode.AUTO_PROMPT.name) ?: UpdateInstallMode.AUTO_PROMPT.name
+            return when (name) {
+                "COMPLETELY_MANUAL", "MANUAL" -> UpdateInstallMode.MANUAL
+                else -> UpdateInstallMode.AUTO_PROMPT
+            }
         }
         set(value) {
             prefs.edit().putString("update_install_mode", value.name).apply()

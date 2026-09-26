@@ -980,7 +980,6 @@ class MainActivity : ComponentActivity() {
                 injectAutoAcceptCookies(view)
                 injectAdBlockerAndSpaceCollapsing(view)
                 injectNotificationPolyfill(view)
-                injectInteractionAndScrollUnfreezer(view)
 
                 if (isDesktopMode) {
                     view?.evaluateJavascript(
@@ -1231,7 +1230,7 @@ class MainActivity : ComponentActivity() {
 
                 // 5. User-initiated external links:
                 val openExternalLinks = webViewConfig?.optBoolean("openExternalLinks", false) ?: false
-                if (openExternalLinks && targetUrl.isNotEmpty()) {
+                if (openExternalLinks && targetUrl.isNotEmpty() && !isSameDomainFamily) {
                     try {
                         val customTabsIntent = CustomTabsIntent.Builder().build()
                         customTabsIntent.launchUrl(this@MainActivity, uri)
@@ -1243,15 +1242,11 @@ class MainActivity : ComponentActivity() {
                             return true
                         } catch (ex: Exception) { }
                     }
-                } else {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                        startActivity(intent)
-                        return true
-                    } catch (e: Exception) { }
+                    return true
                 }
 
-                return true
+                // By default keep all navigation running freely inside WebView
+                return false
             }
         }
 
@@ -2238,216 +2233,57 @@ class MainActivity : ComponentActivity() {
             """
             (function() {
                 try {
-                    // 1. Instant CSS style injection for high-confidence footer containers
-                    if (!document.getElementById('__packora_footer_style')) {
-                        var style = document.createElement('style');
-                        style.id = '__packora_footer_style';
-                        style.textContent = `
-                            footer, .site-footer, .main-footer, .page-footer, .global-footer, .app-footer,
-                            #colophon, .colophon, .footer-bottom, .sub-footer,
-                            section[class*="site-footer" i], section[class*="main-footer" i] {
-                                display: none !important;
-                                visibility: hidden !important;
-                                height: 0px !important;
-                                min-height: 0px !important;
-                                max-height: 0px !important;
-                                margin: 0px !important;
-                                padding: 0px !important;
-                                opacity: 0 !important;
-                                overflow: hidden !important;
-                                pointer-events: none !important;
-                            }
-                        `;
-                        (document.head || document.documentElement).appendChild(style);
-                    }
-
-                    // 2. Intelligent DOM cleaner
-                    function queryAll(selector, root) {
-                        root = root || document;
-                        var list = [];
-                        try {
-                            list = Array.prototype.slice.call(root.querySelectorAll(selector));
-                        } catch(e) {}
-                        try {
-                            var all = root.querySelectorAll('*');
-                            for (var i = 0; i < all.length; i++) {
-                                if (all[i].shadowRoot) {
-                                    list = list.concat(queryAll(selector, all[i].shadowRoot));
-                                }
-                            }
-                        } catch(e) {}
-                        return list;
-                    }
-
-                    var isBottomDocked = function(el) {
-                        try {
-                            var style = window.getComputedStyle(el);
-                            if (style.position === 'fixed' || style.position === 'sticky') {
-                                var rect = el.getBoundingClientRect();
-                                if (rect.bottom >= window.innerHeight - 30 && rect.top > 0) {
-                                    return true;
-                                }
-                            }
-                        } catch(e) {}
-                        return false;
-                    };
-
-                    var selectors = [
-                        'footer', '#footer', '[id*="footer" i]', '#colophon', '.colophon', '[id*="colophon" i]',
-                        '.site-footer', '.page-footer', '.main-footer', '.app-footer', '.global-footer', '.sub-footer', '.footer',
-                        '[class*="footer" i]', '[class*="Footer" i]', '[class*="subfooter" i]', '[class*="prefooter" i]',
-                        '[class*="fat-footer" i]', '[class*="socket" i]', '[class*="site-bottom" i]', '[class*="attribution" i]',
-                        'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
-                        'div[class*="copyright" i]', 'section[class*="copyright" i]', 'p[class*="copyright" i]', 'span[class*="copyright" i]',
-                        'div[class*="site-info" i]', 'div[class*="legal" i]', 'section[class*="legal" i]', 'div[class*="policy" i]', 'section[class*="policy" i]',
-                        'div[class*="disclaimer" i]', 'section[class*="disclaimer" i]', 'div[id*="disclaimer" i]',
-                        'div[data-component*="footer" i]', 'div[data-test-id*="footer" i]', 'div[data-testid*="footer" i]', 'div[data-cy*="footer" i]',
-                        '[data-section="footer"]', '[data-area="footer"]', '[data-widget-type="footer"]',
-                        '[aria-label*="footer" i]', '.cookie-banner', '.privacy-banner', '.gdpr-banner', '.ccpa-banner', '.consent-banner',
-                        '.footer-container', '.footer-wrapper', '.footer-content', '.footer-links', '.footer-nav', '.footer-bottom', '.bottom-footer',
-                        '.site-subfooter', '.site_footer', '[class*="credits" i]', '[class*="imprint" i]', '[id*="imprint" i]'
-                    ];
-
-                    var keywords = [
-                        // English Legal, Copyright & Attribution
-                        '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
-                        'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'privacy policy',
-                        'privacy notice', 'privacy statement', 'cookie policy', 'cookie settings', 'manage cookies',
-                        'cookie preferences', 'legal notice', 'disclaimer', 'imprint', 'impressum', 'user agreement',
-                        'site policy', 'community guidelines', 'code of conduct', 'accessibility statement', 'security policy',
-                        'trust center', 'system status', 'report abuse', 'do not sell', 'do not share my personal information',
-                        'your privacy choices', 'notice at collection', 'ccpa', 'gdpr', 'affiliate disclosure', 'powered by',
-                        'built with', 'sitemap', 'site map', 'contact us', 'about us', 'help center', 'support center',
-                        'customer support', 'knowledge base', 'careers', 'jobs', 'press', 'media kit', 'investors',
-                        'corporate information', 'company info', 'advertising', 'partner with us', 'affiliates', 'faq',
-                        'frequently asked questions', 'newsletter signup', 'subscribe to our newsletter', 'sign up for newsletter',
-                        'footer navigation', 'bottom navigation', 'all content copyright', 'registered trademark', 'patents',
-                        'licensing', 'modern slavery statement', 'tax strategy', 'whistleblower policy', 'billing terms',
-                        'refund policy', 'cancellation policy', 'shipping policy', 'return policy', 'acceptable use policy',
-                        // German (Deutsch)
-                        'urheberrecht', 'alle rechte vorbehalten', 'datenschutz', 'datenschutzerklärung', 'datenschutzhinweis',
-                        'haftungsausschluss', 'nutzungsbedingungen', 'agb', 'allgemeine geschäftsbedingungen', 'kontakt',
-                        'über uns', 'karriere', 'widerrufsbelehrung', 'cookie-einstellungen', 'cookie-richtlinie',
-                        'barrierefreiheit', 'hilfe & support', 'kundenservice', 'partnerprogramm', 'zahlungsmethoden',
-                        'versandinformationen', 'rechtliche hinweise', 'streitbeilegung',
-                        // French (Français)
-                        'droits réservés', 'tous droits réservés', 'mentions légales', 'politique de confidentialité',
-                        'conditions générales', 'cgu', 'cgv', 'gestion des cookies', 'politique relative aux cookies',
-                        'accessibilité', 'plan du site', 'qui sommes-nous', 'contactez-nous', 'service client',
-                        'aide et contact', 'recrutement', 'données personnelles', 'conditions d’utilisation',
-                        'conditions d\'utilisation', 'avis de non-responsabilité', 'nos engagements',
-                        // Spanish (Español)
-                        'derechos reservados', 'todos los derechos reservados', 'política de privacidad', 'términos y condiciones',
-                        'términos de uso', 'aviso legal', 'configuración de cookies', 'política de cookies', 'mapa del sitio',
-                        'sobre nosotros', 'atención al cliente', 'centro de ayuda', 'trabaja con nosotros', 'preguntas frecuentes',
-                        'aviso de privacidad', 'propiedad intelectual', 'declaración de accesibilidad', 'información legal',
-                        'preferencias de cookies',
-                        // Portuguese (Português)
-                        'termos de uso', 'termos e condições', 'preferências de cookies', 'sobre nós', 'quem somos',
-                        'fale conosco', 'central de ajuda', 'trabalhe conosco', 'informações corporativas',
-                        // Italian (Italiano)
-                        'tutti i diritti riservati', 'diritti riservati', 'informativa sulla privacy', 'note legali',
-                        'informativa cookie', 'preferenze cookie', 'chi siamo', 'contattaci', 'assistenza clienti',
-                        'centro assistenza', 'lavora con noi', 'domande frequenti', 'dichiarazione di accessibilità',
-                        // Dutch (Nederlands)
-                        'alle rechten voorbehouden', 'privacybeleid', 'algemene voorwaarden', 'gebruiksvoorwaarden',
-                        'cookiebeleid', 'cookievoorkeuren', 'colofon', 'over ons', 'contacteer ons', 'klantenservice',
-                        'helpcentrum', 'werken bij', 'veelgestelde vragen', 'toegankelijkheid',
-                        // Polish (Polski)
-                        'wszystkie prawa zastrzeżone', 'polityka prywatności', 'regulamin', 'warunki korzystania',
-                        'polityka cookies', 'ustawienia cookies', 'o nas', 'obsługa klienta', 'mapa strony',
-                        // Swedish & Scandinavian
-                        'alla rättigheter förbehållna', 'integritetspolicy', 'användarvillkor', 'cookiepolicy',
-                        'cookie-inställningar', 'kontakta oss', 'kundservice', 'hjälpcenter', 'webbplatskarta',
-                        // Russian (Русский)
-                        'все права защищены', 'права защищены', 'политика конфиденциальности', 'пользовательское соглашение',
-                        'условия использования', 'правила сайта', 'политика в отношении файлов cookie', 'настройки файлов cookie',
-                        'карта сайта', 'о компании', 'служба поддержки', 'обратная связь', 'вакансии',
-                        // Japanese (日本語)
-                        '無断転載を禁じます', 'すべての権利を保有', '利用規約', 'プライバシーポリシー',
-                        '特定商取引法に基づく表記', 'クッキーポリシー', 'クッキー設定', '会社概要',
-                        'お問い合わせ', '採用情報', 'よくある質問', '著作権について',
-                        // Chinese (中文 - 简体 & 繁體)
-                        '版权所有', '保留所有权利', '保留所有權利', '隐私政策', '隱私政策', '服务条款',
-                        '服務條款', '用户协议', '用戶協議', '法律声明', '免责声明', '免責聲明', '网站地图',
-                        '網站地圖', '关于我们', '關於我們', '联系我们', '聯繫我們', '帮助中心', '幫助中心',
-                        '常见问题', '常見問題', '增值电信业务', '粤icp备', '京icp备', '沪icp备', '浙icp备', 'icp备',
-                        // Korean (한국어)
-                        '모든 권리 보유', '개인정보처리방침', '이용약관', '법적고지', '쿠키 정책', '쿠키 설정',
-                        '회사소개', '문의하기', '자주 묻는 질문', '사업자정보확인',
-                        // Hindi (हिन्दी)
-                        'सर्वाधिकार सुरक्षित', 'गोपनीयता नीति', 'सेवा की शर्तें', 'नियम और शर्तें', 'नियम व शर्तें',
-                        'हमसे संपर्क करें', 'हमारे बारे में', 'सहायता केंद्र', 'अक्सर पूछे जाने वाले प्रश्न',
-                        // Arabic (العربية)
-                        'جميع الحقوق محفوظة', 'سياسة الخصوصية', 'شروط الاستخدام', 'الشروط والأحكام', 'إخلاء المسؤولية',
-                        'ملفات تعريف الارتباط', 'اتصل بنا', 'من نحن', 'مركز المساعدة',
-                        // Turkish (Türkçe)
-                        'tüm hakları saklıdır', 'gizlilik politikası', 'kullanım koşulları', 'çerez politikası',
-                        'çerez ayarları', 'hakkımızda', 'iletişim', 'yardım merkezi', 'site haritası'
-                    ];
-
                     var hideInfoFooters = function() {
-                        var footerCandidates = queryAll(selectors.join(', '));
-                        footerCandidates.forEach(function(el) {
-                            var tag = (el.tagName || '').toUpperCase();
-                            var role = (el.getAttribute('role') || '').toLowerCase();
-                            var id = (el.id || '').toLowerCase();
-                            var bottomDocked = isBottomDocked(el);
+                        var selectors = [
+                            'footer', '#footer', '[id*="footer" i]',
+                            '.site-footer', '.page-footer', '.main-footer', '.global-footer', '.footer',
+                            '[class*="footer" i]', 'div[role="contentinfo"]', 'section[role="contentinfo"]',
+                            'div[class*="copyright" i]', 'div[class*="site-info" i]', 'div[class*="legal" i]', 'div[class*="policy" i]',
+                            'section[class*="copyright" i]', 'section[class*="legal" i]', 'section[class*="policy" i]'
+                        ];
 
-                            // Safeguard 1: Never hide root, body, or direct content containers
+                        var keywords = [
+                            '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
+                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'privacy policy',
+                            'privacy notice', 'privacy statement', 'cookie policy', 'cookie settings', 'manage cookies',
+                            'cookie preferences', 'legal notice', 'disclaimer', 'imprint', 'impressum', 'user agreement',
+                            'site policy', 'community guidelines', 'code of conduct', 'accessibility statement', 'security policy',
+                            'powered by', 'built with', 'proudly powered by', 'published with'
+                        ];
+
+                        var candidates = document.querySelectorAll(selectors.join(', '));
+                        candidates.forEach(function(el) {
+                            var tag = (el.tagName || '').toUpperCase();
                             if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') return;
 
-                            // Safeguard 2: Never hide elements that contain main content, articles, forms, feeds, or major views
-                            if (el.querySelector('main, article, form, [role="main"], [role="feed"], #content, #main, .main-content')) return;
-                            try {
-                                if (document.querySelector('main') && el.contains(document.querySelector('main'))) return;
-                                if (document.querySelector('article') && el.contains(document.querySelector('article'))) return;
-                            } catch(e) {}
+                            // Protection safeguard: Do NOT hide if element contains tab bars, chat inputs, or app controls
+                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, button, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i], [class*="bottom-nav" i]');
+                            if (isAppNav) return;
 
-                            // Safeguard 2.5: Never hide elements inside main, article, or card/simulation/course components (fixes Forage and education platforms)
-                            try {
-                                if (el.closest('main, article, [role="main"], [role="feed"], .card, [class*="card" i], [class*="simulation" i], [class*="course" i], [class*="job" i], [class*="program" i]')) return;
-                            } catch(e) {}
-
-                            // Safeguard 3: Never collapse large containers (> 75% screen height) to prevent skeleton hiding
-                            try {
-                                var rect = el.getBoundingClientRect();
-                                if (rect.height > window.innerHeight * 0.75) return;
-                            } catch(e) {}
-
-                            // Safeguard 4: Protect genuine app bottom navigation tab bars (e.g. fixed bottom bar with tabs)
-                            var isAppTabBar = bottomDocked && el.querySelector('[role="tablist"], [class*="tab-bar" i], [class*="tabbar" i], [class*="bottom-nav" i], nav[class*="nav" i]');
-                            if (isAppTabBar) return;
+                            // Protect large layout containers
+                            var rect = el.getBoundingClientRect();
+                            if (rect.height > window.innerHeight * 0.6) return;
 
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
-                            var isSemanticFooter = (tag === 'FOOTER' || role === 'contentinfo' || id === 'footer');
 
-                            if (isSemanticFooter || hasInfoKeyword || (bottomDocked && keywords.slice(0, 15).some(function(kw) { return text.includes(kw); }))) {
+                            if (hasInfoKeyword) {
                                 el.style.setProperty('display', 'none', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');
                                 el.style.setProperty('max-height', '0px', 'important');
                                 el.style.setProperty('margin', '0px', 'important');
                                 el.style.setProperty('padding', '0px', 'important');
-                                el.style.setProperty('visibility', 'hidden', 'important');
-                                el.style.setProperty('opacity', '0', 'important');
-                                el.style.setProperty('overflow', 'hidden', 'important');
-                                el.style.setProperty('pointer-events', 'none', 'important');
                             }
                         });
                     };
 
-                    var deferRun = window.requestIdleCallback || function(cb) { setTimeout(cb, 100); };
-                    deferRun(function() {
-                        hideInfoFooters();
-                    });
+                    hideInfoFooters();
                     if (!window.__packora_footer_observer) {
                         window.__packora_footer_observer = new MutationObserver(function() {
-                            deferRun(hideInfoFooters);
+                            hideInfoFooters();
                         });
                         window.__packora_footer_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-                        setInterval(hideInfoFooters, 1800);
                     }
                 } catch(e) {}
             })();
@@ -2476,114 +2312,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun injectInteractionAndScrollUnfreezer(webView: WebView?) {
-        webView?.evaluateJavascript(
-            """
-            (function() {
-                try {
-                    function unfreezeScrollAndClicks() {
-                        try {
-                            // 1. Check if any genuine dialog or modal is currently visible
-                            var hasVisibleModal = false;
-                            var dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .modal.show, .modal.active');
-                            for (var i = 0; i < dialogs.length; i++) {
-                                var d = dialogs[i];
-                                var style = window.getComputedStyle(d);
-                                if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                                    var rect = d.getBoundingClientRect();
-                                    if (rect.width > 50 && rect.height > 50) {
-                                        hasVisibleModal = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // 2. If no visible modal exists, aggressively unlock scroll on body & html
-                            if (!hasVisibleModal) {
-                                var docEl = document.documentElement;
-                                var body = document.body;
-                                if (body) {
-                                    var bodyStyle = window.getComputedStyle(body);
-                                    if (bodyStyle.overflow === 'hidden' || bodyStyle.overflow === 'clip' || bodyStyle.position === 'fixed') {
-                                        body.style.setProperty('overflow', 'auto', 'important');
-                                        body.style.setProperty('position', 'static', 'important');
-                                        body.style.setProperty('touch-action', 'auto', 'important');
-                                        body.style.setProperty('height', 'auto', 'important');
-                                    }
-                                    body.classList.remove('modal-open', 'noscroll', 'overflow-hidden', 'has-modal', 'disable-scroll');
-                                }
-                                if (docEl) {
-                                    var docStyle = window.getComputedStyle(docEl);
-                                    if (docStyle.overflow === 'hidden' || docStyle.overflow === 'clip') {
-                                        docEl.style.setProperty('overflow', 'auto', 'important');
-                                        docEl.style.setProperty('touch-action', 'auto', 'important');
-                                        docEl.style.setProperty('height', 'auto', 'important');
-                                    }
-                                    docEl.classList.remove('modal-open', 'noscroll', 'overflow-hidden', 'has-modal', 'disable-scroll');
-                                }
-                            }
-
-                            // 3. Neutralize orphaned backdrops, dark filters, and full-screen invisible click blockers
-                            var backdropSelectors = [
-                                '.onetrust-pc-dark-filter', '.modal-backdrop', '.fc-dialog-overlay',
-                                '.didomi-popup-backdrop', '.cookie-backdrop', '.consent-backdrop',
-                                'div[class*="backdrop" i]', 'div[class*="overlay" i]', 'div[id*="backdrop" i]',
-                                'div[id*="overlay" i]', '#overlay', '#backdrop'
-                            ];
-                            backdropSelectors.forEach(function(sel) {
-                                try {
-                                    document.querySelectorAll(sel).forEach(function(el) {
-                                        if (hasVisibleModal) return; // Don't remove backdrops if a modal is actually visible
-                                        if (el.querySelector('[role="dialog"], [role="navigation"], nav, video, iframe, form, button, input, a[href], [role="button"]')) return;
-                                        var text = (el.innerText || '').trim();
-                                        if (text.length > 15) return; // Contains substantial text, do not hide!
-                                        var style = window.getComputedStyle(el);
-                                        var isFixed = (style.position === 'fixed' || style.position === 'absolute');
-                                        var rect = el.getBoundingClientRect();
-                                        var coversScreen = (rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9);
-                                        if (isFixed && coversScreen) {
-                                            el.style.setProperty('display', 'none', 'important');
-                                            el.style.setProperty('pointer-events', 'none', 'important');
-                                        }
-                                    });
-                                } catch(e) {}
-                            });
-
-                            // 4. Neutralize invisible clickjacking overlays (z-index > 1000, opacity 0 or transparent, full-screen)
-                            try {
-                                var allDivs = document.querySelectorAll('div, a');
-                                for (var j = 0; j < allDivs.length; j++) {
-                                    var node = allDivs[j];
-                                    var nStyle = window.getComputedStyle(node);
-                                    if (nStyle.position === 'fixed' || nStyle.position === 'absolute') {
-                                        var zIndex = parseInt(nStyle.zIndex, 10);
-                                        if (zIndex > 1000) {
-                                            var nRect = node.getBoundingClientRect();
-                                            if (nRect.width >= window.innerWidth * 0.95 && nRect.height >= window.innerHeight * 0.95) {
-                                                var isTransparent = (nStyle.opacity === '0' || nStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || nStyle.visibility === 'hidden');
-                                                if (isTransparent && !node.querySelector('video, iframe, button, input, textarea, a[href]')) {
-                                                    node.style.setProperty('pointer-events', 'none', 'important');
-                                                    node.style.setProperty('display', 'none', 'important');
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch(e) {}
-
-                        } catch(e) {}
-                    }
-
-                    unfreezeScrollAndClicks();
-                    var timerInterval = setInterval(unfreezeScrollAndClicks, 1200);
-                    setTimeout(function() { clearInterval(timerInterval); }, 30000);
-                    if (window.MutationObserver) {
-                        var observer = new MutationObserver(unfreezeScrollAndClicks);
-                        observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-                    }
-                } catch(e) {}
-            })();
-            """.trimIndent(), null
-        )
+        // Disabled to allow SPAs, menus, drawers, video players, and fixed overlays to render and interact naturally
     }
 
     private fun syncWebPageThemeColor(view: WebView?) {

@@ -38,10 +38,10 @@ import com.maheswara660.packora.incrementVersionString
 import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.manager.BuildHistoryManager
 import androidx.compose.animation.*
-import com.maheswara660.packora.installer.PackageInstallerHelper
 import com.maheswara660.packora.manager.HistoryItem
 import com.maheswara660.packora.manager.PackoraPreferencesManager
 import com.maheswara660.packora.manager.UpdateInstallMode
+import com.maheswara660.packora.ui.components.PackoraDotLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -70,9 +70,11 @@ fun UpdatesScreen() {
     val installQueue = remember { mutableStateListOf<PendingInstallTask>() }
     var currentInstallingApp by remember { mutableStateOf<PendingInstallTask?>(null) }
 
-    fun refreshApps() {
+    fun refreshApps(showLoading: Boolean = false) {
         coroutineScope.launch {
-            isLoading = true
+            if (showLoading || apps.isEmpty()) {
+                isLoading = true
+            }
             withContext(Dispatchers.IO) {
                 val detected = detectInstalledPackoraApps(context, historyManager)
                 withContext(Dispatchers.Main) {
@@ -97,18 +99,8 @@ fun UpdatesScreen() {
             val next = installQueue.removeAt(0)
             currentInstallingApp = next
             coroutineScope.launch {
-                delay(600)
-                val isSilent = prefsManager.updateInstallMode in listOf(
-                    UpdateInstallMode.AUTOMATE_ALL,
-                    UpdateInstallMode.UPDATE_ALL_ONLY
-                )
-                PackageInstallerHelper.installPackage(
-                    context = context,
-                    apkPath = next.apkPath,
-                    packageName = next.packageName,
-                    appName = next.appName,
-                    silent = isSilent
-                )
+                delay(400)
+                installApkFile(context, next.apkPath)
             }
         } else {
             currentInstallingApp = null
@@ -117,7 +109,7 @@ fun UpdatesScreen() {
     }
 
     LaunchedEffect(Unit) {
-        refreshApps()
+        refreshApps(showLoading = true)
     }
 
     // BroadcastReceiver listening for completed package installations
@@ -257,19 +249,12 @@ fun UpdatesScreen() {
                     )
                 )
                 compiledApkPaths[app.packageName] = generatedApk!!
-                if (prefsManager.updateInstallMode != UpdateInstallMode.COMPLETELY_MANUAL) {
-                    val isSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
-                    PackageInstallerHelper.installPackage(
-                        context = context,
-                        apkPath = generatedApk!!,
-                        packageName = app.packageName,
-                        appName = app.appName,
-                        silent = isSilent
-                    )
+                if (prefsManager.updateInstallMode == UpdateInstallMode.AUTO_PROMPT) {
+                    installApkFile(context, generatedApk!!)
                 } else {
                     Toast.makeText(context, "Update compiled for ${app.appName}! Tap Install to proceed.", Toast.LENGTH_SHORT).show()
                 }
-                refreshApps()
+                refreshApps(showLoading = false)
             } else {
                 Toast.makeText(context, "Update build failed for ${app.appName}", Toast.LENGTH_SHORT).show()
             }
@@ -352,9 +337,9 @@ fun UpdatesScreen() {
             isUpdatingAll = false
             updateAllProgressText = null
 
-            if (prefsManager.updateInstallMode == UpdateInstallMode.COMPLETELY_MANUAL) {
+            if (prefsManager.updateInstallMode == UpdateInstallMode.MANUAL) {
                 Toast.makeText(context, "All updates compiled! Tap 'Install' on each card to install.", Toast.LENGTH_LONG).show()
-                refreshApps()
+                refreshApps(showLoading = false)
             } else {
                 if (installQueue.isNotEmpty()) {
                     advanceInstallQueue()
@@ -371,16 +356,20 @@ fun UpdatesScreen() {
     var showSortSheet by remember { mutableStateOf(false) }
 
     val filteredApps = remember(updateEligibleApps, searchQuery, sortMode) {
-        var list = if (searchQuery.isBlank()) updateEligibleApps
+        val list = if (searchQuery.isBlank()) updateEligibleApps
         else updateEligibleApps.filter {
             it.appName.contains(searchQuery, ignoreCase = true) ||
             it.packageName.contains(searchQuery, ignoreCase = true)
         }
         when (sortMode) {
-            AppSortMode.NAME_AZ -> list.sortedBy { it.appName.lowercase() }
-            AppSortMode.NAME_ZA -> list.sortedByDescending { it.appName.lowercase() }
-            AppSortMode.NEWEST -> list.sortedByDescending { it.historyItem?.timestamp ?: 0L }
-            AppSortMode.OLDEST -> list.sortedBy { it.historyItem?.timestamp ?: 0L }
+            AppSortMode.NAME_AZ -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
+            AppSortMode.NAME_ZA -> list.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
+            AppSortMode.NEWEST -> list.sortedByDescending {
+                (compiledApkPaths[it.packageName]?.let { path -> File(path).lastModified() }) ?: (it.historyItem?.timestamp ?: 0L)
+            }
+            AppSortMode.OLDEST -> list.sortedBy {
+                (compiledApkPaths[it.packageName]?.let { path -> File(path).lastModified() }) ?: (it.historyItem?.timestamp ?: 0L)
+            }
         }
     }
 
@@ -471,7 +460,7 @@ fun UpdatesScreen() {
             when {
                 isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(Modifier.size(48.dp))
+                        PackoraDotLoader(size = 48.dp)
                         Spacer(Modifier.height(16.dp))
                         Text("Scanning for updates…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -532,12 +521,6 @@ fun UpdatesScreen() {
                     ) {
                         // Sequential Update Available Banner
                         item(key = "update_all_banner") {
-                            val shouldHideSkipButton = prefsManager.updateInstallMode in listOf(
-                                UpdateInstallMode.AUTOMATE_ALL,
-                                UpdateInstallMode.UPDATE_ALL_ONLY
-                            )
-                            val isBatchSilent = shouldHideSkipButton
-
                             UpdatesAvailableBanner(
                                 updateCount = updateEligibleApps.size,
                                 isUpdatingAll = isUpdatingAll,
@@ -546,18 +529,12 @@ fun UpdatesScreen() {
                                 queueSize = installQueue.size,
                                 onUpdateAll = {
                                     if (currentInstallingApp != null) {
-                                        PackageInstallerHelper.installPackage(
-                                            context = context,
-                                            apkPath = currentInstallingApp!!.apkPath,
-                                            packageName = currentInstallingApp!!.packageName,
-                                            appName = currentInstallingApp!!.appName,
-                                            silent = isBatchSilent
-                                        )
+                                        installApkFile(context, currentInstallingApp!!.apkPath)
                                     } else {
                                         triggerUpdateAll()
                                     }
                                 },
-                                onSkipCurrentInstall = if (shouldHideSkipButton) null else { { advanceInstallQueue() } }
+                                onSkipCurrentInstall = { advanceInstallQueue() }
                             )
                         }
 
@@ -565,26 +542,18 @@ fun UpdatesScreen() {
                             val isBuilding = app.packageName in buildingPackages
                             val readyApkPath = compiledApkPaths[app.packageName]
                             val isReadyToInstall = !readyApkPath.isNullOrBlank() && File(readyApkPath).exists()
-                            val shouldHideInstallButton = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL &&
-                                    prefsManager.autoDeleteApkAfterInstall
 
                             UpdateAppCard(
+                                modifier = Modifier.animateItem(),
                                 app = app,
                                 isBuilding = isBuilding,
                                 progress = buildProgress[app.packageName],
                                 isReadyToInstall = isReadyToInstall,
-                                hideInstallButton = shouldHideInstallButton,
+                                hideInstallButton = false,
                                 onUpdate = { triggerSingleUpdate(app) },
                                 onInstall = {
                                     readyApkPath?.let {
-                                        val isSingleSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
-                                        PackageInstallerHelper.installPackage(
-                                            context = context,
-                                            apkPath = it,
-                                            packageName = app.packageName,
-                                            appName = app.appName,
-                                            silent = isSingleSilent
-                                        )
+                                        installApkFile(context, it)
                                     }
                                 }
                             )
@@ -619,6 +588,7 @@ fun UpdatesScreen() {
 
 @Composable
 private fun UpdateAppCard(
+    modifier: Modifier = Modifier,
     app: InstalledPackoraApp,
     isBuilding: Boolean,
     progress: Int?,
@@ -631,7 +601,7 @@ private fun UpdateAppCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .border(
                 1.dp,
@@ -809,9 +779,8 @@ private fun UpdateAppCard(
                         .height(38.dp)
                 ) {
                     if (isBuilding) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(16.dp),
+                        PackoraDotLoader(
+                            size = 18.dp,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(Modifier.width(8.dp))

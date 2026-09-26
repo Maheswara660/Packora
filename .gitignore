@@ -45,6 +45,8 @@ captures/
 *.aab
 *.apxc
 *.idsig
+*.output-metadata.json
+baselineProfiles/
 release/
 app/release/
 

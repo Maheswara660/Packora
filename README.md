@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v4.0.0</h1>
+<h1 align="center">Packora v4.1.0</h1>
 
 <p align="center">
   <b>High-Performance Standalone Android WebAPK Compiler — Completely On-Device & Offline.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v4.0.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 4.0.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v4.1.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 4.1.0"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
   <a href="https://developer.android.com/about/versions/15"><img src="https://img.shields.io/badge/Target_SDK-35_(Android_15)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK 35"></a>
@@ -31,7 +31,7 @@
 - [Overview](#-overview)
 - [Screenshots](#-screenshots)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v4.0.0](#-whats-new-in-v400)
+- [What's New in v4.1.0](#-whats-new-in-v410)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [Dashboard & Bento Grid Customization](#-dashboard--bento-grid-customization)
   - [Dedicated Updates Hub](#-dedicated-updates-hub)
@@ -100,44 +100,25 @@ graph TD
 
 ---
 
-## 🚀 What's New in v4.0.0
+## 🚀 What's New in v4.1.0
 
-- **Automated Background Update Installation**:
-  - **Unattended Updates**: Leverages Android 12+ (API 31+) `PackageInstaller` with `USER_ACTION_NOT_REQUIRED` and `UPDATE_PACKAGES_WITHOUT_USER_ACTION` permission to install updates seamlessly in the background without opening the system package installer dialog.
-  - **4 Update Installation Modes**: Choose between *Completely Manual* (compile only, manual trigger), *Manual Upgrade* (auto-prompt installer), *Automate "Update All" Only* (silent batch updates), and *Automate All Updates* (*Default* — silent batch, single, and Packora updates).
-  - **Packora Self-Update Automation**: Downloaded Packora app updates install silently in the background when *Automate All Updates* is active.
-  - **Start & Completion Toast Notifications**: Real-time toast feedback when background updates begin and successfully complete.
-  - **Contextual UI Button Rules**: "Skip" button in the batch banner automatically hides during automated modes; "Install" button hides on app cards when automated installation and auto-delete are both enabled.
-- **Dedicated Updates Screen & Navigation**:
-  - Added a dedicated `Updates` navigation item in bottom navigation bar (`Icons.Outlined.SystemUpdate`) separating updates from installed applications in My Apps.
-  - Dual action buttons (`Update` and `Install`) side-by-side on compiled cards for maximum ergonomics.
-  - Features sequential batch compilation banner with custom skip buttons and instant search filtering.
-- **Full GitHub Flavored Markdown Engine for Release Notes**:
-  - Built-in release notes viewer supporting styled multi-column tables with zebra striping, tech badges & shields.io links, collapsible `<details>`/`<summary>` cards, keycaps (`<kbd>`), HTML elements, autolinked `@mentions`, and `#issues`.
-- **Smart Icon Color Palette Extraction**:
-  - Multi-point edge analysis detects solid background canvas colors, while core analysis extracts brand and accent colors for 1-tap palette auto-matching in the Icon Editor.
-- **12 Dynamic Launcher App Icons**:
-  - Added support for switching between 12 distinct launcher app icons (Original Classic Blue, Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx) via Android manifest activity aliases.
-  - High-resolution bottom sheet selector with active indicator badges and original icon placed first.
-- **12 Custom Icon-Matching Themes & Color Accents**:
-  - Expanded Theme Modes with 12 complete color schemes matching the launcher icons alongside System, Light, Dark, and AMOLED.
-  - Added 12 matching color accents to the accent picker named directly after their respective icons.
-- **Auto-Delete APKs Toggle & Custom Switch**:
-  - Added toggle in Settings to automatically delete APK files (compiled or downloaded updates) post-installation, preserving local device storage.
-  - If disabled, APKs are retained in `Downloads/Packora`. If uninstalled, compiled APKs remain saved.
-  - Implemented custom switch with 46x24dp pill track, 18dp sliding thumb, glow line effect, and animated checkmark/cross vector icons.
-- **Ergonomic Action Rows & Contextual Sort**:
-  - Screen-tailored sort options for My Apps (installed date), History (build timestamp), and Updates (recently built).
-  - Balanced side-by-side action buttons across Build and Update bottom sheets with automatic keyboard dismissal and anti-stretching.
-- **Action Button Simplification**:
-  - **History Screen**: Cards now display strictly two buttons: **Reuse Config** and **Remove**.
-  - **My Apps Screen**: Cards now display strictly two buttons: **Open** and **Uninstall**.
-- **Check for Updates Sheet Fix**:
-  - Resolved shaking and jumping behavior in the app update bottom sheet by eliminating nested scroll conflicts.
-- **Template Runtime & Compatibility Fixes**:
-  - **Dynamic User-Agent**: Eliminates Cloudflare 403 Forbidden blocks (e.g. Udacity) by deriving user-agent from real-device engine (`WebSettings.getDefaultUserAgent`) to match Client Hints.
-  - **Forage Skeleton Safeguard**: Added `closest(...)` container checks to prevent the footer hider from removing card content in course simulations and job previews.
-  - **Edu & LMS Navigation Unfreezer**: Overlays with links or text are preserved on Canvas, Blackboard, and `.edu` portals.
+- **Sorting Consistency & Isolated Card Reordering**:
+  - **My Apps & History Screens**: Resolved list sorting bugs where unsorted lists were displayed; apps and build records now reliably order by Name (A–Z), Name (Z–A), Newest, and Oldest.
+  - **Updates Screen Sorting**: Fixed sort ordering and query filtering to immediately and accurately rearrange eligible update cards.
+  - **Isolated Card Animations**: Integrated Jetpack Compose item placement animations (`Modifier.animateItem()`) across My Apps, Build History, and Updates screens so changing sort options smoothly and exclusively reorders the individual cards in place without causing the screen to flash, jump, or reload.
+  - **Instant 1-Tap Selection**: Updated selection bottom sheets to immediately update state on tap with 1-tap select and apply.
+- **Updates Screen UX & Safe Batch APK Deletion**:
+  - **Card-Level Updating**: Individual app updates and batch "Update All" operations compile and update at the card level without full-screen spinners or disruptive view reloads.
+  - **Safe Batch APK Deletion**: Resolved an issue where "Delete APK after install" deleted queued update APKs during "Update All" before they could be installed; APKs are now strictly preserved until the installed package version code matches or exceeds the newly built APK's version code.
+- **Streamlined Update Installation Modes**:
+  - Reduced Update Installation Mode in Settings to 2 straightforward options: **Manual** (standard package installer prompt) and **Auto-Prompt** (automatic installer prompt upon compilation completion).
+- **UI Refresh: Authentic iOS Switch & Dot Pulse Loader**:
+  - **PackoraIosSwitch**: Ported custom iOS-style toggle switch with smooth 51×31dp track, 27dp sliding thumb, and spring animations, now used as the default switch throughout the app.
+  - **PackoraDotLoader**: Ported custom 8-dot circular pulsing loader across all loading and compiling states in the app.
+- **Template Compatibility & Web Freedom**:
+  - **Clean External Links**: Fixed `shouldOverrideUrlLoading` so non-domain-family links load freely inside the app's WebView when `openExternalLinks` is false, rather than forcibly kicking users out to an external browser.
+  - **Eliminated Destructive DOM Modifications**: Neutralized `injectInteractionAndScrollUnfreezer` which was aggressively resetting `body.style.position = 'static'` and removing overlay elements, restoring full functionality to SPAs, modals, menus, drawers, and video overlays.
+  - **Safe Footer Detection**: Reverted to safe v2.4.0 footer detection rules without global stylesheet overrides, preserving bottom app navigation bars and tab bars.
 
 ---
 
@@ -162,15 +143,15 @@ graph TD
 
 ### 🔄 Dedicated Updates Hub
 - **Dedicated Navigation**: Independent Updates tab in the bottom navigation bar (`Icons.Outlined.SystemUpdate`) separating pending updates from installed apps.
-- **Unattended Background Updates**: Supports silent, promptless installs on Android 12+ (API 31+) across 4 user-selectable update modes.
+- **Streamlined Update Modes**: Supports **Manual** (standard package installer prompt) and **Auto-Prompt** (automatic installer launch upon compile completion).
 - **Dual-Action Ergonomics**: Compiled cards display side-by-side **Update** and **Install** actions.
-- **Sequential Batch Compilation**: Top banner enables 1-tap sequential updates across all installed apps with styled Skip controls.
+- **Sequential Batch Compilation**: Top banner enables 1-tap sequential updates across all installed apps with safe post-install APK deletion.
 - **Search & Auto-Detection**: Instant query filtering and real-time detection of installed WebAPKs with available update builds.
 
 ### 📱 My Apps Management Hub
 - **Installed App Tracking**: Scans and displays WebAPKs generated by Packora on your device without cluttered updates banners.
 - **Streamlined Action System**: Cards feature strictly two actions: **Open** (`FilledTonalButton`) and **Uninstall** (`FilledTonalButton` with error-tonal confirmation sheet).
-- **Instant Search & Sort**: Filter installed applications instantly by name, package ID, or installation date.
+- **Instant Search & Sort**: Filter installed applications instantly by name, package ID, or installation date with smooth card-level animations.
 
 ### 🎨 Dynamic App Icons & Theming
 - **12 Dynamic Launcher Icons**: Switch between 12 distinct launcher app icons (Original Classic Blue, Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx) via Android manifest activity aliases.
@@ -197,7 +178,8 @@ graph TD
 - **Config Auto-Matching**: Entering a previously built URL automatically populates earlier settings and increments the version string.
 
 ### ⚙️ Settings & Dynamic Theming
-- **Auto-Delete APKs Toggle**: Custom animated toggle switch in Settings to automatically delete APK files after successful installation, preserving device storage while retaining uninstalled APKs in `Downloads/Packora`.
+- **Auto-Delete APKs Toggle & iOS Switch**: Custom iOS-style toggle switch (`PackoraIosSwitch`) in Settings to automatically delete APK files after successful installation, preserving device storage while safely retaining queued or uninstalled APKs in `Downloads/Packora`.
+- **Custom Pulse Dot Loader**: Embedded 8-dot pulsing canvas loader (`PackoraDotLoader`) providing sleek, consistent loading states across the app.
 - **Material You Dynamic Theming**: Adapts to system wallpaper colors or selects from **12 icon-matched themes and color accents**.
 - **Browser Engine Selector**: Switch between System Default WebView, Chrome Engine, or Custom Tab runtimes.
 - **Full Factory Reset**: 1-tap wipe to restore all settings and form inputs to default values.
@@ -230,9 +212,9 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Animations |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
 | **Signing Engine** | Android `apksig` | `8.3.0` | Cryptographic V2 / V3 signature generation |
-| **Page Alignment** | In-House `ElfAligner16k` | `v4.0.0` | 16KB ELF boundary alignment |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v4.0.0` | Low-level byte-level binary manifest rewriter |
-| **Template Engine** | In-House `:template` Shell | `v4.0.0` | High-performance standalone WebAPK wrapper |
+| **Page Alignment** | In-House `ElfAligner16k` | `v4.1.0` | 16KB ELF boundary alignment |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v4.1.0` | Low-level byte-level binary manifest rewriter |
+| **Template Engine** | In-House `:template` Shell | `v4.1.0` | High-performance standalone WebAPK wrapper |
 
 ---
 
@@ -340,6 +322,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v4.0.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v4.1.0 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

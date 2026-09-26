@@ -34,9 +34,25 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "4.1.0",
+        date = "September 26, 2026",
+        isLatest = true,
+        summary = "Sorting Fixes across My Apps/History/Updates, Isolated Card Refresh, Safe Batch APK Deletion, 2 Simplified Install Modes, iOS Switch & Dot Pulse Loader, Clean Website Execution in Template",
+        changes = listOf(
+            "My Apps & History Sorting Fixes: Resolved list sorting inconsistencies; apps and history records now strictly order according to selected options (Name A-Z, Name Z-A, Newest, Oldest) with instant 1-tap selection bottom sheets.",
+            "Isolated Card Reordering on Sort: Changing sort options across My Apps, Build History, and Updates screens now exclusively animates and refreshes the individual app info cards into position without reloading, resetting, or flickering the whole screen.",
+            "Updates Screen Sorting Fixes: Fixed Updates screen sort ordering and search matching; options now apply immediately and arrange eligible apps accurately.",
+            "Isolated Card Updating: Individual app updates and batch 'Update All' operations now compile and update seamlessly at the card level without causing full-screen flashing, reloading, or disruptive view resets.",
+            "Safe Batch APK Deletion: Fixed 'Delete APK after install' when using 'Update All' by verifying the installed package version code before deleting; queued update APKs are no longer prematurely removed while awaiting installation.",
+            "Simplified Update Installation Modes: Cleaned up Update Installation Mode to 2 straightforward options: 'Manual' (standard installer prompt) and 'Auto-Prompt' (instant installer prompt on compile completion), removing obsolete options and code.",
+            "Custom iOS Switch & Dot Pulse Loader: Integrated authentic iOS-style toggle switches with smooth spring animations and custom 8-dot circular pulsing loaders as standard components across all app screens.",
+            "Template Compatibility & Web Freedom: Cleaned WebView template engine by removing rogue external browser redirects, eliminating destructive DOM unfreezers and CSS injections, and restoring safe footer detection so SPAs, drawers, dialogs, and video overlays run freely without interference."
+        )
+    ),
+    ReleaseItem(
         version = "4.0.0",
         date = "September 23, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Automated Background Updates, 4 Installation Modes, GitHub Markdown Release Notes, Icon Palette Auto-Matching, 12 Dynamic App Icons & Theming",
         changes = listOf(
             "Automated Background Updates: Silent, unattended update installs on Android 12+ (API 31+) using PackageInstaller with UPDATE_PACKAGES_WITHOUT_USER_ACTION, bypassing installer prompts.",

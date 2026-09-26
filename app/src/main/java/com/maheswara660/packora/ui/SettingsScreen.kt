@@ -53,8 +53,10 @@ import com.maheswara660.packora.manager.UpdateInstallMode
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.filled.Check
+import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.ui.components.MarkdownText
+import com.maheswara660.packora.ui.components.PackoraDotLoader
+import com.maheswara660.packora.ui.components.PackoraIosSwitch
 import com.maheswara660.packora.ui.theme.getAppColorAccentColor
 import kotlinx.coroutines.launch
 import java.io.File
@@ -505,18 +507,12 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
+                        PackoraIosSwitch(
                             checked = autoDeleteApks,
                             onCheckedChange = {
                                 autoDeleteApks = it
                                 prefsManager.autoDeleteApkAfterInstall = it
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                            )
+                            }
                         )
                     }
                 }
@@ -605,9 +601,8 @@ fun SettingsScreen(
                             )
                         }
                         if (isCheckingUpdate) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.5.dp,
-                                modifier = Modifier.size(20.dp),
+                            PackoraDotLoader(
+                                size = 20.dp,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         } else {
@@ -978,18 +973,8 @@ fun SettingsScreen(
                         isDownloadingUpdate = false
                         result.onSuccess { file ->
                             downloadedApkFile = file
-                            val isSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
-                            if (prefsManager.updateInstallMode != UpdateInstallMode.COMPLETELY_MANUAL) {
-                                PackageInstallerHelper.installPackage(
-                                    context = context,
-                                    apkPath = file.absolutePath,
-                                    packageName = context.packageName,
-                                    appName = "Packora",
-                                    silent = isSilent
-                                )
-                                if (isSilent) {
-                                    showUpdateSheet = false
-                                }
+                            if (prefsManager.updateInstallMode == UpdateInstallMode.AUTO_PROMPT) {
+                                installApkFile(context, file.absolutePath)
                             } else {
                                 Toast.makeText(
                                     context,
@@ -1007,17 +992,7 @@ fun SettingsScreen(
                     }
                 },
                 onInstallDownloaded = { file ->
-                    val isSilent = prefsManager.updateInstallMode == UpdateInstallMode.AUTOMATE_ALL
-                    PackageInstallerHelper.installPackage(
-                        context = context,
-                        apkPath = file.absolutePath,
-                        packageName = context.packageName,
-                        appName = "Packora",
-                        silent = isSilent
-                    )
-                    if (isSilent) {
-                        showUpdateSheet = false
-                    }
+                    installApkFile(context, file.absolutePath)
                 },
                 onOpenBrowser = { url ->
                     uriHandler.openUri(url)
@@ -1053,7 +1028,7 @@ fun <T> SelectionBottomSheetDialog(
     onDismiss: () -> Unit,
     onConfirm: (T) -> Unit
 ) {
-    var tempSelection by remember { mutableStateOf(initialSelection) }
+    var tempSelection by remember(initialSelection) { mutableStateOf(initialSelection) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -1134,7 +1109,10 @@ fun <T> SelectionBottomSheetDialog(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                                 shape = RoundedCornerShape(16.dp)
                             )
-                            .clickable { tempSelection = value }
+                            .clickable {
+                                tempSelection = value
+                                onConfirm(value)
+                            }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1142,7 +1120,10 @@ fun <T> SelectionBottomSheetDialog(
                         ) {
                             RadioButton(
                                 selected = isSelected,
-                                onClick = { tempSelection = value },
+                                onClick = {
+                                    tempSelection = value
+                                    onConfirm(value)
+                                },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = MaterialTheme.colorScheme.primary,
                                     unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1507,9 +1488,8 @@ fun AppUpdateBottomSheet(
                             .height(48.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
+                        PackoraDotLoader(
+                            size = 20.dp,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -1726,7 +1706,7 @@ fun UpdateInstallModeBottomSheetDialog(
     onDismiss: () -> Unit,
     onConfirm: (UpdateInstallMode) -> Unit
 ) {
-    var tempSelection by remember { mutableStateOf(currentMode) }
+    var tempSelection by remember(currentMode) { mutableStateOf(currentMode) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -1801,7 +1781,10 @@ fun UpdateInstallModeBottomSheetDialog(
                                 else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                                 shape = RoundedCornerShape(16.dp)
                             )
-                            .clickable { tempSelection = mode }
+                            .clickable {
+                                tempSelection = mode
+                                onConfirm(mode)
+                            }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1809,7 +1792,10 @@ fun UpdateInstallModeBottomSheetDialog(
                         ) {
                             RadioButton(
                                 selected = isSelected,
-                                onClick = { tempSelection = mode },
+                                onClick = {
+                                    tempSelection = mode
+                                    onConfirm(mode)
+                                },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = MaterialTheme.colorScheme.primary,
                                     unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.pm.PackageInfoCompat
 import com.maheswara660.packora.manager.AppColorAccent
 import com.maheswara660.packora.manager.AppThemeMode
 import com.maheswara660.packora.manager.BuildHistoryManager
@@ -113,9 +114,13 @@ class MainActivity : ComponentActivity() {
                         val file = File(item.apkPath)
                         if (file.exists()) {
                             try {
-                                val isInstalled = packageManager.getPackageInfo(item.packageName, 0) != null
-                                if (isInstalled) {
-                                    file.delete()
+                                val pkgInfo = packageManager.getPackageInfo(item.packageName, 0)
+                                if (pkgInfo != null) {
+                                    val installedVc = PackageInfoCompat.getLongVersionCode(pkgInfo).toInt()
+                                    // Only delete if the installed app's versionCode is >= the built APK's versionCode
+                                    if (installedVc >= item.versionCode) {
+                                        file.delete()
+                                    }
                                 }
                             } catch (e: Exception) {}
                         }
@@ -354,21 +359,28 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "4.0.0"
+        pInfo.versionName ?: "4.1.0"
     } catch (e: Exception) {
-        "4.0.0"
+        "4.1.0"
     }
 }
 
 fun deleteApksForPackage(context: Context, installedPackageName: String) {
     try {
+        val pkgInfo = try {
+            context.packageManager.getPackageInfo(installedPackageName, 0)
+        } catch (e: Exception) {
+            null
+        }
+        val installedVc = pkgInfo?.let { PackageInfoCompat.getLongVersionCode(it).toInt() } ?: 0
+
         val historyManager = BuildHistoryManager(context)
         val history = historyManager.getHistoryItems()
         for (item in history) {
             if (item.packageName == installedPackageName) {
                 if (!item.apkPath.isNullOrBlank()) {
                     val file = File(item.apkPath)
-                    if (file.exists()) {
+                    if (file.exists() && installedVc >= item.versionCode) {
                         file.delete()
                     }
                 }
@@ -384,7 +396,11 @@ fun deleteApksForPackage(context: Context, installedPackageName: String) {
                     try {
                         val archiveInfo = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
                         if (archiveInfo != null && archiveInfo.packageName == installedPackageName) {
-                            file.delete()
+                            @Suppress("DEPRECATION")
+                            val apkVc = archiveInfo.versionCode
+                            if (installedVc >= apkVc) {
+                                file.delete()
+                            }
                         }
                     } catch (e: Exception) {}
                 }

@@ -2,6 +2,28 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [4.1.0] - 2026-09-26
+### Fixed & Improved
+- **Sorting Consistency across All Screens**:
+  - **My Apps Screen**: Fixed sort selection bug where the list was displaying unsorted items; apps now correctly order by Name (A-Z), Name (Z-A), Newest Installed, and Oldest Installed.
+  - **History Screen**: Added lifecycle observer to automatically refresh records on resume and corrected sorting comparator orders.
+  - **Updates Screen**: Fixed sort options and search filtering to immediately reorder eligible update cards accurately.
+  - **Instant Selection Dialogs**: Updated `SelectionBottomSheetDialog` to immediately update state on tap with 1-tap select and apply.
+  - **Isolated Card Refresh on Sort Change**: Integrated Compose item placement animations (`Modifier.animateItem()`) across My Apps, Build History, and Updates screens so changing sort options smoothly and exclusively re-orders the app info cards without refreshing, flickering, or reloading the entire screen.
+- **Updates Screen UX & Isolated Card Refresh**:
+  - **Card-Level Updates**: Updating individual apps or batch "Update All" now only updates the specific compiling card without causing full-screen reloads or flashing spinners.
+  - **Safe Batch APK Deletion**: Fixed bug where "Delete APK after install" deleted queued update APKs during "Update All" before they could be installed; APKs are now strictly preserved until the installed package version code matches or exceeds the built APK's version code.
+- **Streamlined Update Installation Modes**:
+  - **2 Simplified Options**: Reduced Update Installation Mode to two clean, focused options: **Manual** (standard package installer prompt) and **Auto-Prompt** (automatic installer prompt upon compilation completion).
+  - Removed deprecated automated/silent update code paths and streamlined preferences.
+- **UI Refresh: Authentic iOS Switch & Dot Pulse Loader**:
+  - **PackoraIosSwitch**: Ported custom iOS-style toggle switch with smooth 51x31dp track, 27dp sliding thumb, and spring animations, now used as the default switch throughout the app.
+  - **PackoraDotLoader**: Ported custom 8-dot circular pulsing loader across all loading and compiling states in the app.
+- **Template Compatibility & Web Freedom**:
+  - **Clean External Links**: Fixed `shouldOverrideUrlLoading` so non-domain-family links load freely inside the app's WebView when `openExternalLinks` is false, rather than forcibly kicking users out to an external browser.
+  - **Eliminated Destructive DOM Modifications**: Removed `injectInteractionAndScrollUnfreezer` which was aggressively resetting `body.style.position = 'static'` and removing overlay elements, restoring full functionality to SPAs, modals, menus, drawers, and video overlays.
+  - **Safe Footer Detection**: Reverted to safe v2.4.0 footer detection rules without global stylesheet overrides, preserving bottom app navigation bars and tab bars.
+
 ## [4.0.0] - 2026-09-22
 ### Added & Enhanced
 - **Automated Background Update Installation (Unattended Package Installer)**:

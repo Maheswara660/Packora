@@ -50,6 +50,7 @@ import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.manager.BuildHistoryManager
 import com.maheswara660.packora.manager.HistoryItem
 import com.maheswara660.packora.manager.PackoraPreferencesManager
+import com.maheswara660.packora.ui.components.PackoraDotLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -365,10 +366,9 @@ fun BuildScreen(
                                         .background(Color.Black.copy(alpha = 0.4f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(22.dp),
-                                        color = Color.White,
-                                        strokeWidth = 2.5.dp
+                                    PackoraDotLoader(
+                                        modifier = Modifier.size(24.dp),
+                                        color = Color.White
                                     )
                                 }
                             }
@@ -1065,10 +1065,9 @@ fun BuildScreen(
                         enabled = !isBuilding && url.isNotBlank()
                     ) {
                         if (isBuilding) {
-                            CircularProgressIndicator(
+                            PackoraDotLoader(
                                 color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp
+                                size = 22.dp
                             )
                             Spacer(modifier = Modifier.width(14.dp))
                             Text(

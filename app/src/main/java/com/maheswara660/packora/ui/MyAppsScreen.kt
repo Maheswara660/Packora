@@ -51,6 +51,7 @@ import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.manager.BuildHistoryManager
 import com.maheswara660.packora.manager.HistoryItem
 import com.maheswara660.packora.manager.PackoraPreferencesManager
+import com.maheswara660.packora.ui.components.PackoraDotLoader
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +73,8 @@ data class InstalledPackoraApp(
     val installedVersionName: String,
     val icon: Bitmap?,
     val historyItem: HistoryItem?,
-    val hasUpdate: Boolean
+    val hasUpdate: Boolean,
+    val installTime: Long = 0L
 )
 
 data class PendingInstallTask(
@@ -134,17 +136,17 @@ fun MyAppsScreen(
     }
 
     val filteredApps = remember(apps, searchQuery, sortMode) {
-        var list = apps.filter {
+        val list = if (searchQuery.isBlank()) apps
+        else apps.filter {
             it.appName.contains(searchQuery, ignoreCase = true) ||
             it.packageName.contains(searchQuery, ignoreCase = true)
         }
-        list = when (sortMode) {
-            AppSortMode.NAME_AZ -> list.sortedBy { it.appName.lowercase() }
-            AppSortMode.NAME_ZA -> list.sortedByDescending { it.appName.lowercase() }
-            AppSortMode.NEWEST -> list.sortedByDescending { it.historyItem?.timestamp ?: 0L }
-            AppSortMode.OLDEST -> list.sortedBy { it.historyItem?.timestamp ?: 0L }
+        when (sortMode) {
+            AppSortMode.NAME_AZ -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
+            AppSortMode.NAME_ZA -> list.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.appName.trim() })
+            AppSortMode.NEWEST -> list.sortedByDescending { it.installTime }
+            AppSortMode.OLDEST -> list.sortedBy { it.installTime }
         }
-        list
     }
 
     Scaffold(
@@ -241,7 +243,7 @@ fun MyAppsScreen(
             when {
                 isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(Modifier.size(48.dp))
+                        PackoraDotLoader(size = 48.dp)
                         Spacer(Modifier.height(16.dp))
                         Text("Scanning installed apps…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -295,8 +297,9 @@ fun MyAppsScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(apps, key = { it.packageName }) { app ->
+                        items(filteredApps, key = { it.packageName }) { app ->
                             AppCard(
+                                modifier = Modifier.animateItem(),
                                 app = app,
                                 onOpen = { openApp(context, app.packageName) },
                                 onUninstall = { appToUninstall = app }
@@ -612,6 +615,7 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
 
 @Composable
 private fun AppCard(
+    modifier: Modifier = Modifier,
     app: InstalledPackoraApp,
     onOpen: () -> Unit,
     onUninstall: () -> Unit
@@ -622,7 +626,7 @@ private fun AppCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .border(
                 1.dp,
@@ -746,6 +750,11 @@ fun detectInstalledPackoraApps(context: Context, historyManager: BuildHistoryMan
                 val icon: Bitmap? = try {
                     pm.getApplicationIcon(pkg.packageName).toBitmap(56, 56)
                 } catch (e: Exception) { null }
+                val firstInstallTime = try {
+                    pkg.firstInstallTime
+                } catch (e: Exception) {
+                    historyItem?.timestamp ?: 0L
+                }
                 InstalledPackoraApp(
                     packageName = pkg.packageName,
                     appName = pkg.applicationInfo?.loadLabel(pm)?.toString() ?: pkg.packageName,
@@ -753,7 +762,8 @@ fun detectInstalledPackoraApps(context: Context, historyManager: BuildHistoryMan
                     installedVersionName = pkg.versionName ?: "1.0.0",
                     icon = icon,
                     historyItem = historyItem,
-                    hasUpdate = historyVC > installedVC
+                    hasUpdate = historyVC > installedVC,
+                    installTime = firstInstallTime
                 )
             }
             .sortedWith(compareByDescending<InstalledPackoraApp> { it.hasUpdate }.thenBy { it.appName })

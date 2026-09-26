@@ -56,6 +56,10 @@ class ApkBuilder(private val context: Context) {
         organizationalUnit: String? = null,
         validityYears: Int = 25,
         keyPassword: String? = null,
+        privacyConfig: com.maheswara660.packora.model.PackoraPrivacyConfig? = null,
+        adBlockConfig: com.maheswara660.packora.model.PackoraAdBlockConfig? = null,
+        networkConfig: com.maheswara660.packora.model.PackoraNetworkConfig? = null,
+        perAppSigningEnabled: Boolean = true,
         onProgress: (Int, String) -> Unit = { _, _ -> }
     ): String? {
         cleanTempFiles()
@@ -179,41 +183,24 @@ class ApkBuilder(private val context: Context) {
                             }
 
                             entry.name == ApkTemplate.CONFIG_PATH -> {
-                                val configJson = JSONObject().apply {
-                                    put("appName", appName)
-                                    put("packageName", packageName)
-                                    put("targetUrl", targetUrl)
-                                    put("versionCode", versionCode)
-                                    put("versionName", versionName)
-                                    put("webViewConfig", JSONObject().apply {
-                                        put("openExternalLinks", true)
-                                        put("desktopMode", isDesktopMode)
-                                        put("browserEngine", browserEngine)
-                                        put("allowCopying", allowCopying)
-                                        put("forceDarkMode", isForceDarkMode)
-                                        put("enableZoom", enableZoom)
-                                        put("enableWebFooter", enableWebFooter)
-                                        put("hideWebFooter", hideWebFooter)
-                                        if (isDesktopMode) {
-                                            put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-                                        }
-                                        if (customDownloadFolder != null) {
-                                            put("downloadLocation", customDownloadFolder)
-                                            put("customDownloadFolder", customDownloadFolder)
-                                        } else {
-                                            put("downloadLocation", "Downloads/$sanitizedAppName")
-                                        }
-                                    })
-                                    if (isDesktopMode) {
-                                        put("deviceDisguiseConfig", JSONObject().apply {
-                                            put("enabled", true)
-                                            put("deviceType", "DESKTOP")
-                                            put("deviceOS", "WINDOWS")
-                                            put("deviceBrand", "GENERIC_WINDOWS")
-                                            put("isDesktopViewport", true)
-                                        })
-                                    }
-                                }
+                                val configJson = createConfigJson(
+                                    appName = appName,
+                                    packageName = packageName,
+                                    targetUrl = targetUrl,
+                                    versionCode = versionCode,
+                                    versionName = versionName,
+                                    isDesktopMode = isDesktopMode,
+                                    browserEngine = browserEngine,
+                                    allowCopying = allowCopying,
+                                    isForceDarkMode = isForceDarkMode,
+                                    enableZoom = enableZoom,
+                                    enableWebFooter = enableWebFooter,
+                                    hideWebFooter = hideWebFooter,
+                                    customDownloadFolder = customDownloadFolder,
+                                    privacyConfig = privacyConfig,
+                                    adBlockConfig = adBlockConfig,
+                                    networkConfig = networkConfig
+                                )
                                 val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                                 ZipUtils.writeEntryDeflated(zipOut, entry.name, configBytes)
                             }
@@ -272,41 +259,24 @@ class ApkBuilder(private val context: Context) {
 
                     val hasConfig = entries.any { it.name == ApkTemplate.CONFIG_PATH }
                     if (!hasConfig) {
-                        val configJson = JSONObject().apply {
-                            put("appName", appName)
-                            put("packageName", packageName)
-                            put("targetUrl", targetUrl)
-                            put("versionCode", versionCode)
-                            put("versionName", versionName)
-                            put("webViewConfig", JSONObject().apply {
-                                put("openExternalLinks", true)
-                                put("desktopMode", isDesktopMode)
-                                put("browserEngine", browserEngine)
-                                put("allowCopying", allowCopying)
-                                put("forceDarkMode", isForceDarkMode)
-                                put("enableZoom", enableZoom)
-                                put("enableWebFooter", enableWebFooter)
-                                put("hideWebFooter", hideWebFooter)
-                                if (isDesktopMode) {
-                                    put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-                                }
-                                if (customDownloadFolder != null) {
-                                    put("downloadLocation", customDownloadFolder)
-                                    put("customDownloadFolder", customDownloadFolder)
-                                } else {
-                                    put("downloadLocation", "Downloads/Packora")
-                                }
-                            })
-                            if (isDesktopMode) {
-                                put("deviceDisguiseConfig", JSONObject().apply {
-                                    put("enabled", true)
-                                    put("deviceType", "DESKTOP")
-                                    put("deviceOS", "WINDOWS")
-                                    put("deviceBrand", "GENERIC_WINDOWS")
-                                    put("isDesktopViewport", true)
-                                })
-                            }
-                        }
+                        val configJson = createConfigJson(
+                            appName = appName,
+                            packageName = packageName,
+                            targetUrl = targetUrl,
+                            versionCode = versionCode,
+                            versionName = versionName,
+                            isDesktopMode = isDesktopMode,
+                            browserEngine = browserEngine,
+                            allowCopying = allowCopying,
+                            isForceDarkMode = isForceDarkMode,
+                            enableZoom = enableZoom,
+                            enableWebFooter = enableWebFooter,
+                            hideWebFooter = hideWebFooter,
+                            customDownloadFolder = customDownloadFolder,
+                            privacyConfig = privacyConfig,
+                            adBlockConfig = adBlockConfig,
+                            networkConfig = networkConfig
+                        )
                         val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                         ZipUtils.writeEntryDeflated(zipOut, ApkTemplate.CONFIG_PATH, configBytes)
                     }
@@ -320,7 +290,16 @@ class ApkBuilder(private val context: Context) {
             }
 
             onProgress(80, "Signing APK...")
-            if (!signer.sign(alignedApk, signedApk)) {
+            val signingIdentity = if (!isCustomSigningActive && perAppSigningEnabled) {
+                try {
+                    PerAppSigningIdentity.identityFor(context, packageName).toSigningIdentity()
+                } catch (e: Exception) {
+                    AppLogger.w("ApkBuilder", "Failed to derive per-app signing identity, falling back to default", e)
+                    null
+                }
+            } else null
+
+            if (!signer.sign(alignedApk, signedApk, signingIdentity)) {
                 AppLogger.e("ApkBuilder", "APK signing failed")
                 return null
             }
@@ -463,6 +442,98 @@ class ApkBuilder(private val context: Context) {
             lower.contains("hdpi") || lower.contains("180") -> if (isAdaptive) 162 else 72
             lower.contains("mdpi") || lower.contains("120") -> if (isAdaptive) 108 else 48
             else -> if (isAdaptive) 432 else 192
+        }
+    }
+
+    private fun createConfigJson(
+        appName: String,
+        packageName: String,
+        targetUrl: String,
+        versionCode: Int,
+        versionName: String,
+        isDesktopMode: Boolean,
+        browserEngine: String,
+        allowCopying: Boolean,
+        isForceDarkMode: Boolean,
+        enableZoom: Boolean,
+        enableWebFooter: Boolean,
+        hideWebFooter: Boolean,
+        customDownloadFolder: String?,
+        privacyConfig: com.maheswara660.packora.model.PackoraPrivacyConfig?,
+        adBlockConfig: com.maheswara660.packora.model.PackoraAdBlockConfig?,
+        networkConfig: com.maheswara660.packora.model.PackoraNetworkConfig?
+    ): JSONObject {
+        val sanitizedAppName = appName.replace(Regex("[^\\w\\s\\-]"), "").replace(" ", "_")
+        return JSONObject().apply {
+            put("appName", appName)
+            put("packageName", packageName)
+            put("targetUrl", targetUrl)
+            put("versionCode", versionCode)
+            put("versionName", versionName)
+            put("webViewConfig", JSONObject().apply {
+                put("openExternalLinks", true)
+                put("desktopMode", isDesktopMode)
+                put("browserEngine", browserEngine)
+                put("allowCopying", allowCopying)
+                put("forceDarkMode", isForceDarkMode)
+                put("enableZoom", enableZoom)
+                put("enableWebFooter", enableWebFooter)
+                put("hideWebFooter", hideWebFooter)
+                if (isDesktopMode) {
+                    put("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                }
+                if (customDownloadFolder != null) {
+                    put("downloadLocation", customDownloadFolder)
+                    put("customDownloadFolder", customDownloadFolder)
+                } else {
+                    put("downloadLocation", "Downloads/$sanitizedAppName")
+                }
+            })
+            if (isDesktopMode) {
+                put("deviceDisguiseConfig", JSONObject().apply {
+                    put("enabled", true)
+                    put("deviceType", "DESKTOP")
+                    put("deviceOS", "WINDOWS")
+                    put("deviceBrand", "GENERIC_WINDOWS")
+                    put("isDesktopViewport", true)
+                })
+            }
+            if (privacyConfig != null) {
+                put("privacyConfig", JSONObject().apply {
+                    put("disguiseFingerprint", privacyConfig.disguiseFingerprint)
+                    put("maskCanvas", privacyConfig.maskCanvas)
+                    put("maskWebGL", privacyConfig.maskWebGL)
+                    put("maskAudioContext", privacyConfig.maskAudioContext)
+                    put("maskClientRects", privacyConfig.maskClientRects)
+                    put("maskWebRtcIp", privacyConfig.maskWebRtcIp)
+                    put("maskTimezone", privacyConfig.maskTimezone)
+                    put("targetTimezone", privacyConfig.targetTimezone)
+                    put("isolateCookies", privacyConfig.isolateCookies)
+                    put("clearDataOnExit", privacyConfig.clearDataOnExit)
+                })
+            }
+            if (adBlockConfig != null) {
+                put("adBlockConfig", JSONObject().apply {
+                    put("enabled", adBlockConfig.enabled)
+                    put("blockTrackers", adBlockConfig.blockTrackers)
+                    put("cosmeticFiltering", adBlockConfig.cosmeticFiltering)
+                })
+            }
+            if (networkConfig != null) {
+                put("networkConfig", JSONObject().apply {
+                    put("dohProvider", networkConfig.dohProvider.name)
+                    put("customDohUrl", networkConfig.customDohUrl)
+                    put("strictDoh", networkConfig.strictDoh)
+                    put("enableEch", networkConfig.enableEch)
+                    put("tlsFingerprintEnabled", networkConfig.tlsFingerprintEnabled)
+                    put("tlsFingerprintTemplate", networkConfig.tlsFingerprintTemplate)
+                    put("corsBypassEnabled", networkConfig.corsBypassEnabled)
+                    put("proxyEnabled", networkConfig.proxyEnabled)
+                    put("proxyType", networkConfig.proxyType)
+                    put("proxyHost", networkConfig.proxyHost)
+                    put("proxyPort", networkConfig.proxyPort)
+                })
+            }
         }
     }
 

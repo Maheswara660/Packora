@@ -592,6 +592,82 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
             )
         }
 
+        // Privacy & Fingerprint Disguise
+        if (item.disguiseFingerprint) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Stealth Privacy",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Ad-Blocker
+        if (item.adBlockEnabled) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Ad-Blocker",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Encrypted DNS / DoH
+        if (item.dohProvider.isNotBlank() && item.dohProvider != "SYSTEM") {
+            val dohName = when (item.dohProvider.uppercase()) {
+                "CLOUDFLARE" -> "Cloudflare DNS"
+                "CLOUDFLARE_SECURITY" -> "Cloudflare Sec"
+                "CLOUDFLARE_FAMILY" -> "Cloudflare Fam"
+                "GOOGLE" -> "Google DNS"
+                "ADGUARD" -> "AdGuard DNS"
+                "ADGUARD_FAMILY" -> "AdGuard Fam"
+                "QUAD9" -> "Quad9 DNS"
+                "MULLVAD" -> "Mullvad DNS"
+                "CUSTOM" -> "Custom DoH"
+                else -> item.dohProvider
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = dohName,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Per-App Signing Keystore
+        if (item.perAppSigning) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "Per-App Key",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
         // Browser Engine
         val engineLabel = when (item.browserEngine) {
             "GECKOVIEW" -> "GeckoView"
@@ -810,6 +886,23 @@ suspend fun buildAndInstall(
                 try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
             } else null
 
+            val privacyConfig = if (item.disguiseFingerprint) {
+                com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+            } else null
+
+            val adBlockConfig = if (item.adBlockEnabled) {
+                com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+            } else null
+
+            val dnsProvider = try {
+                com.maheswara660.packora.model.PackoraDnsProvider.valueOf(item.dohProvider)
+            } catch (e: Exception) {
+                com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
+            }
+            val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
+                com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+            } else null
+
             val resultPath = builder.buildApk(
                 appName = item.appName,
                 packageName = item.packageName,
@@ -833,7 +926,11 @@ suspend fun buildAndInstall(
                 organization = null,
                 organizationalUnit = null,
                 validityYears = 25,
-                keyPassword = null
+                keyPassword = null,
+                privacyConfig = privacyConfig,
+                adBlockConfig = adBlockConfig,
+                networkConfig = networkConfig,
+                perAppSigningEnabled = item.perAppSigning
             )
             isBuildFinished.set(true)
             tickerJob.join()

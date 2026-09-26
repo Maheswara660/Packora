@@ -52,7 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpdatesScreen() {
+fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val historyManager = remember { BuildHistoryManager(context) }
@@ -205,6 +205,23 @@ fun UpdatesScreen() {
                     try { BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
                 } else null
 
+                val privacyConfig = if (item.disguiseFingerprint) {
+                    com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+                } else null
+
+                val adBlockConfig = if (item.adBlockEnabled) {
+                    com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+                } else null
+
+                val dnsProvider = try {
+                    com.maheswara660.packora.model.PackoraDnsProvider.valueOf(item.dohProvider)
+                } catch (e: Exception) {
+                    com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
+                }
+                val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
+                    com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+                } else null
+
                 generatedApk = builder.buildApk(
                     appName = item.appName,
                     packageName = item.packageName,
@@ -228,7 +245,11 @@ fun UpdatesScreen() {
                     organization = null,
                     organizationalUnit = null,
                     validityYears = 25,
-                    keyPassword = null
+                    keyPassword = null,
+                    privacyConfig = privacyConfig,
+                    adBlockConfig = adBlockConfig,
+                    networkConfig = networkConfig,
+                    perAppSigningEnabled = item.perAppSigning
                 )
             }
 
@@ -288,6 +309,23 @@ fun UpdatesScreen() {
                         try { BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
                     } else null
 
+                    val privacyConfig = if (item.disguiseFingerprint) {
+                        com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+                    } else null
+
+                    val adBlockConfig = if (item.adBlockEnabled) {
+                        com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+                    } else null
+
+                    val dnsProvider = try {
+                        com.maheswara660.packora.model.PackoraDnsProvider.valueOf(item.dohProvider)
+                    } catch (e: Exception) {
+                        com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
+                    }
+                    val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
+                        com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+                    } else null
+
                     finalApk = builder.buildApk(
                         appName = item.appName,
                         packageName = item.packageName,
@@ -311,7 +349,11 @@ fun UpdatesScreen() {
                         organization = null,
                         organizationalUnit = null,
                         validityYears = 25,
-                        keyPassword = null
+                        keyPassword = null,
+                        privacyConfig = privacyConfig,
+                        adBlockConfig = adBlockConfig,
+                        networkConfig = networkConfig,
+                        perAppSigningEnabled = item.perAppSigning
                     )
                 }
 
@@ -788,7 +830,7 @@ private fun UpdateAppCard(
                     } else {
                         Icon(Icons.Rounded.Update, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("UPDATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

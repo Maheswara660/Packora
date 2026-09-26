@@ -15,6 +15,18 @@
 -keep class com.maheswara660.packora.receiver.** { *; }
 -keep class com.maheswara660.packora.installer.** { *; }
 
+# Packora Subpackages & Engine Modules
+-keep class com.maheswara660.packora.model.** { *; }
+-keep class com.maheswara660.packora.adblock.** { *; }
+-keep class com.maheswara660.packora.crypto.** { *; }
+-keep class com.maheswara660.packora.dns.** { *; }
+-keep class com.maheswara660.packora.privacy.** { *; }
+-keep class com.maheswara660.packora.scraper.** { *; }
+-keep class com.maheswara660.packora.analyzer.** { *; }
+-keep class com.maheswara660.packora.extension.** { *; }
+-keep class com.maheswara660.packora.builder.PerAppSigningIdentity { *; }
+-keep class com.maheswara660.packora.builder.PerAppSigningIdentity$* { *; }
+
 # Standard Gson rules
 -keep class sun.misc.Unsafe { *; }
 -keep class com.google.gson.** { *; }
@@ -23,6 +35,17 @@
 # 2. APK Signature Scheme (apksig) Rules
 -keep class com.android.apksig.** { *; }
 -dontwarn com.android.apksig.**
+
+# 3. Cryptography & Compression Libraries
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+-dontwarn org.apache.commons.compress.**
+
+# 4. Networking & DNS-over-HTTPS (OkHttp) Rules
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
 
 # 3. Binary Rebuilders & WebAPK Generator Engine
 -keep class com.maheswara660.packora.builder.ApkBuilder { *; }

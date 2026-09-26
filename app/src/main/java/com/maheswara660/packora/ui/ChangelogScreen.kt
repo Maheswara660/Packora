@@ -34,9 +34,25 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "4.1.0",
+        version = "5.0.0",
         date = "September 26, 2026",
         isLatest = true,
+        summary = "Stealth Privacy Shield (50+ Vectors), Ad & Tracker Blocker, Encrypted DoH Engine (9 Resolvers), Per-App Signing Keys, 150+ Language Smart Footer Hider, Universal Reset",
+        changes = listOf(
+            "Stealth Privacy Shield: Client-side anti-fingerprinting shielding Canvas 2D hashes, WebGL GPU renderer strings, AudioContext oscillators, DOM ClientRects subpixel jittering, and WebRTC IP leak blocking with live badge indicators.",
+            "Built-in Ad & Tracker Blocker: High-efficiency pre-bundled filter lists blocking ad networks, tracking telemetry, and analytics domains via shouldInterceptRequest without network dependencies.",
+            "Encrypted DNS-over-HTTPS (DoH) Engine: Standalone DoH resolution in WebAPKs with 9 DNS resolvers (Cloudflare, Google, AdGuard, NextDNS, CleanBrowsing, Quad9, Mullvad, System, Custom) and a scrollable M3 bottom sheet menu.",
+            "Deterministic Per-App Dedicated Keystore: Isolated RSA-3072 signing keys generated per package name, eliminating signing conflicts and ensuring seamless lifetime updates.",
+            "150+ Language Smart Footer Hiding Engine: Comprehensive multilingual keyword coverage across 16 languages with dual-stage early CSS and DOM observer injection.",
+            "Universal Form Reset: Consolidated single top-right reset button with M3 confirmation bottom sheet to reset all fields, toggles, keys, and custom DNS settings in 1 tap.",
+            "Streamlined App Card Actions: Ergonomic two-button sets tailored per screen (Open/Uninstall on My Apps, Update/Install on Updates, Reuse/Remove on History).",
+            "Refined Settings & Updates UX: Auto-Prompt set as default update installation mode; check for updates release notes bottom sheet made cleanly scrollable."
+        )
+    ),
+    ReleaseItem(
+        version = "4.1.0",
+        date = "September 26, 2026",
+        isLatest = false,
         summary = "Sorting Fixes across My Apps/History/Updates, Isolated Card Refresh, Safe Batch APK Deletion, 2 Simplified Install Modes, iOS Switch & Dot Pulse Loader, Clean Website Execution in Template",
         changes = listOf(
             "My Apps & History Sorting Fixes: Resolved list sorting inconsistencies; apps and history records now strictly order according to selected options (Name A-Z, Name Z-A, Newest, Oldest) with instant 1-tap selection bottom sheets.",

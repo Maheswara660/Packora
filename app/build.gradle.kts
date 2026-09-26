@@ -11,8 +11,8 @@ android {
         applicationId = "com.maheswara660.packora"
         minSdk = 24
         targetSdk = 35
-        versionCode = 41
-        versionName = "4.1.0"
+        versionCode = 50
+        versionName = "5.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -84,6 +84,11 @@ dependencies {
     implementation("com.android.tools.build:apksig:8.3.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.78.1")
+    implementation("org.bouncycastle:bcpkix-jdk15to18:1.78.1")
+    implementation("org.apache.commons:commons-compress:1.26.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

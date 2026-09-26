@@ -23,6 +23,10 @@ data class HistoryItem(
     val enableWebFooter: Boolean = false,
     val hideWebFooter: Boolean = !enableWebFooter,
     val disableHeader: Boolean = true,
+    val disguiseFingerprint: Boolean = false,
+    val adBlockEnabled: Boolean = false,
+    val dohProvider: String = "SYSTEM",
+    val perAppSigning: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null,
     val iconPath: String? = null
@@ -74,6 +78,10 @@ class BuildHistoryManager(context: Context) {
                         enableWebFooter = enableFooter,
                         hideWebFooter = hideFooter,
                         disableHeader = obj.optBoolean("disableHeader", true),
+                        disguiseFingerprint = obj.optBoolean("disguiseFingerprint", false),
+                        adBlockEnabled = obj.optBoolean("adBlockEnabled", false),
+                        dohProvider = obj.optString("dohProvider", "SYSTEM"),
+                        perAppSigning = obj.optBoolean("perAppSigning", true),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
                         iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null
@@ -122,6 +130,10 @@ class BuildHistoryManager(context: Context) {
                 put("enableWebFooter", item.enableWebFooter)
                 put("hideWebFooter", item.hideWebFooter)
                 put("disableHeader", item.disableHeader)
+                put("disguiseFingerprint", item.disguiseFingerprint)
+                put("adBlockEnabled", item.adBlockEnabled)
+                put("dohProvider", item.dohProvider)
+                put("perAppSigning", item.perAppSigning)
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)
                 if (item.iconPath != null) put("iconPath", item.iconPath)

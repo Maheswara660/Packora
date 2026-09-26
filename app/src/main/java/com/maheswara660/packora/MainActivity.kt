@@ -163,6 +163,11 @@ fun MainAppNavigation(
     var selectedBrowserEngine by remember { mutableStateOf("INDIVIDUAL") }
     var allowCopying by remember { mutableStateOf(false) }
     var autoFetchedIconBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var isEnableWebFooter by remember { mutableStateOf(false) }
+    var disguiseFingerprint by remember { mutableStateOf(false) }
+    var adBlockEnabled by remember { mutableStateOf(false) }
+    var selectedDnsProvider by remember { mutableStateOf(com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) }
+    var perAppSigningEnabled by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
 
@@ -293,6 +298,15 @@ fun MainAppNavigation(
         enableZoom = item.enableZoom
         selectedBrowserEngine = item.browserEngine
         allowCopying = item.allowCopying
+        isEnableWebFooter = item.enableWebFooter
+        disguiseFingerprint = item.disguiseFingerprint
+        adBlockEnabled = item.adBlockEnabled
+        selectedDnsProvider = try {
+            com.maheswara660.packora.model.PackoraDnsProvider.valueOf(item.dohProvider)
+        } catch (e: Exception) {
+            com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
+        }
+        perAppSigningEnabled = item.perAppSigning
         if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
             try {
                 autoFetchedIconBitmap = android.graphics.BitmapFactory.decodeFile(item.iconPath)
@@ -323,11 +337,16 @@ fun MainAppNavigation(
                         selectedBrowserEngine = selectedBrowserEngine, onBrowserEngineChange = { selectedBrowserEngine = it },
                         allowCopying = allowCopying, onAllowCopyingChange = { allowCopying = it },
                         autoFetchedIconBitmap = autoFetchedIconBitmap, onAutoFetchedIconBitmapChange = { autoFetchedIconBitmap = it },
+                        isEnableWebFooter = isEnableWebFooter, onEnableWebFooterChange = { isEnableWebFooter = it },
+                        disguiseFingerprint = disguiseFingerprint, onDisguiseFingerprintChange = { disguiseFingerprint = it },
+                        adBlockEnabled = adBlockEnabled, onAdBlockEnabledChange = { adBlockEnabled = it },
+                        selectedDnsProvider = selectedDnsProvider, onDnsProviderChange = { selectedDnsProvider = it },
+                        perAppSigningEnabled = perAppSigningEnabled, onPerAppSigningEnabledChange = { perAppSigningEnabled = it },
                         onNavigateHistory = { selectedTab = Screen.HISTORY },
                         onNavigateSettings = { selectedTab = Screen.SETTINGS }
                     )
                     Screen.MY_APPS -> MyAppsScreen(onReuseConfig = handleReuseConfig)
-                    Screen.UPDATES -> UpdatesScreen()
+                    Screen.UPDATES -> UpdatesScreen(onReuseConfig = handleReuseConfig)
                     Screen.HISTORY -> HistoryScreen(
                         onBack = { selectedTab = Screen.BUILD },
                         onReuseConfig = handleReuseConfig
@@ -359,9 +378,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "4.1.0"
+        pInfo.versionName ?: "5.0.0"
     } catch (e: Exception) {
-        "4.1.0"
+        "5.0.0"
     }
 }
 

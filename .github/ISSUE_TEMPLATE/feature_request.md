@@ -14,7 +14,7 @@ Is your feature request related to a specific problem or just a general improvem
 A clear and concise description of the feature or functionality you would like to see implemented in Packora.
 
 ## 📐 Design & UI
-If this is a UI enhancement, how does it fit into the modern Jetpack Compose Glassmorphic style? Describe any visual changes or additions (e.g., custom icon generators or settings cards).
+If this is a UI enhancement, how does it fit into the modern Jetpack Compose Material 3 style? Describe any visual changes or additions (e.g., custom icon generators or settings cards).
 
 ## ⚙️ APK Builder Engine & Pipeline
 If this requires changes to the build pipeline or AXML formulas:

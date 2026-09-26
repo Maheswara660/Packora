@@ -73,6 +73,15 @@ class JarSigner(private val context: Context) {
         fun hasAnyScheme(): Boolean = v1Enabled || v2Enabled || v3Enabled
     }
 
+    /**
+     * An externally supplied key/certificate pair (e.g. from [PerAppSigningIdentity]).
+     * When passed to [sign], it replaces the host's global keystore identity for that build.
+     */
+    data class SigningIdentity(
+        val privateKey: PrivateKey,
+        val certificate: X509Certificate
+    )
+
     data class CertificateSpec(
         val alias: String = "key0",
         val password: String = "",
@@ -1019,30 +1028,32 @@ class JarSigner(private val context: Context) {
         return wrapWithTag(0x30, out.toByteArray())
     }
 
-    fun sign(inputApk: File, outputApk: File): Boolean {
+    fun sign(inputApk: File, outputApk: File, identity: SigningIdentity? = null): Boolean {
 
         if (!validateInputs(inputApk, outputApk)) {
             throw IllegalStateException("Signing input validation failed for: %s".format(inputApk.absolutePath))
         }
 
-        val key = privateKey
-        val cert = certificate
-        if (key == null || cert == null) {
-            AppLogger.e(TAG, "Key or certificate is empty, retrying initialisation...")
+        if (identity == null) {
+            val key = privateKey
+            val cert = certificate
+            if (key == null || cert == null) {
+                AppLogger.e(TAG, "Key or certificate is empty, retrying initialisation...")
 
-            File(context.filesDir, DEFAULT_PKCS12_FILE).delete()
-            File(context.filesDir, ".ks_credential").delete()
-            initializeKey()
-            if (privateKey == null || certificate == null) {
-                val errorDetail = initError ?: "key=${privateKey != null}, cert=${certificate != null}"
-                throw IllegalStateException("Signing key initialization failed: %s".format(errorDetail))
+                File(context.filesDir, DEFAULT_PKCS12_FILE).delete()
+                File(context.filesDir, ".ks_credential").delete()
+                initializeKey()
+                if (privateKey == null || certificate == null) {
+                    val errorDetail = initError ?: "key=${privateKey != null}, cert=${certificate != null}"
+                    throw IllegalStateException("Signing key initialization failed: %s".format(errorDetail))
+                }
             }
         }
 
         AppLogger.d(TAG, "Signing APK: input=${inputApk.absolutePath} (size=${inputApk.length()})")
-        AppLogger.d(TAG, "Signer type: $currentSignerType")
+        AppLogger.d(TAG, "Signer type: ${if (identity != null) "PER_APP_IDENTITY" else currentSignerType}")
 
-        return trySignWithRetry(inputApk, outputApk, maxRetries = 2)
+        return trySignWithRetry(inputApk, outputApk, identity = identity, maxRetries = 2)
     }
 
     private fun validateInputs(inputApk: File, outputApk: File): Boolean {
@@ -1076,7 +1087,7 @@ class JarSigner(private val context: Context) {
         return true
     }
 
-    private fun trySignWithRetry(inputApk: File, outputApk: File, maxRetries: Int): Boolean {
+    private fun trySignWithRetry(inputApk: File, outputApk: File, identity: SigningIdentity? = null, maxRetries: Int): Boolean {
         val errorMessages = mutableListOf<String>()
         var lastException: Throwable? = null
 
@@ -1100,7 +1111,6 @@ class JarSigner(private val context: Context) {
         )
 
         val configs = if (options.autoFallback) {
-
             buildList {
                 var current = selected
                 while (current.isNotEmpty()) {
@@ -1109,7 +1119,6 @@ class JarSigner(private val context: Context) {
                 }
             }
         } else {
-
             listOf(configOf(selected))
         }
 
@@ -1119,7 +1128,7 @@ class JarSigner(private val context: Context) {
 
                 if (outputApk.exists()) outputApk.delete()
 
-                val success = attemptSign(inputApk, outputApk, config.v1, config.v2, config.v3, v1Name)
+                val success = attemptSign(inputApk, outputApk, config.v1, config.v2, config.v3, v1Name, identity = identity)
                 if (success) {
                     AppLogger.d(TAG, "Signed successfully: ${config.name}")
                     return true
@@ -1138,9 +1147,9 @@ class JarSigner(private val context: Context) {
 
                 if (outputApk.exists()) outputApk.delete()
 
-                if (causeChain.contains("key", ignoreCase = true) ||
+                if (identity == null && (causeChain.contains("key", ignoreCase = true) ||
                     causeChain.contains("sign", ignoreCase = true) ||
-                    causeChain.contains("certificate", ignoreCase = true)) {
+                    causeChain.contains("certificate", ignoreCase = true))) {
                     AppLogger.d(TAG, "Possible key issue detected, regenerating...")
                     File(context.filesDir, DEFAULT_PKCS12_FILE).delete()
                     File(context.filesDir, ".ks_credential").delete()
@@ -1169,10 +1178,11 @@ class JarSigner(private val context: Context) {
     private fun attemptSign(
         inputApk: File, outputApk: File,
         v1: Boolean, v2: Boolean, v3: Boolean,
-        v1SignerName: String
+        v1SignerName: String,
+        identity: SigningIdentity? = null
     ): Boolean {
-        val key = privateKey ?: throw IllegalStateException("私钥为空")
-        val cert = certificate ?: throw IllegalStateException("证书为空")
+        val key = identity?.privateKey ?: privateKey ?: throw IllegalStateException("私钥为空")
+        val cert = identity?.certificate ?: certificate ?: throw IllegalStateException("证书为空")
 
         val effectiveMinSdk = when {
             v1 -> 23

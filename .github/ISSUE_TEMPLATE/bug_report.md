@@ -24,7 +24,7 @@ Steps to reproduce the behavior:
 ## 📱 Device Information
 - **Device**: [e.g. Pixel 8 Pro]
 - **OS Version**: [e.g. Android 15]
-- **Packora Version**: [e.g. v4.0.0]
+- **Packora Version**: [e.g. v5.0.0]
 
 ## 🛠️ Technical Context
 If possible, describe the APK configuration active when this bug occurred:
@@ -32,8 +32,8 @@ If possible, describe the APK configuration active when this bug occurred:
 Target URL: [e.g. https://example.com]
 Package Name: [e.g. com.example.app]
 Version: [e.g. 1 / 1.0.0]
-Signing: Default / Custom Keystore
-Toggles Active: [Desktop Mode / Force Dark / Zoom / Text Copy / Enable Footer]
+Signing: Default / Per-App / Custom Keystore
+Toggles Active: [Stealth Privacy / AdBlock / Encrypted DoH / Hide Web Footer / Desktop / Dark / Zoom / Text Copy]
 Output Error Log: [paste snippet if any]
 ```
 

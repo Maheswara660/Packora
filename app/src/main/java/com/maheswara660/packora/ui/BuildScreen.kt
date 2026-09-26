@@ -50,7 +50,14 @@ import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.manager.BuildHistoryManager
 import com.maheswara660.packora.manager.HistoryItem
 import com.maheswara660.packora.manager.PackoraPreferencesManager
+import com.maheswara660.packora.model.PackoraAppType
+import com.maheswara660.packora.model.PackoraPrivacyConfig
+import com.maheswara660.packora.model.PackoraAdBlockConfig
+import com.maheswara660.packora.model.PackoraNetworkConfig
+import com.maheswara660.packora.model.PackoraDnsProvider
+import com.maheswara660.packora.scraper.PackoraWebScraper
 import com.maheswara660.packora.ui.components.PackoraDotLoader
+import com.maheswara660.packora.ui.components.PackoraIosSwitch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -86,7 +93,17 @@ fun BuildScreen(
     autoFetchedIconBitmap: Bitmap?,
     onAutoFetchedIconBitmapChange: (Bitmap?) -> Unit,
     onNavigateHistory: () -> Unit,
-    onNavigateSettings: () -> Unit
+    onNavigateSettings: () -> Unit,
+    isEnableWebFooter: Boolean = false,
+    onEnableWebFooterChange: (Boolean) -> Unit = {},
+    disguiseFingerprint: Boolean = false,
+    onDisguiseFingerprintChange: (Boolean) -> Unit = {},
+    adBlockEnabled: Boolean = false,
+    onAdBlockEnabledChange: (Boolean) -> Unit = {},
+    selectedDnsProvider: PackoraDnsProvider = PackoraDnsProvider.SYSTEM,
+    onDnsProviderChange: (PackoraDnsProvider) -> Unit = {},
+    perAppSigningEnabled: Boolean = true,
+    onPerAppSigningEnabledChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -95,9 +112,6 @@ fun BuildScreen(
 
     var useCustomDownloadFolder by remember { mutableStateOf(sharedPrefs.getBoolean("use_custom_download", false)) }
     var customDownloadFolder by remember { mutableStateOf(sharedPrefs.getString("custom_download_folder", "") ?: "") }
-    var isEnableWebFooter by remember {
-        mutableStateOf(sharedPrefs.getBoolean("enable_web_footer", false))
-    }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
     var isFetchingIcon by remember { mutableStateOf(false) }
@@ -115,6 +129,36 @@ fun BuildScreen(
     var isPackageIdentityExpanded by remember { mutableStateOf(false) }
     var isStorageFolderExpanded by remember { mutableStateOf(false) }
     var isKeystoreExpanded by remember { mutableStateOf(false) }
+
+    var selectedAppType by remember { mutableStateOf(PackoraAppType.WEB) }
+
+    // Privacy & Fingerprint Disguise State
+    var isPrivacyExpanded by remember { mutableStateOf(false) }
+    var maskCanvas by remember { mutableStateOf(true) }
+    var maskWebGL by remember { mutableStateOf(true) }
+    var maskAudioContext by remember { mutableStateOf(true) }
+    var maskClientRects by remember { mutableStateOf(true) }
+    var maskWebRtcIp by remember { mutableStateOf(true) }
+    var clearDataOnExit by remember { mutableStateOf(false) }
+
+    // Ad-Block & Tracker Defense State
+    var isAdBlockExpanded by remember { mutableStateOf(false) }
+    var blockTrackers by remember { mutableStateOf(true) }
+    var cosmeticFiltering by remember { mutableStateOf(true) }
+
+    // Network & DNS-over-HTTPS (DoH) State
+    var isNetworkExpanded by remember { mutableStateOf(false) }
+    var showDnsProviderSheet by remember { mutableStateOf(false) }
+    var customDohUrl by remember { mutableStateOf("") }
+    var strictDoh by remember { mutableStateOf(false) }
+    var enableEch by remember { mutableStateOf(false) }
+
+    // Per-App Signing Keystore
+
+    // Offline HTML Scraper State
+    var isScrapingOffline by remember { mutableStateOf(false) }
+    var scrapeProgressStatus by remember { mutableStateOf("") }
+    var scrapedOfflineFilesCount by remember { mutableIntStateOf(0) }
 
     var isBuilding by remember { mutableStateOf(false) }
     var targetProgressPercent by remember { mutableIntStateOf(0) }
@@ -149,26 +193,49 @@ fun BuildScreen(
     var showMultiIconSheet by remember { mutableStateOf(false) }
     var fetchedIconsList by remember { mutableStateOf<List<FetchedIconItem>>(emptyList()) }
 
-    // Auto fetch icon and app title on URL change
+    // Auto fetch icon and app title on URL change using PackoraWebAnalyzer
     LaunchedEffect(url) {
         onAutoFetchedIconBitmapChange(null)
         iconUri = null
         iconSourceIndex = 0
         if (url.isNotBlank()) {
             val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
-            delay(500)
-            if (!isUserEditedAppName) {
-                val inferred = getAppNameFromUrl(fetchUrl)
-                if (inferred.isNotBlank()) {
-                    onAppNameChange(inferred)
-                }
-            }
+            delay(400)
             isFetchingIcon = true
             try {
-                val (fetched, _) = fetchPremiumIconWithSource(fetchUrl, 0)
-                onAutoFetchedIconBitmapChange(fetched)
+                val analysis = com.maheswara660.packora.analyzer.PackoraWebAnalyzer.analyze(fetchUrl)
+                if (!isUserEditedAppName) {
+                    val candidate = analysis.title ?: analysis.shortName ?: getAppNameFromUrl(fetchUrl)
+                    if (candidate.isNotBlank()) {
+                        onAppNameChange(candidate)
+                    }
+                }
+                var foundBmp: Bitmap? = null
+                for (icon in analysis.icons) {
+                    val bmp = downloadAndValidate1To1Bitmap(icon.url)
+                    if (bmp != null) {
+                        foundBmp = bmp
+                        break
+                    }
+                }
+                if (foundBmp == null) {
+                    val (fallbackBmp, _) = fetchPremiumIconWithSource(fetchUrl, 0)
+                    foundBmp = fallbackBmp
+                }
+                onAutoFetchedIconBitmapChange(foundBmp)
             } catch (e: Exception) {
-                onAutoFetchedIconBitmapChange(null)
+                if (!isUserEditedAppName) {
+                    val inferred = getAppNameFromUrl(fetchUrl)
+                    if (inferred.isNotBlank()) {
+                        onAppNameChange(inferred)
+                    }
+                }
+                try {
+                    val (fetched, _) = fetchPremiumIconWithSource(fetchUrl, 0)
+                    onAutoFetchedIconBitmapChange(fetched)
+                } catch (ex: Exception) {
+                    onAutoFetchedIconBitmapChange(null)
+                }
             } finally {
                 isFetchingIcon = false
             }
@@ -255,6 +322,140 @@ fun BuildScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 86.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // App Target Type Selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        PackoraAppType.WEB to Icons.Outlined.Language,
+                        PackoraAppType.HTML to Icons.Outlined.FolderZip,
+                        PackoraAppType.FRONTEND to Icons.Outlined.Code,
+                        PackoraAppType.MULTI_WEB to Icons.Outlined.Tab,
+                        PackoraAppType.MEDIA to Icons.Outlined.PlayCircle
+                    ).forEach { (type, icon) ->
+                        val isSelected = selectedAppType == type
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedAppType = type },
+                            label = { Text(type.displayName) },
+                            leadingIcon = {
+                                Icon(
+                                    if (isSelected) Icons.Filled.Check else icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                    }
+                }
+
+                // Dedicated Scraper & Pack Generator Card for Offline HTML
+                if (selectedAppType == PackoraAppType.HTML) {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Offline Website Bundler", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Text(
+                                "Crawls and compiles HTML, CSS, JavaScript, and assets into an offline standalone package with no network needed at runtime.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (isScrapingOffline) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    PackoraDotLoader(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = scrapeProgressStatus.ifBlank { "Scraping and bundling assets..." },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        if (url.isBlank()) {
+                                            Toast.makeText(context, "Enter a valid URL to crawl and bundle offline", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        isScrapingOffline = true
+                                        scrapeProgressStatus = "Starting scraper..."
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            try {
+                                                val scraper = PackoraWebScraper(context)
+                                                val outDir = File(context.cacheDir, "offline_pack_${System.currentTimeMillis()}").apply { mkdirs() }
+                                                val fetchUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                                                val res = scraper.scrape(
+                                                    PackoraWebScraper.ScrapeOptions(
+                                                        targetUrl = fetchUrl,
+                                                        maxDepth = 2,
+                                                        maxFiles = 150,
+                                                        outputDirectory = outDir
+                                                    )
+                                                ) { prog ->
+                                                    Handler(Looper.getMainLooper()).post {
+                                                        scrapedOfflineFilesCount = prog.downloadedCount
+                                                        scrapeProgressStatus = "Downloaded ${prog.downloadedCount} assets (${prog.bytesDownloaded / 1024} KB)"
+                                                    }
+                                                }
+                                                withContext(Dispatchers.Main) {
+                                                    isScrapingOffline = false
+                                                    if (res.isSuccess) {
+                                                        Toast.makeText(context, "Offline pack ready! ${scrapedOfflineFilesCount} assets bundled.", Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Scrape completed with warnings: ${res.exceptionOrNull()?.message ?: "Check URL"}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                withContext(Dispatchers.Main) {
+                                                    isScrapingOffline = false
+                                                    Toast.makeText(context, "Scraper error: ${e.message}", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Outlined.DownloadForOffline, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("SCRAPE & BUNDLE OFFLINE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 1. Website Target URL Card
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -569,10 +770,11 @@ fun BuildScreen(
                 FilterChip(
                     selected = isEnableWebFooter,
                     onClick = {
-                        isEnableWebFooter = !isEnableWebFooter
+                        val newFooter = !isEnableWebFooter
+                        onEnableWebFooterChange(newFooter)
                         sharedPrefs.edit()
-                            .putBoolean("enable_web_footer", isEnableWebFooter)
-                            .putBoolean("hide_web_footer", !isEnableWebFooter)
+                            .putBoolean("enable_web_footer", newFooter)
+                            .putBoolean("hide_web_footer", !newFooter)
                             .apply()
                     },
                     label = { Text("Enable Footers") },
@@ -682,15 +884,6 @@ fun BuildScreen(
                                     shape = RoundedCornerShape(14.dp)
                                 )
                             }
-                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                                TextButton(onClick = {
-                                    onPackageNameChange("")
-                                    onVersionCodeChange("")
-                                    onVersionNameChange("")
-                                }) {
-                                    Text("RESET TO AUTO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                                }
-                            }
                         }
                     }
                 }
@@ -749,30 +942,308 @@ fun BuildScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                Button(
-                                    onClick = { folderPickerLauncher.launch(null) },
-                                    modifier = Modifier.weight(1f).height(42.dp),
-                                    shape = RoundedCornerShape(12.dp)
+                            Button(
+                                onClick = { folderPickerLauncher.launch(null) },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("SELECT FOLDER", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Accordion: Privacy & Fingerprint Disguise
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isPrivacyExpanded = !isPrivacyExpanded }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Privacy & Fingerprint Disguise", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                if (disguiseFingerprint) "Active • 50+ Spoofed Hardware Vectors" else "Standard Privacy Mode",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (disguiseFingerprint) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            if (isPrivacyExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isPrivacyExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(bottom = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            ConfigToggleRow(
+                                title = "Disguise Device & Browser Fingerprint",
+                                subtitle = "Injects stealth JS anti-fingerprinting spoofers into all WebViews",
+                                checked = disguiseFingerprint,
+                                onCheckedChange = { onDisguiseFingerprintChange(it) }
+                            )
+
+                            AnimatedVisibility(visible = disguiseFingerprint) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("SELECT FOLDER", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                }
-                                if (useCustomDownloadFolder) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            useCustomDownloadFolder = false
-                                            customDownloadFolder = ""
-                                            sharedPrefs.edit().putBoolean("use_custom_download", false).remove("custom_download_folder").apply()
-                                        },
-                                        modifier = Modifier.height(42.dp),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text("RESET DEFAULT", style = MaterialTheme.typography.labelSmall)
-                                    }
+                                    ConfigToggleRow(
+                                        title = "Mask Canvas 2D Hash",
+                                        subtitle = "Adds micro-jitter to prevent canvas image profiling",
+                                        checked = maskCanvas,
+                                        onCheckedChange = { maskCanvas = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Mask WebGL GPU Vendor & Renderer",
+                                        subtitle = "Emulates Qualcomm Adreno 750 / ANGLE GPU strings",
+                                        checked = maskWebGL,
+                                        onCheckedChange = { maskWebGL = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Mask AudioContext Signatures",
+                                        subtitle = "Perturbs oscillator frequency response against audio fingerprinting",
+                                        checked = maskAudioContext,
+                                        onCheckedChange = { maskAudioContext = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Mask DOM ClientRects & Subpixel",
+                                        subtitle = "Adds micro-jitter to font metrics and element bounding boxes",
+                                        checked = maskClientRects,
+                                        onCheckedChange = { maskClientRects = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Block WebRTC Local IP Leaks",
+                                        subtitle = "Stops STUN/TURN queries from exposing private IP addresses",
+                                        checked = maskWebRtcIp,
+                                        onCheckedChange = { maskWebRtcIp = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Clear Cookies & Cache on Exit",
+                                        subtitle = "Wipes all session storage and browsing history when closed",
+                                        checked = clearDataOnExit,
+                                        onCheckedChange = { clearDataOnExit = it }
+                                    )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Accordion: Ad-Block & Tracker Defense
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isAdBlockExpanded = !isAdBlockExpanded }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Block, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ad-Block & Tracker Defense", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                if (adBlockEnabled) "Ad-Blocker Active • Cosmetic Hiding On" else "Ad-Blocker Disabled",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (adBlockEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            if (isAdBlockExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isAdBlockExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(bottom = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            ConfigToggleRow(
+                                title = "High-Speed Ad-Blocker",
+                                subtitle = "Intercepts network requests against known ad and banner domains",
+                                checked = adBlockEnabled,
+                                onCheckedChange = { onAdBlockEnabledChange(it) }
+                            )
+
+                            AnimatedVisibility(visible = adBlockEnabled) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    ConfigToggleRow(
+                                        title = "Block Telemetry & Trackers",
+                                        subtitle = "Filters analytics, telemetry beacons, and cross-site profilers",
+                                        checked = blockTrackers,
+                                        onCheckedChange = { blockTrackers = it }
+                                    )
+                                    ConfigToggleRow(
+                                        title = "Cosmetic Element Suppression",
+                                        subtitle = "Hides empty ad frames and banner placeholders via CSS styling",
+                                        checked = cosmeticFiltering,
+                                        onCheckedChange = { cosmeticFiltering = it }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Accordion: Network & DNS-over-HTTPS
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isNetworkExpanded = !isNetworkExpanded }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Network & DNS-over-HTTPS", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                selectedDnsProvider.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            if (isNetworkExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isNetworkExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(bottom = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDnsProviderSheet = true }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Encrypted DNS Provider", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(selectedDnsProvider.displayName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+
+                            if (selectedDnsProvider == PackoraDnsProvider.CUSTOM) {
+                                OutlinedTextField(
+                                    value = customDohUrl,
+                                    onValueChange = { customDohUrl = it },
+                                    label = { Text("Custom DoH Query URL") },
+                                    placeholder = { Text("https://example.com/dns-query") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
+                            ConfigToggleRow(
+                                title = "Strict DNS-over-HTTPS",
+                                subtitle = "Forces all hostname lookups through encrypted resolver, preventing plaintext DNS leaks",
+                                checked = strictDoh,
+                                onCheckedChange = { strictDoh = it }
+                            )
+
+                            ConfigToggleRow(
+                                title = "Encrypted Client Hello (ECH)",
+                                subtitle = "Encrypts TLS Server Name Indication (SNI) against network eavesdroppers",
+                                checked = enableEch,
+                                onCheckedChange = { enableEch = it }
+                            )
                         }
                     }
                 }
@@ -831,6 +1302,15 @@ fun BuildScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            ConfigToggleRow(
+                                title = "Per-App Isolated Keystore",
+                                subtitle = "Derives an isolated, permanent 3072-bit RSA keystore unique to this package name",
+                                checked = perAppSigningEnabled,
+                                onCheckedChange = { onPerAppSigningEnabledChange(it) },
+                                enabled = !useCustomKeystore
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 OutlinedTextField(
                                     value = keystorePassword,
@@ -900,20 +1380,6 @@ fun BuildScreen(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp)
                                 )
-                            }
-                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                                TextButton(onClick = {
-                                    useCustomKeystore = false
-                                    keystorePassword = ""
-                                    keyAlias = ""
-                                    keyPassword = ""
-                                    commonName = ""
-                                    organization = ""
-                                    organizationalUnit = ""
-                                    validityYears = "25"
-                                }) {
-                                    Text("RESET TO DEFAULT KEY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                                }
                             }
                         }
                     }
@@ -996,6 +1462,27 @@ fun BuildScreen(
                                         organizationalUnit = if (useCustomKeystore && organizationalUnit.isNotBlank()) organizationalUnit else null,
                                         validityYears = validityYears.toIntOrNull() ?: 25,
                                         keyPassword = if (useCustomKeystore && keyPassword.isNotBlank()) keyPassword else null,
+                                        privacyConfig = PackoraPrivacyConfig(
+                                            disguiseFingerprint = disguiseFingerprint,
+                                            maskCanvas = maskCanvas,
+                                            maskWebGL = maskWebGL,
+                                            maskAudioContext = maskAudioContext,
+                                            maskClientRects = maskClientRects,
+                                            maskWebRtcIp = maskWebRtcIp,
+                                            clearDataOnExit = clearDataOnExit
+                                        ),
+                                        adBlockConfig = PackoraAdBlockConfig(
+                                            enabled = adBlockEnabled,
+                                            blockTrackers = blockTrackers,
+                                            cosmeticFiltering = cosmeticFiltering
+                                        ),
+                                        networkConfig = PackoraNetworkConfig(
+                                            dohProvider = selectedDnsProvider,
+                                            customDohUrl = customDohUrl,
+                                            strictDoh = strictDoh,
+                                            enableEch = enableEch
+                                        ),
+                                        perAppSigningEnabled = perAppSigningEnabled,
                                         onProgress = { p, _ ->
                                             Handler(Looper.getMainLooper()).post {
                                                 targetProgressPercent = maxOf(targetProgressPercent, p)
@@ -1047,7 +1534,11 @@ fun BuildScreen(
                                                         enableWebFooter = isEnableWebFooter,
                                                         hideWebFooter = !isEnableWebFooter,
                                                         apkPath = resultPath,
-                                                        iconPath = savedIconPath
+                                                        iconPath = savedIconPath,
+                                                        disguiseFingerprint = disguiseFingerprint,
+                                                        adBlockEnabled = adBlockEnabled,
+                                                        dohProvider = selectedDnsProvider.name,
+                                                        perAppSigning = perAppSigningEnabled
                                                     )
                                                 )
                                             }
@@ -1125,6 +1616,18 @@ fun BuildScreen(
             )
         }
 
+        // Encrypted DNS Provider Selection Sheet
+        if (showDnsProviderSheet) {
+            DnsProviderBottomSheetDialog(
+                currentProvider = selectedDnsProvider,
+                onDismiss = { showDnsProviderSheet = false },
+                onConfirm = { provider ->
+                    onDnsProviderChange(provider)
+                    showDnsProviderSheet = false
+                }
+            )
+        }
+
         // Reset form confirmation bottom sheet
         if (showClearConfirmSheet) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1164,13 +1667,13 @@ fun BuildScreen(
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Reset Form Details?",
+                            text = "Reset All Details?",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Reset all form inputs, website details, custom package settings, keystores, and quick toggles to default?",
+                            text = "Reset all form inputs, website details, custom package settings, keystores, and advanced options to default?",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -1194,16 +1697,37 @@ fun BuildScreen(
                                 onVersionNameChange("")
                                 iconUri = null
                                 onAutoFetchedIconBitmapChange(null)
+                                iconSourceIndex = 0
 
+                                onBrowserEngineChange("INDIVIDUAL")
                                 onDesktopModeChange(false)
                                 onForceDarkModeChange(false)
                                 onEnableZoomChange(false)
                                 onAllowCopyingChange(false)
-                                isEnableWebFooter = false
+                                onEnableWebFooterChange(false)
+                                selectedAppType = PackoraAppType.WEB
 
                                 useCustomDownloadFolder = false
                                 customDownloadFolder = ""
 
+                                onDisguiseFingerprintChange(false)
+                                maskCanvas = true
+                                maskWebGL = true
+                                maskAudioContext = true
+                                maskClientRects = true
+                                maskWebRtcIp = true
+                                clearDataOnExit = false
+
+                                onAdBlockEnabledChange(false)
+                                blockTrackers = true
+                                cosmeticFiltering = true
+
+                                onDnsProviderChange(PackoraDnsProvider.SYSTEM)
+                                customDohUrl = ""
+                                strictDoh = false
+                                enableEch = false
+
+                                onPerAppSigningEnabledChange(true)
                                 useCustomKeystore = false
                                 keystorePassword = ""
                                 keyAlias = ""
@@ -1213,9 +1737,16 @@ fun BuildScreen(
                                 organizationalUnit = ""
                                 validityYears = "25"
 
+                                isScrapingOffline = false
+                                scrapeProgressStatus = ""
+                                scrapedOfflineFilesCount = 0
+
                                 isPackageIdentityExpanded = false
                                 isStorageFolderExpanded = false
                                 isKeystoreExpanded = false
+                                isPrivacyExpanded = false
+                                isAdBlockExpanded = false
+                                isNetworkExpanded = false
 
                                 sharedPrefs.edit()
                                     .putBoolean("desktop_mode", false)
@@ -1223,18 +1754,19 @@ fun BuildScreen(
                                     .putBoolean("enable_zoom", false)
                                     .putBoolean("allow_copying", false)
                                     .putBoolean("enable_web_footer", false)
+                                    .putBoolean("hide_web_footer", true)
                                     .putBoolean("use_custom_download", false)
                                     .remove("custom_download_folder")
                                     .apply()
 
                                 showClearConfirmSheet = false
-                                Toast.makeText(context, "Form details and toggles reset", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "All details cleared and reset", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text("RESET", fontWeight = FontWeight.Bold)
+                            Text("RESET ALL", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1970,6 +2502,17 @@ suspend fun fetchPremiumIconWithSource(urlString: String, sourceIndex: Int = 0):
 suspend fun fetchAllAvailableIcons(urlString: String): List<FetchedIconItem> = withContext(Dispatchers.IO) {
     val results = mutableListOf<FetchedIconItem>()
     try {
+        try {
+            val analysis = com.maheswara660.packora.analyzer.PackoraWebAnalyzer.analyze(urlString)
+            for (icon in analysis.icons) {
+                val bmp = downloadAndValidate1To1Bitmap(icon.url)
+                if (bmp != null) {
+                    val label = if (icon.size > 0) "${icon.source} (${icon.size}x${icon.size})" else icon.source
+                    results.add(FetchedIconItem(label, bmp))
+                }
+            }
+        } catch (e: Exception) {}
+
         val uri = Uri.parse(urlString)
         val host = uri.host ?: return@withContext emptyList()
         val scheme = uri.scheme ?: "https"
@@ -2363,5 +2906,205 @@ fun downloadBitmap(url: String): Bitmap? {
         android.graphics.BitmapFactory.decodeStream(input)
     } catch (e: Exception) {
         null
+    }
+}
+
+@Composable
+fun ConfigToggleRow(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
+            if (subtitle != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.8f else 0.4f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        PackoraIosSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DnsProviderBottomSheetDialog(
+    currentProvider: PackoraDnsProvider,
+    onDismiss: () -> Unit,
+    onConfirm: (PackoraDnsProvider) -> Unit
+) {
+    var tempSelection by remember(currentProvider) { mutableStateOf(currentProvider) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Dns,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Encrypted DNS Provider",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Select a secure DNS-over-HTTPS resolver for this WebAPK",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            val listModifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 300.dp)
+                .verticalScroll(rememberScrollState())
+
+            Column(
+                modifier = listModifier,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PackoraDnsProvider.entries.forEach { provider ->
+                    val isSelected = tempSelection == provider
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHighest
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable {
+                                tempSelection = provider
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    tempSelection = provider
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = provider.displayName,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (provider.dohUrl.isNotBlank()) {
+                                    Text(
+                                        text = provider.dohUrl,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = {
+                        onConfirm(tempSelection)
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("APPLY", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }

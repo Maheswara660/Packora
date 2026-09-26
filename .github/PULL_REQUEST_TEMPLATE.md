@@ -13,7 +13,7 @@ Fixes # (issue number)
 
 ## 🧪 Testing Verification
 Describe the tests you performed to verify your changes.
-- [ ] **Unit Tests**: Ran `./gradlew test` (List new tests added)
+- [ ] **Unit Tests**: Ran `./gradlew :app:testDebugUnitTest` (List new tests added)
 - [ ] **Manual Verification**: Verified on physical device [e.g. Pixel 8]
 - [ ] **Edge Cases**: Verified behavior across different target URLs, Android versions, signing configurations, and manifest modifications.
 

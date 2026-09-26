@@ -1111,7 +1111,6 @@ fun <T> SelectionBottomSheetDialog(
                             )
                             .clickable {
                                 tempSelection = value
-                                onConfirm(value)
                             }
                     ) {
                         Row(
@@ -1122,7 +1121,6 @@ fun <T> SelectionBottomSheetDialog(
                                 selected = isSelected,
                                 onClick = {
                                     tempSelection = value
-                                    onConfirm(value)
                                 },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = MaterialTheme.colorScheme.primary,
@@ -1397,9 +1395,12 @@ fun AppUpdateBottomSheet(
                         border = CardDefaults.outlinedCardBorder(),
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        val releaseNotesScrollState = rememberScrollState()
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .verticalScroll(releaseNotesScrollState)
                                 .padding(14.dp)
                         ) {
                             MarkdownText(
@@ -1783,7 +1784,6 @@ fun UpdateInstallModeBottomSheetDialog(
                             )
                             .clickable {
                                 tempSelection = mode
-                                onConfirm(mode)
                             }
                     ) {
                         Row(
@@ -1794,7 +1794,6 @@ fun UpdateInstallModeBottomSheetDialog(
                                 selected = isSelected,
                                 onClick = {
                                     tempSelection = mode
-                                    onConfirm(mode)
                                 },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = MaterialTheme.colorScheme.primary,

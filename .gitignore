@@ -97,3 +97,9 @@ compose_compiler/
 .system_generated/
 temp_release
 temp/
+
+# Docs Website
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/.temp/
+docs/.vitepress/cache/

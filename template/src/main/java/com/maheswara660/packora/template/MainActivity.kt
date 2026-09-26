@@ -11,12 +11,17 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.print.PrintAttributes
+import android.print.PrintManager
+import android.view.WindowManager
+import android.webkit.WebStorage
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
@@ -96,6 +101,9 @@ class MainActivity : ComponentActivity() {
     private var forceDarkMode: Boolean = false
     private var enableZoom: Boolean = false
     private lateinit var webView: WebView
+    private var customVideoView: View? = null
+    private var customVideoViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var originalScreenOrientation: Int = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -527,9 +535,13 @@ class MainActivity : ComponentActivity() {
 
         insetsController = WindowInsetsControllerCompat(window, window.decorView)
 
-        // Modern OnBackPressedDispatcher handling for Web History Routing
+        // Modern OnBackPressedDispatcher handling for Web History Routing & Fullscreen Video
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (customVideoView != null) {
+                    hideCustomVideoView()
+                    return
+                }
                 if (binding.webView.canGoBack()) {
                     binding.webView.goBack()
                 } else {
@@ -563,6 +575,10 @@ class MainActivity : ComponentActivity() {
         }
 
         config = loadConfig()
+        val securityConfig = config?.optJSONObject("securityConfig")
+        if (config?.optBoolean("preventScreenshots", false) == true || securityConfig?.optBoolean("preventScreenshots", false) == true) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         setupWebView()
         webView = binding.webView
 
@@ -618,7 +634,17 @@ class MainActivity : ComponentActivity() {
         }
 
         val deepLinkUrl = intent.data?.toString()?.takeIf { it.isNotBlank() }
-        val targetUrl = deepLinkUrl ?: config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
+        val configTargetUrl = config?.optString("targetUrl", "")?.takeIf { it.isNotBlank() }
+        val appType = config?.optString("appType", "WEB")
+        val isOfflineHtml = appType.equals("HTML", ignoreCase = true) ||
+                (configTargetUrl == null && try { assets.list("www")?.contains("index.html") == true } catch (e: Exception) { false })
+
+        val targetUrl = when {
+            !deepLinkUrl.isNullOrBlank() -> deepLinkUrl
+            !configTargetUrl.isNullOrBlank() -> configTargetUrl
+            isOfflineHtml -> "file:///android_asset/www/index.html"
+            else -> null
+        }
 
         if (binding.webView.url.isNullOrBlank()) {
             if (targetUrl != null) {
@@ -672,6 +698,17 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         if (::binding.isInitialized) {
             try {
+                val privConfig = config?.optJSONObject("privacyConfig")
+                if (privConfig?.optBoolean("clearDataOnExit", false) == true) {
+                    try {
+                        CookieManager.getInstance().removeAllCookies(null)
+                        CookieManager.getInstance().flush()
+                        WebStorage.getInstance().deleteAllData()
+                        binding.webView.clearCache(true)
+                        binding.webView.clearFormData()
+                        binding.webView.clearSslPreferences()
+                    } catch (e: Exception) {}
+                }
                 binding.webView.apply {
                     stopLoading()
                     loadUrl("about:blank")
@@ -762,6 +799,8 @@ class MainActivity : ComponentActivity() {
     private fun setupWebView() {
         val webView = binding.webView
         val settings = webView.settings
+
+        webView.addJavascriptInterface(PackoraWebInterface(), "__packora_native__")
 
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -915,6 +954,26 @@ class MainActivity : ComponentActivity() {
                 syncWebPageThemeColor(view)
                 injectPasskeyPolyfill(view)
                 injectNotificationPolyfill(view)
+                injectPrivacyDisguise(view)
+                injectCosmeticAdFilter(view)
+                if (hideWebFooter) {
+                    injectWebFooterHider(view)
+                }
+
+                // Native window.print polyfill
+                view?.evaluateJavascript(
+                    """
+                    (function() {
+                        if (!window.print || window.print.toString().indexOf('[native code]') !== -1) {
+                            window.print = function() {
+                                if (window.__packora_native__ && window.__packora_native__.print) {
+                                    window.__packora_native__.print();
+                                }
+                            };
+                        }
+                    })();
+                    """.trimIndent(), null
+                )
 
                 if (isDesktopMode) {
                     view?.evaluateJavascript(
@@ -1066,6 +1125,41 @@ class MainActivity : ComponentActivity() {
                     })();
                     """.trimIndent(), null
                 )
+
+                // Inject user-defined Custom CSS
+                val customCss = webViewConfig?.optString("customCss", "") ?: ""
+                if (customCss.isNotBlank()) {
+                    val escapedCss = JSONObject.quote(customCss)
+                    view?.evaluateJavascript(
+                        """
+                        (function() {
+                            try {
+                                var s = document.createElement('style');
+                                s.type = 'text/css';
+                                s.textContent = $escapedCss;
+                                (document.head || document.documentElement).appendChild(s);
+                            } catch(e) {}
+                        })();
+                        """.trimIndent(), null
+                    )
+                }
+
+                // Inject user-defined Custom JavaScript
+                val customJs = webViewConfig?.optString("customJs", "") ?: ""
+                if (customJs.isNotBlank()) {
+                    view?.evaluateJavascript(customJs, null)
+                }
+
+                // Inject configured UserScripts (GreaseMonkey/TamperMonkey)
+                val userScripts = webViewConfig?.optJSONArray("userScripts")
+                if (userScripts != null) {
+                    for (i in 0 until userScripts.length()) {
+                        val script = userScripts.optString(i, "")
+                        if (script.isNotBlank()) {
+                            view?.evaluateJavascript(script, null)
+                        }
+                    }
+                }
             }
 
             override fun onRenderProcessGone(
@@ -1559,6 +1653,31 @@ class MainActivity : ComponentActivity() {
             override fun onReceivedTitle(view: WebView?, title: String?) {
                 super.onReceivedTitle(view, title)
                 syncWebPageThemeColor(view)
+            }
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customVideoView != null) {
+                    onHideCustomView()
+                    return
+                }
+                customVideoView = view
+                customVideoViewCallback = callback
+                originalScreenOrientation = requestedOrientation
+
+                binding.webView.visibility = View.GONE
+                binding.customViewContainer.visibility = View.VISIBLE
+                binding.customViewContainer.removeAllViews()
+                binding.customViewContainer.addView(view)
+
+                try {
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                } catch (e: Exception) {}
+            }
+
+            override fun onHideCustomView() {
+                hideCustomVideoView()
             }
         }
 
@@ -2235,20 +2354,60 @@ class MainActivity : ComponentActivity() {
                 try {
                     var hideInfoFooters = function() {
                         var selectors = [
-                            'footer', '#footer', '[id*="footer" i]',
+                            'footer', '#footer', '[id*="footer" i]', '[id*="colophon" i]', '[id*="site-info" i]',
                             '.site-footer', '.page-footer', '.main-footer', '.global-footer', '.footer',
-                            '[class*="footer" i]', 'div[role="contentinfo"]', 'section[role="contentinfo"]',
+                            '[class*="footer" i]', 'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
                             'div[class*="copyright" i]', 'div[class*="site-info" i]', 'div[class*="legal" i]', 'div[class*="policy" i]',
-                            'section[class*="copyright" i]', 'section[class*="legal" i]', 'section[class*="policy" i]'
+                            'section[class*="copyright" i]', 'section[class*="legal" i]', 'section[class*="policy" i]',
+                            '.sub-footer', '.bottom-footer', '.footer-wrap', '.footer-container', '.footer-content', '.footer-bar',
+                            '[data-section*="footer" i]', '[data-area*="footer" i]', '[data-testid*="footer" i]', '[data-component*="footer" i]',
+                            '.site-info', '.colophon', '.credit-footer', '.copyright-area', '.legal-notice'
                         ];
 
                         var keywords = [
-                            '©', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks', 'all rights', 'creative commons',
-                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'privacy policy',
-                            'privacy notice', 'privacy statement', 'cookie policy', 'cookie settings', 'manage cookies',
-                            'cookie preferences', 'legal notice', 'disclaimer', 'imprint', 'impressum', 'user agreement',
-                            'site policy', 'community guidelines', 'code of conduct', 'accessibility statement', 'security policy',
-                            'powered by', 'built with', 'proudly powered by', 'published with'
+                            // Copyright, Legal, Licensing & Trademarks (Multi-Language)
+                            '©', '&copy;', 'copyright', 'all rights reserved', 'rights reserved', 'all rights', 'trademarks', 'trade marks',
+                            'registered trademark', 'registered trademarks', 'reg. u.s. pat.', 'creative commons', 'cc by', 'todos los derechos reservados',
+                            'tous droits réservés', 'alle rechte vorbehalten', 'tutti i diritti riservati', 'todos os direitos reservados',
+                            'alle rechten voorbehouden', 'все права защищены', '版权所有', '保留所有权利', '無断転載を禁じます', '모든 권리 보유',
+                            'सर्वाधिकार सुरक्षित', 'جميع الحقوق محفوظة', 'tüm hakları saklıdır',
+
+                            // Terms & Policies
+                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'terms of sale', 'terms & policies',
+                            'user agreement', 'service terms', 'conditions of use', 'general terms', 'site terms', 'nutzungsbedingungen',
+                            'conditions d\'utilisation', 'términos de uso', 'términos de servicio', 'términos y condiciones', 'termos de uso',
+                            'termos de serviço', 'termini di servizio', 'termini e condizioni', 'gebruiksvoorwaarden', 'algemene voorwaarden',
+                            'пользовательское соглашение', 'условия использования', '服务条款', '使用条款', '用户协议', '利用規約', '이용약관',
+                            'उपयोग की शर्तें', 'شروط الاستخدام', 'kullanım koşulları',
+
+                            // Privacy, Cookies & Consent
+                            'privacy policy', 'privacy notice', 'privacy statement', 'privacy practices', 'privacy center', 'privacy choices',
+                            'your privacy choices', 'consumer health data privacy', 'california privacy', 'ca privacy notice',
+                            'do not sell my personal info', 'do not sell my personal information', 'do not sell or share',
+                            'datenschutzerklärung', 'datenschutz', 'politique de confidentialité', 'données personnelles',
+                            'política de privacidad', 'política de privacidade', 'informativa sulla privacy', 'privacybeleid',
+                            'политика конфиденциальности', '隐私政策', '个人信息保护', 'プライバシーポリシー', '개인정보처리방침',
+                            'गोपनीयता नीति', 'سياسة الخصوصية', 'gizlilik politikası',
+                            'cookie policy', 'cookie preferences', 'cookie settings', 'manage cookies', 'cookies settings',
+                            'cookies preferences', 'cookie notice', 'cookies policy', 'gestión de cookies', 'gestion des cookies',
+                            'gestione dei cookie', 'cookie-instellingen', 'politica sui cookie', 'política de cookies',
+
+                            // Legal, Disclaimer, Imprint & Compliance
+                            'legal notice', 'legal information', 'legal notices', 'impressum', 'imprint', 'disclaimer', 'disclaimers',
+                            'liability notice', 'haftungsausschluss', 'mentions légales', 'avis juridique', 'aviso legal', 'note legali',
+                            'juridische kennisgeving', 'правовая информация', '法律声明', '免责声明', '特定商取引法', '법적 고지', 'yasal uyarı',
+                            'accessibility statement', 'accessibility policy', 'security policy', 'vulnerability reporting', 'compliance',
+                            'code of conduct', 'community guidelines', 'modern slavery statement', 'anti-slavery statement',
+                            'regulatory disclosures', 'icp备', '公网安备', '备案号', '增值电信业务', '经营许可证', '网安备', '사업자등록번호',
+
+                            // Platform Attribution & Hosting
+                            'powered by', 'proudly powered by', 'built with', 'published with', 'hosted by', 'designed by', 'developed by',
+                            'created by', 'made with love', 'theme by', 'wordpress', 'shopify', 'ghost.org', 'wix.com', 'squarespace',
+                            'webflow', 'gitbook', 'vitepress', 'docusaurus',
+
+                            // Site Info & Links
+                            'site map', 'sitemap', 'site directory', 'about us', 'contact us', 'contact support', 'help center', 'faq',
+                            'careers', 'press room', 'press releases', 'investor relations', 'affiliate disclosure', 'all system operational'
                         ];
 
                         var candidates = document.querySelectorAll(selectors.join(', '));
@@ -2256,24 +2415,31 @@ class MainActivity : ComponentActivity() {
                             var tag = (el.tagName || '').toUpperCase();
                             if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') return;
 
-                            // Protection safeguard: Do NOT hide if element contains tab bars, chat inputs, or app controls
-                            var isAppNav = el.querySelector('[role="tablist"], [role="tab"], input, textarea, form, button, [aria-label*="navigation" i], audio, video, [class*="tab-bar" i], [class*="tabbar" i], [class*="nav-bar" i], [class*="bottom-nav" i]');
+                            // Protection safeguard: Do NOT hide if element is a genuine docked/fixed bottom navigation bar or tablist
+                            var isAppNav = el.querySelector('[role="tablist"], [class*="bottom-nav" i], [class*="tab-bar" i], [class*="tabbar" i], [class*="docked-nav" i], [class*="dock-bar" i], [class*="app-bar-bottom" i]');
                             if (isAppNav) return;
 
-                            // Protect large layout containers
+                            // Protect large layout containers exceeding 75% of viewport
                             var rect = el.getBoundingClientRect();
-                            if (rect.height > window.innerHeight * 0.6) return;
+                            if (rect.height > window.innerHeight * 0.75) return;
 
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
 
-                            if (hasInfoKeyword) {
+                            // Also detect structural footers near bottom of document
+                            var isBottomLocated = (rect.top > window.innerHeight * 0.3) || (el.offsetTop > (document.documentElement.scrollHeight * 0.4));
+                            var isStructuralFooter = (tag === 'FOOTER' || el.getAttribute('role') === 'contentinfo' || (el.classList && (el.classList.contains('site-footer') || el.classList.contains('page-footer')))) && isBottomLocated;
+
+                            if (hasInfoKeyword || isStructuralFooter) {
                                 el.style.setProperty('display', 'none', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');
                                 el.style.setProperty('max-height', '0px', 'important');
                                 el.style.setProperty('margin', '0px', 'important');
                                 el.style.setProperty('padding', '0px', 'important');
+                                el.style.setProperty('opacity', '0', 'important');
+                                el.style.setProperty('visibility', 'hidden', 'important');
+                                el.style.setProperty('pointer-events', 'none', 'important');
                             }
                         });
                     };
@@ -2313,6 +2479,235 @@ class MainActivity : ComponentActivity() {
 
     private fun injectInteractionAndScrollUnfreezer(webView: WebView?) {
         // Disabled to allow SPAs, menus, drawers, video players, and fixed overlays to render and interact naturally
+    }
+
+    private fun hideCustomVideoView() {
+        if (customVideoView != null) {
+            binding.customViewContainer.visibility = View.GONE
+            binding.customViewContainer.removeAllViews()
+            customVideoViewCallback?.onCustomViewHidden()
+            customVideoView = null
+            customVideoViewCallback = null
+            binding.webView.visibility = View.VISIBLE
+
+            try {
+                requestedOrientation = originalScreenOrientation
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+            } catch (e: Exception) {}
+        }
+    }
+
+    inner class PackoraWebInterface {
+        @JavascriptInterface
+        fun print() {
+            runOnUiThread {
+                try {
+                    val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+                    val appName = config?.optString("appName", "PackoraApp") ?: "PackoraApp"
+                    val jobName = "$appName Document"
+                    val printAdapter = binding.webView.createPrintDocumentAdapter(jobName)
+                    val printAttributes = PrintAttributes.Builder()
+                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                        .build()
+                    printManager?.print(jobName, printAdapter, printAttributes)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    private fun injectPrivacyDisguise(view: WebView?) {
+        val privConfig = config?.optJSONObject("privacyConfig") ?: return
+        if (!privConfig.optBoolean("disguiseFingerprint", false)) return
+
+        val maskCanvas = privConfig.optBoolean("maskCanvas", true)
+        val maskWebGL = privConfig.optBoolean("maskWebGL", true)
+        val maskAudio = privConfig.optBoolean("maskAudioContext", true)
+        val maskClientRects = privConfig.optBoolean("maskClientRects", true)
+        val maskWebRtc = privConfig.optBoolean("maskWebRtcIp", true)
+        val maskTimezone = privConfig.optBoolean("maskTimezone", false)
+        val targetTz = privConfig.optString("targetTimezone", "")
+
+        val script = StringBuilder()
+        script.append("""
+            (function() {
+                'use strict';
+                if (window.__packora_privacy_shield__) return;
+                window.__packora_privacy_shield__ = true;
+                var __packora_seed__ = ${(System.currentTimeMillis() and 0xFFFFFFFFL)};
+                function __packora_prng__() {
+                    __packora_seed__ |= 0;
+                    __packora_seed__ = __packora_seed__ + 0x6D2B79F5 | 0;
+                    var t = Math.imul(__packora_seed__ ^ __packora_seed__ >>> 15, 1 | __packora_seed__);
+                    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+                }
+        """.trimIndent())
+
+        if (maskCanvas) {
+            script.append("""
+                try {
+                    var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                    var origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+                    function __packora_canvas_noise__(data) {
+                        for (var i = 0; i < data.length; i += 4) {
+                            if (__packora_prng__() < 0.08) {
+                                var channel = i % 3;
+                                data[i + channel] = data[i + channel] ^ 1;
+                            }
+                        }
+                    }
+                    HTMLCanvasElement.prototype.toDataURL = function() {
+                        try {
+                            var ctx = this.getContext('2d');
+                            if (ctx && this.width > 0 && this.height > 0 && this.width < 2500 && this.height < 2500) {
+                                var img = origGetImageData.call(ctx, 0, 0, this.width, this.height);
+                                __packora_canvas_noise__(img.data);
+                                ctx.putImageData(img, 0, 0);
+                            }
+                        } catch(e) {}
+                        return origToDataURL.apply(this, arguments);
+                    };
+                    CanvasRenderingContext2D.prototype.getImageData = function() {
+                        var img = origGetImageData.apply(this, arguments);
+                        try { __packora_canvas_noise__(img.data); } catch(e) {}
+                        return img;
+                    };
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        if (maskWebGL) {
+            script.append("""
+                try {
+                    if (window.WebGLRenderingContext) {
+                        var origGetParameter = WebGLRenderingContext.prototype.getParameter;
+                        WebGLRenderingContext.prototype.getParameter = function(param) {
+                            if (param === 37445) return 'Google Inc. (Qualcomm)';
+                            if (param === 37446) return 'ANGLE (Qualcomm, Adreno (TM) 750, OpenGL ES 3.2)';
+                            if (param === 7936) return 'WebKit';
+                            if (param === 7937) return 'WebKit WebGL';
+                            return origGetParameter.apply(this, arguments);
+                        };
+                    }
+                    if (window.WebGL2RenderingContext) {
+                        var origGetParameter2 = WebGL2RenderingContext.prototype.getParameter;
+                        WebGL2RenderingContext.prototype.getParameter = function(param) {
+                            if (param === 37445) return 'Google Inc. (Qualcomm)';
+                            if (param === 37446) return 'ANGLE (Qualcomm, Adreno (TM) 750, OpenGL ES 3.2)';
+                            return origGetParameter2.apply(this, arguments);
+                        };
+                    }
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        if (maskAudio) {
+            script.append("""
+                try {
+                    if (window.AudioBuffer) {
+                        var origGetChannelData = AudioBuffer.prototype.getChannelData;
+                        AudioBuffer.prototype.getChannelData = function(channel) {
+                            var data = origGetChannelData.apply(this, arguments);
+                            for (var i = 0; i < data.length; i += 100) {
+                                data[i] = data[i] + (__packora_prng__() - 0.5) * 0.0001;
+                            }
+                            return data;
+                        };
+                    }
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        if (maskClientRects) {
+            script.append("""
+                try {
+                    var origGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+                    Element.prototype.getBoundingClientRect = function() {
+                        var rect = origGetBoundingClientRect.apply(this, arguments);
+                        var noise = (__packora_prng__() - 0.5) * 0.01;
+                        return new DOMRect(rect.x + noise, rect.y + noise, rect.width, rect.height);
+                    };
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        if (maskWebRtc) {
+            script.append("""
+                try {
+                    if (window.RTCPeerConnection) {
+                        var origCreateOffer = RTCPeerConnection.prototype.createOffer;
+                        RTCPeerConnection.prototype.createOffer = function(options) {
+                            return origCreateOffer.apply(this, arguments).then(function(offer) {
+                                offer.sdp = offer.sdp.replace(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/g, '192.168.1.100');
+                                return offer;
+                            });
+                        };
+                    }
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        if (maskTimezone && targetTz.isNotBlank()) {
+            script.append("""
+                try {
+                    Intl.DateTimeFormat.prototype.resolvedOptions = (function(orig) {
+                        return function() {
+                            var options = orig.apply(this, arguments);
+                            options.timeZone = '$targetTz';
+                            return options;
+                        };
+                    })(Intl.DateTimeFormat.prototype.resolvedOptions);
+                } catch(e) {}
+            """.trimIndent())
+        }
+
+        script.append("""
+            })();
+        """.trimIndent())
+
+        view?.evaluateJavascript(script.toString(), null)
+    }
+
+    private fun injectCosmeticAdFilter(view: WebView?) {
+        val adConfig = config?.optJSONObject("adBlockConfig")
+        if (adConfig != null && !adConfig.optBoolean("enabled", true)) return
+
+        view?.evaluateJavascript(
+            """
+            (function() {
+                'use strict';
+                if (window.__packora_cosmetic_filter__) return;
+                window.__packora_cosmetic_filter__ = true;
+                try {
+                    var adSelectors = [
+                        'ins.adsbygoogle', '[id^="google_ads_"]', '[id^="div-gpt-ad"]',
+                        '.ad-container', '.ad-wrapper', '.ad-banner', '.advertisement',
+                        '[data-ad-unit]', '[aria-label="advertisement"]'
+                    ];
+                    var style = document.createElement('style');
+                    style.textContent = adSelectors.join(', ') + ' { display: none !important; visibility: hidden !important; height: 0 !important; }';
+                    (document.head || document.documentElement).appendChild(style);
+
+                    function removeAds() {
+                        adSelectors.forEach(function(sel) {
+                            document.querySelectorAll(sel).forEach(function(el) {
+                                el.style.setProperty('display', 'none', 'important');
+                            });
+                        });
+                    }
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', removeAds);
+                    } else {
+                        removeAds();
+                    }
+                    var observer = new MutationObserver(function() { removeAds(); });
+                    observer.observe(document.documentElement, { childList: true, subtree: true });
+                } catch(e) {}
+            })();
+            """.trimIndent(), null
+        )
     }
 
     private fun syncWebPageThemeColor(view: WebView?) {

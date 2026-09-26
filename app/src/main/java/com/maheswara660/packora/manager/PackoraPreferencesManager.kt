@@ -21,13 +21,13 @@ enum class AppColorAccent {
 }
 
 enum class UpdateInstallMode(val title: String, val subtitle: String) {
-    MANUAL(
-        title = "Manual",
-        subtitle = "Never prompts installer automatically; build updates and tap Install on each card"
-    ),
     AUTO_PROMPT(
         title = "Auto-Prompt",
         subtitle = "Automatically launches the package installer dialog once an update is compiled"
+    ),
+    MANUAL(
+        title = "Manual",
+        subtitle = "Never prompts installer automatically; build updates and tap Install on each card"
     )
 }
 

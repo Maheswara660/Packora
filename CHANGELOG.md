@@ -2,6 +2,42 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.0.0] - 2026-09-26
+### Added & Enhanced
+- **Stealth Privacy Shield (50+ Fingerprinting Vectors Blocked)**:
+  - Real-time client-side anti-fingerprinting injected at `onPageStarted` and `onPageFinished`.
+  - Spoofs Canvas 2D image data/hashing, WebGL GPU renderer/vendor strings, AudioContext oscillator hashes, DOM ClientRects subpixel jittering, and WebRTC local ICE/IP leakage.
+  - Added dedicated toggle in Build Screen with visual stealth badge across My Apps and History screens.
+- **Built-in Ad & Tracker Blocker Engine**:
+  - High-efficiency pre-bundled filter lists blocking ad networks, tracking telemetry, and analytics domains.
+  - Zero external dependencies, intercepting requests seamlessly via `shouldInterceptRequest`.
+  - Live toggle with visual indicator badge across app management screens.
+- **Encrypted DNS-over-HTTPS (DoH) Engine & Redesigned Selector**:
+  - Native DNS-over-HTTPS resolution in WebAPKs with 9 DNS resolvers: Cloudflare (`1.1.1.1`), Google Public DNS (`8.8.8.8`), AdGuard DNS, NextDNS, CleanBrowsing Security, Quad9 (`9.9.9.9`), Mullvad DoH, System Default, and Custom User DoH Endpoint.
+  - Redesigned DNS provider bottom sheet dialog: bounded height (`300.dp`), smooth vertical scrolling, authentic Material 3 midnight styling, and automatic keyboard/focus dismissal.
+- **Deterministic Per-App Dedicated Keystore & Signing Identity**:
+  - Automatic generation and isolation of unique RSA-3072 signing certificates per package name (`PerAppSigningIdentity`).
+  - Eliminates key conflicts across generated WebAPKs while ensuring seamless in-place updates.
+  - Status badge indicator integrated across My Apps and Build History cards.
+- **Advanced Multilingual Smart Footer Hiding Engine**:
+  - Expanded keyword dictionary to 150+ multilingual terms across English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, and Turkish.
+  - Dual-stage injection: Early CSS `display: none !important` at `onPageStarted` and high-speed `MutationObserver` at `onPageFinished`.
+  - Strict protection for interactive elements, modals, forms, and navigation bars to prevent breaking web app usability.
+- **Universal Form Reset in Build Screen**:
+  - Consolidated separate card-level reset buttons into a single universal top-right reset button with Material 3 confirmation bottom sheet.
+  - Clears all input fields, toggles, custom keystores, custom DNS settings, and icons in a single tap.
+- **Ergonomic App Card Button Streamlining**:
+  - Strict 2-button sets per screen:
+    - **My Apps Screen**: Strictly **Open** and **Uninstall**.
+    - **Updates Screen**: Strictly **Update** and **Install**.
+    - **History Screen**: Strictly **Reuse Config** and **Remove**.
+- **Settings Screen & Update Modes Refinement**:
+  - Moved Auto-Prompt option to first place and set it as the default update installation mode.
+  - Made Check for Updates release notes bottom sheet cleanly scrollable with bounded height without causing the sheet to expand off-screen.
+- **Documentation & Web Portal Modernization**:
+  - Fully ported and modernized documentation site and landing page under GNU GPL v3 license in 100% English.
+  - Updated guides, developer documentation, and architecture diagrams for v5.0.0.
+
 ## [4.1.0] - 2026-09-26
 ### Fixed & Improved
 - **Sorting Consistency across All Screens**:

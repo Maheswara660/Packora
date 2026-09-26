@@ -20,6 +20,7 @@ If you want to contribute code:
 * Open an issue first to discuss the change.
 * Follow the Kotlin coding conventions.
 * Ensure your code is well-commented and clean.
+* Verify that your changes compile and pass unit tests: `./gradlew :app:testDebugUnitTest`.
 * If you're changing the UI, please include screenshots or a short video.
 
 ## My Process

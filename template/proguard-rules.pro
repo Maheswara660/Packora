@@ -6,9 +6,8 @@
 }
 -keepattributes JavascriptInterface
 
-# 2. Main WebAPK Container Activity
--keep class com.maheswara660.packora.template.MainActivity { *; }
--keep class com.maheswara660.packora.template.MainActivity$* { *; }
+# 2. Main WebAPK Container Activity & Template Engine
+-keep class com.maheswara660.packora.template.** { *; }
 
 # 3. Keep WebView client classes & WebChromeClient handlers
 -keep class * extends android.webkit.WebViewClient { *; }

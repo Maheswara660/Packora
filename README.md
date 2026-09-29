@@ -1,17 +1,17 @@
 <p align="center">
   <a href="https://github.com/maheswara660/Packora">
-    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="160" height="160" alt="Packora Logo" style="border-radius: 36px;">
+    <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="150" height="150" alt="Packora Logo" style="border-radius: 32px;">
   </a>
 </p>
 
-<h1 align="center">Packora v5.4.0</h1>
+<h1 align="center">Packora v5.5.0</h1>
 
 <p align="center">
-  <b>Next-Gen Standalone Android WebAPK Compiler — 100% On-Device, Offline & Privacy-Hardened.</b>
+  <b>Next-Gen Standalone Android WebAPK Studio — 100% On-Device, Offline & Privacy-Hardened.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.4.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.4.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.5.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.5.0"></a>
   <a href="https://maheswara660.github.io/Packora/"><img src="https://img.shields.io/badge/Documentation-Website-2563EB?style=for-the-badge&logo=vitepress&logoColor=white" alt="Documentation"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
@@ -21,359 +21,222 @@
   <a href="https://ko-fi.com/maheswara660"><img src="https://img.shields.io/badge/Sponsor-Ko--fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Ko-fi Sponsor"></a>
 </p>
 
-> [!NOTE]
-> **Zero Telemetry • 100% Offline • No Cloud Dependencies**  
-> Packora runs an entire Android compilation, bytecode modification, and packaging pipeline directly on your phone or tablet. It transforms any Progressive Web App (PWA) or responsive website into an independent, production-ready Android APK with custom signing keys, built-in ad blocking, encrypted DNS, and anti-fingerprint protection — zero PC or developer toolchains required.
+> [!IMPORTANT]
+> **100% On-Device Compilation • Zero Telemetry • Zero PC Dependency**  
+> Packora runs an entire Android compilation, bytecode manipulation, resource rewriting, and APK signing pipeline directly on your phone or tablet. It transforms any web application, responsive website, offline HTML5 bundle, or frontend SPA into an independent, production-grade Android application in under 2 seconds.
 
 ---
 
 ## 📌 Table of Contents
 
 - [Overview](#-overview)
-- [Screenshots](#-screenshots)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [Key Features & Capabilities](#-key-features--capabilities)
-  - [🎨 Dashboard & WebAPK Build Studio](#-dashboard--webapk-build-studio)
-  - [🛡️ Stealth Privacy Shield (50+ Vectors)](#️-stealth-privacy-shield-50-vectors)
-  - [🚫 Built-in Ad & Tracker Blocker](#-built-in-ad--tracker-blocker)
+- [Five Core Execution Architectures](#-five-core-execution-architectures)
+- [Key Features & Hardening](#-key-features--hardening)
+  - [🛡️ 50+ Vector Stealth Privacy Shield](#️-50-vector-stealth-privacy-shield)
   - [🔒 Encrypted DNS-over-HTTPS (DoH)](#-encrypted-dns-over-https-doh)
-  - [🔑 Deterministic Per-App Keystores](#-deterministic-per-app-keystores)
-  - [🧹 150+ Multilingual Smart Footer Hider](#-150-multilingual-smart-footer-hider)
-  - [🔄 Dedicated Updates Hub](#-dedicated-updates-hub)
-  - [📱 My Apps Management Hub](#-my-apps-management-hub)
-  - [📜 Build History & Config Reusability](#-build-history--config-reusability)
-  - [🎨 Dynamic App Icons & Theming](#-dynamic-app-icons--theming)
-  - [⚙️ Settings & Modern Controls](#️-settings--modern-controls)
-- [Permissions & Security Model](#-permissions--security-model)
+  - [🚫 Built-in EasyList Ad & Tracker Blocker](#-built-in-easylist-ad--tracker-blocker)
+  - [🔑 Deterministic Isolated Keystores](#-deterministic-isolated-keystores)
+  - [📐 16KB ELF Page Boundary Alignment](#-16kb-elf-page-boundary-alignment)
+  - [🔄 Updates Hub & Build History](#-updates-hub--build-history)
+  - [📱 My Apps Studio Management](#-my-apps-studio-management)
+- [Studio Gallery](#-studio-gallery)
+- [Competitive Matrix](#-competitive-matrix)
 - [Technology Stack](#-technology-stack)
-- [Repository Structure](#-repository-structure)
 - [Building from Source](#-building-from-source)
-- [Official Documentation](#-official-documentation)
-- [Contributing](#-contributing)
-- [License & Acknowledgments](#-license--acknowledgments)
+- [License & Credits](#-license--credits)
 
 ---
 
 ## 💡 Overview
 
-**Packora** bridges the gap between modern web applications and native Android experiences. While standard browsers offer simple "Add to Home Screen" shortcuts that remain bound to browser tabs, address bars, and shared cookie jars, Packora compiles a **standalone native WebAPK** that:
+Standard mobile browsers offer basic "Add to Home Screen" shortcuts, but those shortcuts remain bound to browser tabs, address bars, shared cookies, and browser lifecycle limits.
 
-- Runs in its own dedicated Android application window with independent task affinity.
-- Features custom app icons, distinct package IDs, and automated version increments.
-- Injects a **50+ vector Stealth Privacy Shield** that neutralizes canvas, WebGL, audio, and WebRTC fingerprinting.
-- Resolves network requests through **Encrypted DNS-over-HTTPS (DoH)** with 9 privacy resolvers.
-- Blocks ads and tracking telemetry out of the box using high-efficiency local rule engines.
-- Signs packages with isolated **deterministic RSA-3072 keystores** supporting APK Signature Scheme v2 & v3.
-- Aligns native ELF binaries to **16KB boundaries** for full compatibility with Android 15+ kernels.
-- Supports native Google SSO via Android Account Manager and Google Play Services Auth.
-
----
-
-## 📱 Screenshots
-
-<div align="center">
-
-| Build Studio                                                         | URL Icon Extractor                                                                    | Icon Canvas Editor                                                             | Updates Hub                                                           |
-| :--------------------------------------------------------------------:| :-------------------------------------------------------------------------------------:| :------------------------------------------------------------------------------:| :---------------------------------------------------------------------:|
-| <img src="assets/build_screen.png" width="220" alt="Build Studio" /> | <img src="assets/url_icon_selection_menu.png" width="220" alt="URL Icon Extractor" /> | <img src="assets/icon_editor_menu.png" width="220" alt="Icon Canvas Editor" /> | <img src="assets/updates_screen.png" width="220" alt="Updates Hub" /> |
-
-| My Apps Manager                                                           | Build History                                                           | Settings & Automation                                                            | Dynamic App Icons                                                                            |
-| :-------------------------------------------------------------------------:| :-----------------------------------------------------------------------:| :--------------------------------------------------------------------------------:| :--------------------------------------------------------------------------------------------:|
-| <img src="assets/my_apps_screen.png" width="220" alt="My Apps Manager" /> | <img src="assets/history_screen.png" width="220" alt="Build History" /> | <img src="assets/settings_screen.png" width="220" alt="Settings & Automation" /> | <img src="assets/packora_app_icon_selection_menu.png" width="220" alt="Dynamic App Icons" /> |
-
-</div>
+**Packora** compiles a **true standalone Android WebAPK** that:
+- Runs in its own dedicated Android application process with isolated task affinity.
+- Features custom package identifiers (`com.example.app`), custom launcher icons, and automatic version incrementing.
+- Intercepts and randomizes over **50 device fingerprinting vectors** (Canvas 2D, WebGL GPU, AudioContext, DOM ClientRects, WebRTC local IP, Battery, Hardware Concurrency).
+- Resolves all network traffic through **Encrypted DNS-over-HTTPS (DoH)** with 9 privacy resolvers.
+- Blocks advertising networks and telemetry out of the box using a high-efficiency **EasyList engine**.
+- Cryptographically signs APKs using **deterministic RSA-3072 keystores** supporting APK Signature Scheme v2 & v3 for conflict-free lifelong in-place updates.
+- Strictly aligns all native shared libraries (`.so`) to **16KB page boundaries** for full compatibility with modern Android 15+ kernels.
 
 ---
 
 ## ⚙️ Architecture & How It Works
 
+Packora bypasses cloud build servers and heavy desktop toolchains (like AAPT2, Gradle daemons, and Java SDKs) through low-level binary manipulation:
+
 ```mermaid
 graph TD
-    A[User Inputs Web / PWA URL] --> B[Metadata & Multi-Icon Scraper]
-    B --> C[Packora Android Shell Template APK]
-    C --> D[ZIP Central Directory Injector]
-    D --> E[In-House Binary AxmlRebuilder]
-    E --> F[In-House Binary ArscRebuilder]
-    F --> G[ElfAligner16k: 16KB Page Alignment for Android 15+]
-    G --> H[Isolated Per-App RSA-3072 Keystore Generator]
-    H --> I[apksig: APK Signature Scheme v2 & v3 Signing]
-    I --> J[Standalone Hardened WebAPK Installed]
+    A[Target URL / Local HTML Assets] --> B[Metadata & Vector Icon Harvester]
+    B --> C[Packora Base Template Shell: webview_shell.apk]
+    C --> D[In-House Binary AXML Rebuilder]
+    D --> E[In-House Binary ARSC String Table Reindexer]
+    E --> F[ElfAligner16k: 16KB Page Boundary Alignment]
+    F --> G[Deterministic RSA-3072 Keystore Provisioning]
+    G --> H[apksig: APK Signature Scheme v2 & v3 Engine]
+    H --> I[Production-Ready Standalone WebAPK Installed]
 ```
 
-1. **Asset & Metadata Harvesting**: Scrapes target manifests, high-res Apple touch icons, favicons, theme colors, and page metadata directly from the URL.
-2. **Binary Modification Without AAPT**: In-house low-level binary parsers rewrite `AndroidManifest.xml` (AXML) and `resources.arsc` directly in byte buffers, avoiding bulky command-line toolchains.
-3. **Android 15+ 16KB Page Alignment**: Re-aligns all native ELF binaries (`.so` files) within ZIP archives to 16,384-byte boundaries.
-4. **Isolated Key Provisioning**: Generates deterministic, package-specific RSA-3072 cryptographic identities for seamless lifelong in-place updates.
-5. **V2/V3 APK Signature**: Generates RFC-compliant cryptographic signatures on-device using Android `apksig`.
+1. **Metadata & Asset Harvesting**: Automatically scrapes web manifests, high-res Apple touch icons, favicons, theme colors, and page metadata directly from the source.
+2. **In-House Binary AXML Patching**: Direct in-memory byte manipulation of `AndroidManifest.xml` (AXML) to inject package names, application labels, and custom permissions without external toolchains.
+3. **In-House Binary ARSC Rebuilding**: Directly modifies compiled Android binary resources (`resources.arsc`) to re-index string pools, application titles, and color palettes.
+4. **16KB ELF Page Boundary Alignment**: In-place byte alignment of all native shared libraries within ZIP central directories to strict 16,384-byte boundaries for Android 15+.
+5. **Deterministic RSA-3072 Signing**: Computes an isolated cryptographic identity derived deterministically from package coordinates, guaranteeing seamless in-place updates.
 
 ---
 
-## ✨ Key Features & Capabilities
+## 🏗️ Five Core Execution Architectures
 
-### 🎨 Dashboard & WebAPK Build Studio
-- **Website Details Hero Card**: Interactive URL input with clipboard auto-paste, Web icon badge, and quick clearing.
-- **Universal Form Reset**: Top-right universal reset button with confirmation sheet to clear all inputs, keystores, and DNS settings in one tap.
-- **Quick Toggles Bento Grid**:
-  - 🛡️ **Stealth Privacy Shield**: 50+ vector anti-fingerprinting protection.
-  - 🚫 **Ad & Tracker Blocker**: High-speed local request and cosmetic container filter.
-  - 🔒 **Encrypted DNS**: Select from 9 DoH providers or configure a custom endpoint.
-  - 🧹 **Hide Web Footer**: Multilingual 150+ keyword engine to remove clutter without affecting navigation.
-  - 🖥️ **Desktop Mode**: Renders sites with a desktop viewport and Chrome desktop User-Agent.
-  - 🌙 **Force Dark Mode**: Enables algorithmic darkening for sites without native dark themes.
-  - 🔍 **Pinch Zoom**: Toggles multi-touch zoom controls.
-  - 📋 **Allow Text Copying**: Overrides CSS user-select locks to permit text selection.
-- **Inline Feature Cards**:
-  - 🆔 **Package Identity & Versioning**: Custom package names and automatic version incrementing (`versionCode` + `versionName`).
-  - 🏗️ **App Architecture Targets**: Choose from 5 tailored WebAPK application types:
-    - `Default Web App`: Universal responsive web wrapper.
-    - `Offline HTML App`: Packages bundled local web files without network dependencies.
-    - `Frontend PWA / SPA`: Optimized Single Page Application with client-side routing fallback (`spaRoutingFallback`).
-    - `Multi-Web Workspace`: Multi-tab navigation pill bar with independent session isolation.
-    - `Background Media Player`: Keeps audio and video streams playing continuously in the background with wake-lock support.
-  - 📁 **Custom Downloads Folder**: Route all in-app file downloads directly to dedicated subdirectories within device storage.
-  - 📁 **Storage Folder**: Choose destination folders using Android's Storage Access Framework (SAF).
-  - 🔑 **Custom Signing Keystore**: Generate custom PKCS12 certificates or use isolated per-app deterministic keys.
-- **Icon Canvas Editor**:
-  - Live PWA manifest and high-res icon extraction.
-  - Auto-extracts dominant background corner colors with 1-tap palette auto-matching.
-  - Steppers (`-` / `+`) and discrete slider for icon scaling and canvas padding.
+Packora provides five specialized application architectures tailored for different web workloads:
 
-### 🛡️ Stealth Privacy Shield (50+ Vectors)
-- **Canvas 2D Protection**: Spoofs canvas pixel readback data (`toDataURL`, `getImageData`) with subtle, imperceptible noise to break tracking hashes.
-- **WebGL GPU Masking**: Randomizes GPU renderer strings, vendor IDs, and shader precision values.
-- **AudioContext Hardening**: Injects microscopic jitter into audio oscillator frequency curves to block audio fingerprinting.
-- **DOM ClientRects Jitter**: Prevents micro-geometry subpixel layout fingerprinting.
-- **WebRTC Local IP Leak Blocker**: Blocks local ICE candidate leaks while preserving WebRTC peer-to-peer functionality.
-- **Data Cleanup**: Automatic browser cache and storage wiping on application exit when configured.
+| Architecture | Description | Key Capabilities |
+| :--- | :--- | :--- |
+| **`Web App (PWA)`** | Universal standalone Web application wrapper. | Full Service Worker support, CacheStorage, IndexedDB, custom User-Agents, pull-to-refresh, desktop mode. |
+| **`Offline HTML5`** | Self-contained offline application bundle. | Assets packed into `assets/www/` with local file scheme access; runs 100% offline with zero internet required. |
+| **`Frontend SPA`** | Optimized for React, Vue, Svelte, Vite, and Angular. | Automated client-side history & hash routing fallback; eliminates 404 errors on deep page refreshes. |
+| **`Multi-Web Hub`** | Multi-domain destination workspace. | Interactive native dark pill navigation bar allowing instant switching between multiple configured endpoints. |
+| **`Immersive Media`** | Audio and video streamer. | Screen wake lock (`FLAG_KEEP_SCREEN_ON`), continuous background audio playback, and gesture-free autoplay. |
 
-### 🚫 Built-in Ad & Tracker Blocker
-- **Zero-Dependency Interceptor**: Intercepts requests via `shouldInterceptRequest` against bundled domain blocklists (EasyList, AdGuard, tracking domains).
-- **Cosmetic Container Collapsing**: Dynamic `MutationObserver` collapses orphaned ad slots and white space to zero height.
-- **Zero Telemetry**: All filtering happens locally inside the app's memory without sending queries to third parties.
+---
+
+## ✨ Key Features & Hardening
+
+### 🛡️ 50+ Vector Stealth Privacy Shield
+Modern commercial tracking networks (FingerprintJS, CreepJS, DataDome, Cloudflare Bot Management) fingerprint mobile devices by probing micro-differences in hardware and rendering engines. Packora injects protective hooks at the DOM layer before page scripts execute:
+
+- **Canvas 2D**: Injects imperceptible cryptographic micro-noise into `toDataURL()` and `getImageData()`, randomizing canvas tracking hashes per session.
+- **WebGL GPU**: Normalizes `UNMASKED_RENDERER_WEBGL` and GPU vendor strings to generic high-end Adreno/Mali profiles and masks shader precision readbacks.
+- **AudioContext**: Adds micro-jitter (±0.0001) to audio oscillator buffer frequency readbacks, disrupting acoustic fingerprint curves.
+- **DOM Geometry**: Fractional subpixel perturbation on `getClientRects()` and `getBoundingClientRect()` to prevent layout-based font and scaling telemetry.
+- **WebRTC IP Leak**: Suppresses host-type ICE candidate generation, preventing intranet and VPN IP address exposure.
+- **System Attributes**: Normalizes `navigator.deviceMemory` to 8GB, clamps `navigator.hardwareConcurrency` to 8 cores, and reports constant 100% battery state.
+- **Session Hygiene**: Optional automatic wiping of cache, cookies, and local storage upon application exit.
+
+---
 
 ### 🔒 Encrypted DNS-over-HTTPS (DoH)
-- **9 Selectable Resolvers**:
-  1. Cloudflare DNS (`1.1.1.1`)
-  2. Google Public DNS (`8.8.8.8`)
-  3. AdGuard DNS (Ad-Blocking)
-  4. NextDNS
-  5. CleanBrowsing Security
-  6. Quad9 DNS (`9.9.9.9`)
-  7. Mullvad DoH
-  8. System Default
-  9. Custom User Endpoint
-- **Strict DoH Fallback Control**: Enforce encrypted transport with optional fallback controls.
-- **Scrollable M3 Selector**: Bounded height (`300.dp`), smooth vertical scrolling, midnight Material 3 theme, and automatic keyboard dismissal.
+Packora eliminates ISP tracking and DNS hijacking by resolving all network requests over encrypted HTTPS connections (RFC 8484). Choose from 9 built-in zero-logging resolvers:
 
-### 🔑 Deterministic Per-App Keystores
-- **Isolated Cryptographic Identity**: Generates unique RSA-3072 signing keys deterministic to each package name.
-- **Conflict-Free Updates**: Ensures WebAPKs built on different devices or at different times can be updated in-place without keystore mismatch errors.
-- **V2 & V3 Scheme Compliant**: Fully verified against Android's Package Manager and Google Play security checks.
-
-### 🧹 150+ Multilingual Smart Footer Hider
-- **Broad Language Coverage**: Detects footer elements across 16 languages (English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, Turkish).
-- **Dual-Phase Injection**: Early CSS injection (`display: none !important`) at `onPageStarted` prevents visual flashes, followed by `MutationObserver` at `onPageFinished`.
-- **Intelligent Protection**: Automatically protects interactive components, forms, modals, navigation drawers, and bottom tab bars.
-
-### 🔄 Dedicated Updates Hub
-- **Independent Navigation**: Dedicated Updates tab in the bottom navigation bar (`Icons.Outlined.SystemUpdate`) separating pending updates from installed apps.
-- **Instant Cold-Boot Scanning**: Scans installed apps in the background once upon application launch via `InstalledAppsManager` cache, eliminating screen-switch scanning lag.
-- **Streamlined Update Modes**:
-  - **Auto-Prompt** (*Default*): Automatically prompts the system installer as soon as compilation completes.
-  - **Manual**: Compiles updates and allows user inspection before manual installation.
-- **Dual-Action Ergonomics**: Compiled cards display side-by-side **Update** and **Install** actions.
-- **Sequential Batch Compilation**: Top banner enables 1-tap sequential updates across all installed apps with safe post-install APK deletion.
-- **Scrollable Release Notes**: Modal bottom sheet with bounded scrollable release notes that never overflows the viewport.
-
-### 📱 My Apps Management Hub
-- **Installed App Tracking**: Scans and displays WebAPKs generated by Packora on your device using cached background discovery.
-- **Strict Two-Button System**: Cards feature strictly two actions: **Open** (`FilledTonalButton`) and **Uninstall** (`FilledTonalButton` with error-tonal confirmation sheet).
-- **Comprehensive App Info Inspector**: Tap on any app card or info badge to open the dedicated `PackoraAppInfoBottomSheetDialog`, revealing complete architecture flags, privacy shield status, tracker blockers, encrypted DNS resolvers, and destination download path with 1-tap launch & system settings access.
-- **Compile Capability Badges**: Displays indicators for App Architecture (Offline HTML, SPA, Multi-Web, Media Player), Stealth Privacy, AdBlocker, DoH Provider, Per-App Key, and Hidden Footers.
-- **Instant Search & Sort**: Filter installed applications instantly by name, package ID, or installation date with smooth Compose item placement animations (`Modifier.animateItem()`).
-
-### 📜 Build History & Config Reusability
-- **Strict Two-Button System**: Cards feature strictly two actions: **Reuse Config** (`FilledTonalButton`) and **Remove** (`FilledTonalButton` with confirmation sheet).
-- **Complete 16-Parameter State Restoration**: Restores previous URLs, app architecture targets, privacy shield settings, ad-block filters, DNS providers, custom download folders, colors, and keystore settings into Build Studio in a single tap.
-- **Detailed Build Records & App Info**: Displays actual app icons, build timestamps, version numbers, package IDs, output paths, and offers full architecture inspection sheets.
-
-### 🎨 Dynamic App Icons & Theming
-- **12 Dynamic Launcher Icons**: Switch between 12 distinct launcher app icons (Original Classic Blue, Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx) via Android manifest activity aliases.
-- **12 Curated Themes & Color Accents**: Complete dark, light, and AMOLED themes precisely tuned to match every launcher icon style.
-
-### ⚙️ Settings & Modern Controls
-- **Authentic iOS Switch (`PackoraIosSwitch`)**: Custom toggle switch with smooth spring animations, 51×31dp track, and 27dp sliding thumb.
-- **Pulse Dot Loader (`PackoraDotLoader`)**: Custom 8-dot circular pulsing loader across all loading and compiling states.
-- **Auto-Delete APKs Toggle**: Automatically cleans up APK binaries after successful installation to save device storage.
-- **Browser Engine Selector**: Switch between System Default WebView, Chrome Engine, or Custom Tab runtimes.
+1. **Cloudflare DNS** (`https://cloudflare-dns.com/dns-query`) — Ultra-fast Anycast network (1.1.1.1)
+2. **Google Public DNS** (`https://dns.google/dns-query`) — Worldwide high-capacity resolver (8.8.8.8)
+3. **AdGuard DNS** (`https://dns.adguard-dns.com/dns-query`) — Built-in ad, tracker, and malware blocking
+4. **Quad9 DNS** (`https://dns.quad9.net/dns-query`) — Swiss privacy-focused security resolver
+5. **Mullvad DoH** (`https://doh.mullvad.net/dns-query`) — Strict zero-logging audited privacy resolver
+6. **Control D** (`https://freedns.controld.com/p0`) — High-performance resolver with zero telemetry
+7. **DNS.SB** (`https://doh.dns.sb/dns-query`) — European privacy-first non-censored resolver
+8. **CleanBrowsing** (`https://doh.cleanbrowsing.org/doh/security-filter/`) — Phishing and malicious domain protection
+9. **OpenDNS** (`https://doh.opendns.com/dns-query`) — Cisco Anycast recursive DNS infrastructure
+- **Custom DoH**: Option to configure any private or corporate HTTPS DNS endpoint.
 
 ---
 
-## 🔒 Permissions & Security Model
+### 🚫 Built-in EasyList Ad & Tracker Blocker
+- **Zero-Proxy Request Interception**: Intercepts web resource requests directly in `WebViewClient.shouldInterceptRequest` against 70,000+ EasyList and EasyPrivacy domain rules.
+- **Pre-Network Termination**: Blocked advertising and analytics requests are killed before packets leave the device, saving mobile data and accelerating load speeds.
+- **0ms Early CSS Footer Suppressor**: Suppresses intrusive mobile sticky footers, download prompts, and app banners before initial paint via high-priority CSS stylesheet injection.
 
-Packora adheres to strict privacy standards. It contains **no third-party tracking SDKs**, **no analytics**, and **no telemetry**. All compilation and signing happens locally on your device.
+---
 
-| Permission | Purpose in Packora |
-| :--- | :--- |
-| `INTERNET` | Loading web applications and downloading target web favicons. |
-| `ACCESS_NETWORK_STATE` | Detecting connectivity to display offline fallback screens. |
-| `QUERY_ALL_PACKAGES` | Inspecting installed WebAPKs for update status and management in My Apps. |
-| `REQUEST_INSTALL_PACKAGES` | Triggering native Android package installation for compiled APKs. |
-| `REQUEST_DELETE_PACKAGES` | Triggering native Android package uninstallation from My Apps bottom sheet. |
-| `POST_NOTIFICATIONS` | Delivering status bar notifications for build completion and WebAPK push events. |
-| `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE` | Selecting custom launcher icons and files from device storage. |
-| `CAMERA` / `RECORD_AUDIO` | Delegated to WebAPK runtime for HTML5 WebRTC video calls and audio capture. |
-| `ACCESS_FINE_LOCATION` | Delegated to WebAPK runtime for map services and geolocation. |
+### 🔑 Deterministic Isolated Keystores
+- **Zero Certificate Conflicts**: Eliminates Android "problem parsing package" and signature mismatch errors when updating installed apps.
+- **Package-Isolated Identities**: Each WebAPK receives a unique RSA-3072 keystore derived deterministically from its package name, preventing security boundary bleed between different applications.
+- **Full Signature Scheme Support**: Signs using APK Signature Scheme v1 (JAR signing) and v2/v3 (Whole-APK signing blocks).
+
+---
+
+### 📐 16KB ELF Page Boundary Alignment
+- **Android 15+ Compatibility**: Modern Android kernels use 16KB memory page sizes instead of legacy 4KB boundaries.
+- **Automatic Alignment**: Packora's internal `ElfAligner16k` automatically checks and re-aligns native shared libraries (`.so`) and uncompressed zip entries to strict 16,384-byte boundaries.
+
+---
+
+### 🔄 Updates Hub & Build History
+- **Dedicated Updates Center**: Automatically monitors remote web manifests and API endpoints for version updates.
+- **Batch Background Compilation**: Update multiple installed WebAPKs with one tap using animated progress tracking.
+- **SHA-256 Integrity Verification**: Inspect cryptographic checksums, build timestamps, and package sizes for every compiled artifact.
+- **1-Tap Config Reuse**: Instantly reload previous build configurations into Build Studio from history records.
+
+---
+
+### 📱 My Apps Studio Management
+- **Centralized Dashboard**: Filter, search, categorize, and launch all created WebAPKs.
+- **Startup App Scanning**: Scans installed packages once upon startup with in-memory session caching for instant, zero-lag navigation.
+- **In-App Architectural Inspection**: Rich details sheet showing exact architecture targets, active privacy shield vectors, DoH resolver endpoints, and custom download locations.
+
+---
+
+## 📸 Studio Gallery
+
+<div align="center">
+
+| WebAPK Build Studio | My Apps Dashboard | Updates Hub |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/build_screen.png" width="240" alt="Build Screen" /> | <img src="docs/assets/screenshots/my_apps_screen.png" width="240" alt="My Apps" /> | <img src="docs/assets/screenshots/updates_screen.png" width="240" alt="Updates" /> |
+
+| Build History & Artifacts | Icon Canvas Editor | Settings & Automation |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/history_screen.png" width="240" alt="History" /> | <img src="docs/assets/screenshots/icon_editor_menu.png" width="240" alt="Icon Editor" /> | <img src="docs/assets/screenshots/settings_screen.png" width="240" alt="Settings" /> |
+
+</div>
+
+---
+
+## 📊 Competitive Matrix
+
+| Feature | Packora v5.5.0 | Chrome PWA Shortcut | Hermit Lite Apps | Bubblewrap / TWA |
+| :--- | :---: | :---: | :---: | :---: |
+| **Standalone Native APK** | ✅ Real APK File | ❌ Browser Tab | ❌ Sandbox Container | ✅ Real APK File |
+| **100% On-Device Compilation** | ✅ No PC Needed | ✅ On-Device | ✅ On-Device | ❌ Requires PC & JDK |
+| **Deterministic RSA-3072 Keys** | ✅ Per Package | ❌ N/A | ❌ Shared Certificate | ⚠️ Manual Setup |
+| **50+ Vector Stealth Shield** | ✅ Comprehensive | ❌ None | ⚠️ Basic User-Agent | ❌ None |
+| **Encrypted DNS-over-HTTPS** | ✅ 9 Resolvers | ❌ OS Default | ❌ OS Default | ❌ OS Default |
+| **16KB ELF Page Alignment** | ✅ Android 15+ | ⚠️ Browser Dependent | ⚠️ Container Dependent | ⚠️ Toolchain Dependent |
+| **EasyList Ad Blocking** | ✅ Native (70k+ rules) | ❌ None | ⚠️ Basic Filters | ❌ None |
+| **License** | ✅ GPL-3.0 (Open) | ❌ Proprietary | ❌ Freemium / Closed | ✅ Open Source |
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Component | Library / Framework | Version | Details |
-| :--- | :--- | :--- | :--- |
-| **Language** | Kotlin | `2.2.10` | Coroutines, Flow, modern functional syntax |
-| **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Custom Components |
-| **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
-| **Signing Engine** | Android `apksig` & `PerAppSigningIdentity` | `v5.3.0` | Cryptographic V2 / V3 signatures & isolated RSA-3072 keystores |
-| **Privacy Shield** | In-House `PackoraFingerprintDisguise` | `v5.3.0` | 50+ vector anti-fingerprinting & WebRTC IP leak blocking |
-| **Ad Blocker** | In-House `PackoraAdBlocker` | `v5.3.0` | Zero-dependency high-speed domain & cosmetic ad blocker |
-| **Encrypted DNS** | In-House `PackoraDnsManager` (OkHttp DoH) | `v5.3.0` | 9 privacy DNS-over-HTTPS resolvers & custom DoH |
-| **Page Alignment** | In-House `ElfAligner16k` | `v5.3.0` | 16KB ELF boundary alignment for Android 15+ kernels |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v5.3.0` | Low-level byte-level binary manifest & resource rewriter |
-| **Template Engine** | In-House `:template` Shell | `v5.3.0` | High-performance standalone WebAPK runtime container |
+- **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) with Material 3 design system.
+- **Language**: Kotlin 2.2+ targeting JVM 17.
+- **Signing Engine**: Android `apksig` (APK Signature Scheme v1, v2, v3).
+- **Cryptography**: BouncyCastle Provider (RSA-3072, PKCS12 keystore derivation).
+- **Network Engine**: OkHttp 4 with DNS-over-HTTPS resolver plugins.
+- **Target OS**: Android 7.0 (API 24) through Android 15+ (API 35).
+- **Documentation Website**: Zero-dependency static site built purely in HTML5, CSS3, and Vanilla JavaScript.
 
 ---
 
-## 📂 Repository Structure
-
-```text
-Packora/
-├── app/                                 # Primary Packora application module
-│   ├── src/main/java/.../packora/
-│   │   ├── MainActivity.kt              # App entry point & navigation host
-│   │   ├── adblock/                     # Built-in Ad & Tracker Blocker
-│   │   ├── analyzer/                    # Deep page analyzer & metadata scraper
-│   │   ├── builder/                     # Binary compiler engine
-│   │   │   ├── ApkBuilder.kt            # Compilation pipeline orchestrator
-│   │   │   ├── AxmlRebuilder.kt         # Binary AndroidManifest.xml rebuilder
-│   │   │   ├── ArscRebuilder.kt         # Binary resources.arsc rebuilder
-│   │   │   ├── ElfAligner16k.kt         # 16KB ELF boundary aligner
-│   │   │   ├── JarSigner.kt             # apksig V2/V3 cryptographic signing
-│   │   │   ├── PerAppSigningIdentity.kt # Deterministic RSA-3072 key generator
-│   │   │   └── ZipAligner.kt            # 4-byte ZIP entry alignment
-│   │   ├── crypto/                      # Cryptographic utilities & key generation
-│   │   ├── dns/                         # Encrypted DNS-over-HTTPS (DoH) engine
-│   │   ├── extension/                   # Userscript & WebExtension runtime
-│   │   ├── manager/                     # Persistent system state managers
-│   │   │   ├── AppIconManager.kt        # Dynamic launcher app icons manager
-│   │   │   ├── AppUpdateManager.kt      # WebAPK update checker & installer
-│   │   │   ├── BuildHistoryManager.kt   # History tracking & auto-versioning
-│   │   │   └── PackoraPreferencesManager.kt # Settings, update modes & accents
-│   │   ├── model/                       # Data models & configuration objects
-│   │   ├── privacy/                     # Stealth Privacy Shield anti-fingerprinting
-│   │   ├── scraper/                     # Offline pack crawler & asset extractor
-│   │   └── ui/                          # Jetpack Compose UI screens
-│   │       ├── BuildScreen.kt           # Build Studio, bento toggles & DoH dialog
-│   │       ├── UpdatesScreen.kt         # Dedicated WebAPKs updates hub
-│   │       ├── MyAppsScreen.kt          # Installed WebAPKs manager & search
-│   │       ├── HistoryScreen.kt         # Build history grid & config reuse
-│   │       ├── SettingsScreen.kt        # App configuration & accents
-│   │       ├── AboutScreen.kt           # App info, credits & links
-│   │       └── components/              # Shared UI components (PackoraIosSwitch, PackoraDotLoader)
-│   └── proguard-rules.pro               # App module R8/ProGuard configuration
-├── template/                            # Embedded WebAPK shell source module
-│   ├── src/main/java/.../template/
-│   │   └── MainActivity.kt              # Standalone WebAPK activity container
-│   └── proguard-rules.pro               # Shell R8/ProGuard configuration
-├── docs/                                # Official documentation website (VitePress)
-│   ├── .vitepress/                      # Theme configuration & nav
-│   ├── guide/                           # Step-by-step guides & feature deep dives
-│   ├── developer/                       # Architecture & developer recipes
-│   └── index.md                         # Documentation portal landing page
-├── assets/                              # Screenshots & visual showcase assets
-├── CHANGELOG.md                         # Detailed version changelog
-├── LICENSE                              # GNU General Public License v3.0
-└── README.md                            # Project documentation
-```
-
----
-
-## 🏗️ Building from Source
+## 🚀 Building from Source
 
 ### Prerequisites
-- **JDK 17** or higher configured (`JAVA_HOME`).
-- **Android Studio Ladybug (2024.2+)** or command-line Android SDK.
-- **Android SDK Platform 35** and **Build-Tools 35.0.0**.
+- **JDK**: Version 17 or higher
+- **Android SDK**: Build-Tools `35.0.0`, Platform `android-35`
+- **Gradle**: 8.11+ (handled automatically by `./gradlew`)
 
-### Quick Build Instructions
-
+### Build Commands
 ```bash
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/maheswara660/Packora.git
 cd Packora
 
-# 2. Compile debug APK
-./gradlew :app:assembleDebug
+# Build release template shell and stage into app assets
+./gradlew :template:assembleRelease :app:copyTemplateApk
 
-# 3. Compile full release APKs (Universal + ABI splits)
-./gradlew :app:assembleRelease
+# Compile Packora debug APK and run unit tests
+./gradlew :app:assembleDebug :app:testDebugUnitTest
 ```
 
-Compiled APK files will be located at:
-- Debug: `app/build/outputs/apk/debug/app-debug.apk`
-- Release: `app/build/outputs/apk/release/`
+Compiled APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
-## 📚 Official Documentation
+## 📄 License & Credits
 
-Comprehensive documentation, tutorials, architecture deep dives, and developer recipes are available at:
-👉 **[Packora Documentation Portal](https://maheswara660.github.io/Packora/)**
+Packora is free and open-source software licensed under the **GNU General Public License v3.0 (GPL-3.0)**.  
+See the [LICENSE](LICENSE) file for complete terms.
 
-To run the documentation site locally:
-```bash
-cd docs
-npm install
-npm run dev
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are warmly welcome! Whether fixing a bug, suggesting a feature, or optimizing the binary engine:
-
-1. **Fork** the repository on GitHub.
-2. **Create a branch** for your feature:
-   ```bash
-   git checkout -b feature/my-new-feature
-   ```
-3. **Commit** your changes:
-   ```bash
-   git commit -m "feat: Add support for custom WebChromeClient geolocation"
-   ```
-4. **Push** to your fork:
-   ```bash
-   git push origin feature/my-new-feature
-   ```
-5. **Open a Pull Request** with a detailed explanation of your changes.
-
-Please make sure your code adheres to Kotlin coding conventions and passes `./gradlew :app:assembleDebug :app:testDebugUnitTest`.
-
----
-
-## 📜 License & Acknowledgments
-
-Packora is free and open-source software licensed under the **[GNU General Public License v3.0](LICENSE)**.
-
-- **Author & Lead Developer**: [Maheswara660](https://github.com/maheswara660)
-- **Support the Project**:
-  - [Buy me a coffee on Ko-fi](https://ko-fi.com/maheswara660)
-  - [GitHub Sponsors](https://github.com/sponsors/maheswara660)
-
----
-
-<p align="center">
-  <b>Packora v5.3.0 — Unlocking Web-to-APK Limits.</b><br>
-  Built with ❤️ for the Android open-source community.
-</p>
+Created and maintained with ❤️ by **[Maheswara660](https://github.com/maheswara660)**.

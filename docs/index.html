@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Packora — Next-Gen Standalone Android WebAPK Studio</title>
+  <meta name="description" content="Compile modern websites, PWAs, offline HTML bundles, and frontend SPAs into standalone, hardened Android applications directly on your device. Zero PC required.">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <meta property="og:title" content="Packora — Next-Gen Standalone Android WebAPK Studio">
+  <meta property="og:description" content="100% On-Device WebAPK compilation, 50+ vector stealth privacy shield, encrypted DoH, and 16KB ELF alignment for Android 15+.">
+  <meta property="og:image" content="assets/social-preview.png">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="brand">
+        <img src="assets/logo.png" alt="Packora Logo" class="brand-logo">
+        <span>Packora</span>
+        <span class="brand-badge">v5.5.0</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#simulator" class="nav-link">Studio Simulator</a></li>
+        <li><a href="#architectures" class="nav-link">5 Architectures</a></li>
+        <li><a href="#privacy" class="nav-link">Stealth Shield</a></li>
+        <li><a href="#engine" class="nav-link">Binary Engine</a></li>
+        <li><a href="#gallery" class="nav-link">App Gallery</a></li>
+        <li><a href="#comparison" class="nav-link">Comparison</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button id="btn-theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">☀️</button>
+        <a href="https://github.com/maheswara660/Packora/releases/latest" class="btn btn-primary btn-sm" target="_blank" rel="noreferrer">
+          Download APK
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-pill">
+        <span class="pill-dot"></span>
+        <span>Packora v5.5.0 • 100% On-Device Standalone WebAPK Compiler</span>
+      </div>
+
+      <h1 class="hero-title">Next-Gen Android<br>WebAPK Studio</h1>
+      
+      <p class="hero-subtitle">
+        Transform websites, offline HTML bundles, and frontend SPAs into native, hardened Android apps directly on your phone. Deterministic RSA signing, 50+ vector stealth shield, encrypted DNS, and 16KB page alignment — zero PC required.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://github.com/maheswara660/Packora/releases/latest" class="btn btn-primary" target="_blank" rel="noreferrer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Latest Release
+        </a>
+        <a href="https://github.com/maheswara660/Packora" class="btn btn-secondary" target="_blank" rel="noreferrer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+
+      <!-- Stats Ribbon -->
+      <div class="hero-stats-ribbon">
+        <div class="stat-item">
+          <span class="stat-value">5</span>
+          <span class="stat-label">Core Engines</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">50+</span>
+          <span class="stat-label">Privacy Vectors</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">9</span>
+          <span class="stat-label">DoH Resolvers</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">RSA-3072</span>
+          <span class="stat-label">Per-App Keys</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">16KB</span>
+          <span class="stat-label">ELF Aligned</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Studio Simulator -->
+  <section id="simulator" class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Interactive Studio Engine</span>
+        <h2 class="section-title">Simulate Your WebAPK Build Experience</h2>
+        <p class="section-desc">Test how Packora applies real-time privacy shields, instant 0ms CSS footer hiding, encrypted DNS, and native notifications right inside the browser.</p>
+      </div>
+
+      <div class="simulator-box">
+        <div class="sim-header">
+          <div class="sim-traffic">
+            <div class="sim-dots">
+              <span class="sim-dot d1"></span>
+              <span class="sim-dot d2"></span>
+              <span class="sim-dot d3"></span>
+            </div>
+            <span class="sim-title">Packora Studio Compiler v5.5.0</span>
+          </div>
+          <div class="sim-badge">
+            <span class="pill-dot"></span> On-Device Engine Ready
+          </div>
+        </div>
+
+        <div class="sim-body">
+          <!-- Presets -->
+          <div class="sim-presets-row">
+            <span class="sim-preset-label">Quick Presets:</span>
+            <button class="sim-preset-btn active" data-preset="linear">⚡ Linear</button>
+            <button class="sim-preset-btn" data-preset="github">🐙 GitHub</button>
+            <button class="sim-preset-btn" data-preset="notion">📝 Notion</button>
+            <button class="sim-preset-btn" data-preset="excalidraw">🎨 Excalidraw</button>
+          </div>
+
+          <!-- Architecture Selector -->
+          <span class="sim-arch-label">Target Architecture (5 Core Engines):</span>
+          <div class="sim-arch-grid">
+            <div class="sim-arch-card active" data-arch="web">
+              <span class="sim-arch-name">Web App (PWA)</span>
+              <span class="sim-arch-tag">Universal PWA</span>
+            </div>
+            <div class="sim-arch-card" data-arch="html">
+              <span class="sim-arch-name">Offline HTML5</span>
+              <span class="sim-arch-tag">100% Offline</span>
+            </div>
+            <div class="sim-arch-card" data-arch="frontend">
+              <span class="sim-arch-name">Frontend SPA</span>
+              <span class="sim-arch-tag">SPA Router</span>
+            </div>
+            <div class="sim-arch-card" data-arch="multi-web">
+              <span class="sim-arch-name">Multi-Web Hub</span>
+              <span class="sim-arch-tag">Tabbed Hub</span>
+            </div>
+            <div class="sim-arch-card" data-arch="media">
+              <span class="sim-arch-name">Immersive Media</span>
+              <span class="sim-arch-tag">Background Audio</span>
+            </div>
+          </div>
+
+          <!-- Metadata Inputs -->
+          <div class="sim-inputs-grid">
+            <div class="sim-input-group">
+              <label>Target URL / Endpoint</label>
+              <input id="target-url" type="url" value="https://linear.app" placeholder="https://example.com">
+            </div>
+            <div class="sim-input-group">
+              <label>App Name</label>
+              <input id="app-name" type="text" value="Linear" placeholder="App Name">
+            </div>
+            <div class="sim-input-group">
+              <label>Package Identity</label>
+              <input id="package-name" type="text" value="app.linear.packora" placeholder="com.example.packora">
+            </div>
+          </div>
+
+          <!-- Toggles Grid -->
+          <div class="sim-toggles-grid">
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>50+ Vector Stealth Shield</b>
+                <span>Spoof Canvas, WebGL, Audio & IP</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>EasyList Ad & Tracker Blocker</b>
+                <span>70,000+ domain filter rules</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>Instant 0ms Footer Suppressor</b>
+                <span>Hides web footers before paint</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>Encrypted DNS-over-HTTPS</b>
+                <span>9 zero-logging privacy resolvers</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>Native HTML5 Notifications</b>
+                <span>Real Android system push bridge</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+
+            <div class="sim-toggle-item">
+              <div class="sim-toggle-text">
+                <b>Deterministic RSA-3072 Keys</b>
+                <span>Isolated per-package identities</span>
+              </div>
+              <label class="ios-switch">
+                <input type="checkbox" checked>
+                <span class="ios-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div class="sim-progress-box">
+            <div class="sim-progress-bar">
+              <div id="progress-fill" class="sim-progress-fill"></div>
+            </div>
+            <div class="sim-progress-meta">
+              <span id="progress-text">Ready to compile standalone WebAPK on device.</span>
+              <span id="progress-pct">0%</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="sim-actions-row">
+            <button id="btn-compile" class="btn btn-primary sim-compile-btn">
+              Compile WebAPK Directly On Device
+            </button>
+            <button id="btn-test-notif" class="btn btn-secondary sim-notif-btn">
+              Test Web Notification
+            </button>
+          </div>
+
+          <!-- Simulated Android Notification Banner -->
+          <div id="sim-notification" class="sim-notif-banner" style="display: none;">
+            <div class="sim-notif-head">
+              <span id="notif-app-name">Linear • Android System</span>
+              <span>now</span>
+            </div>
+            <div class="sim-notif-content">
+              <div class="sim-notif-icon">🔔</div>
+              <div class="sim-notif-msg">
+                <b>HTML5 Push Notification Triggered</b>
+                <p>Packora HTML5 Web Notification Bridge active and delivering system-level alerts!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 Core Architectures -->
+  <section id="architectures" class="section" style="background: var(--bg-secondary);">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Versatile Studio</span>
+        <h2 class="section-title">Five Core Architectures</h2>
+        <p class="section-desc">Every project is unique. Packora provides dedicated execution engines tailored for specific web workloads.</p>
+      </div>
+
+      <div class="arch-cards-grid">
+        <div class="arch-feature-card highlight">
+          <div class="arch-icon-wrap">🌐</div>
+          <h3>Standard Web App (PWA)</h3>
+          <p>The universal responsive web wrapper. Packages any URL or PWA with full service worker persistence, pull-to-refresh, custom user-agents, and background audio streaming. Operates in an independent Android task stack with isolated cookies and DOM storage.</p>
+          <ul class="arch-specs-list">
+            <li>Service Workers, CacheStorage & IndexedDB enabled</li>
+            <li>Custom User-Agent & Desktop Viewport toggle</li>
+            <li>Pull-to-refresh & hardware-accelerated scroll</li>
+          </ul>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">📦</div>
+          <h3>Offline HTML5 Pack</h3>
+          <p>Package local HTML, CSS, JS, images, and fonts or scrape any website into a self-contained offline application. Assets are bundled directly into <code>assets/www/</code> and served over secure local file schemes with zero network requirement.</p>
+          <ul class="arch-specs-list">
+            <li>100% Offline execution without internet</li>
+            <li>Asset bundling directly into APK assets</li>
+            <li>Built-in recursive web crawler option</li>
+          </ul>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">⚡</div>
+          <h3>Frontend SPA</h3>
+          <p>Engineered for modern client-routed Single Page Applications (React, Vue, Svelte, Angular, Vite, Nuxt). Features automated client-side routing fallback so deep routes never trigger 404 errors inside Android WebView.</p>
+          <ul class="arch-specs-list">
+            <li>Client-side history & hash routing fallback</li>
+            <li>Persistent IndexedDB & LocalStorage</li>
+            <li>Instant startup latency with cached chunks</li>
+          </ul>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">📑</div>
+          <h3>Multi-Web Tabbed Hub</h3>
+          <p>Aggregates multiple website endpoints into a single application featuring an interactive native dark pill navigation bar. Users can switch between endpoints instantly without losing browsing state.</p>
+          <ul class="arch-specs-list">
+            <li>Native dark pill bottom navigation bar</li>
+            <li>Custom secondary tab destinations</li>
+            <li>Independent per-tab session state</li>
+          </ul>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">🎬</div>
+          <h3>Immersive Media Streamer</h3>
+          <p>Designed for HLS, DASH, audio streams, and live video. Automatically enforces screen wake lock (<code>FLAG_KEEP_SCREEN_ON</code>) and keeps audio playback active continuously in the background when turning off the screen.</p>
+          <ul class="arch-specs-list">
+            <li>Automatic screen keep-awake (wake lock)</li>
+            <li>Continuous background audio playback</li>
+            <li>Autoplay without user gesture gating</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stealth Privacy Shield (50+ Vectors) -->
+  <section id="privacy" class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Anti-Tracking</span>
+        <h2 class="section-title">50+ Vector Stealth Privacy Shield</h2>
+        <p class="section-desc">Commercial tracking networks fingerprint devices by probing hardware quirks and rendering differences. Packora intercepts and randomizes tracking telemetry directly at the DOM API layer.</p>
+      </div>
+
+      <div class="vectors-matrix">
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>Canvas 2D</h4>
+            <span class="vector-badge">Graphics</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Pixel hashing via <code>toDataURL()</code> and <code>getImageData()</code>.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Injects sub-perceptual cryptographic micro-noise into pixel buffers, randomizing tracking hashes per session without visual degradation.</p>
+        </div>
+
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>WebGL GPU</h4>
+            <span class="vector-badge">Hardware</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Probing <code>UNMASKED_RENDERER_WEBGL</code> and GPU vendor strings.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Spoofs GPU strings to generic high-end Adreno/Mali profiles and normalizes shader precision readbacks.</p>
+        </div>
+
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>AudioContext</h4>
+            <span class="vector-badge">Acoustic</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Oscillator frequency and FFT buffer fingerprinting.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Injects microscopic jitter (±0.0001) into audio buffer calculations, disrupting frequency curves.</p>
+        </div>
+
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>DOM Geometry</h4>
+            <span class="vector-badge">Telemetry</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Subpixel font rendering and layout scaling readbacks.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Perturbs <code>getClientRects()</code> and <code>getBoundingClientRect()</code> by minute fractions to neutralize telemetry.</p>
+        </div>
+
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>WebRTC IP Leak</h4>
+            <span class="vector-badge">Network</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Harvesting local private LAN and public IP via ICE candidates.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Suppresses host-type ICE candidate generation, preventing intranet and VPN IP leakage.</p>
+        </div>
+
+        <div class="vector-box">
+          <div class="vector-header">
+            <h4>System Attributes</h4>
+            <span class="vector-badge">Device</span>
+          </div>
+          <p class="attack-text"><strong>Vector:</strong> Battery level, CPU core count, and RAM capacity correlation.</p>
+          <p class="mitigation-text"><strong>Defense:</strong> Clamps battery reporting to 100% constant, normalizes RAM to 8GB, and sets standard 8-core CPU concurrency.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Binary Engine & Keystores -->
+  <section id="engine" class="section" style="background: var(--bg-secondary);">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Under the Hood</span>
+        <h2 class="section-title">On-Device Binary Compiler Engine</h2>
+        <p class="section-desc">Packora compiles and signs production WebAPKs directly on your phone in under 2 seconds without requiring Android Studio, Gradle daemons, or desktop computers.</p>
+      </div>
+
+      <div class="arch-cards-grid">
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">🛠️</div>
+          <h3>In-House AXML & ARSC Rebuilders</h3>
+          <p>Packora parses and rewrites compiled <code>AndroidManifest.xml</code> binary bytecode directly in byte buffers to patch package identifiers, application labels, and permissions. Compiled string tables in <code>resources.arsc</code> are re-indexed natively.</p>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">🔑</div>
+          <h3>Deterministic RSA-3072 Keystores</h3>
+          <p>Every app is signed using an isolated, cryptographically secure RSA-3072 keystore derived deterministically from package coordinates. Lifelong app updates install seamlessly over previous builds with zero certificate conflicts.</p>
+        </div>
+
+        <div class="arch-feature-card">
+          <div class="arch-icon-wrap">📐</div>
+          <h3>16KB ELF Page Boundary Alignment</h3>
+          <p>Android 15 introduces 16KB memory page support. Packora's internal zip engine aligns all native shared libraries (<code>.so</code>) and uncompressed assets to strict 16,384-byte boundaries for smooth performance on modern kernels.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots Gallery -->
+  <section id="gallery" class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Visual Tour</span>
+        <h2 class="section-title">Inside Packora Studio</h2>
+        <p class="section-desc">A refined, high-contrast monochrome interface designed for power users, clarity, and rapid WebAPK development.</p>
+      </div>
+
+      <div class="gallery-grid">
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/build_screen.png" alt="Build Screen">
+          </div>
+          <div class="gallery-info">
+            <h4>WebAPK Build Studio</h4>
+            <p>Configure architectures, URLs, icon customization, and privacy shields.</p>
+          </div>
+        </div>
+
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/my_apps_screen.png" alt="My Apps Dashboard">
+          </div>
+          <div class="gallery-info">
+            <h4>My Apps Hub</h4>
+            <p>Filter, search, launch, and inspect your compiled WebAPKs with zero lag.</p>
+          </div>
+        </div>
+
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/url_icon_selection_menu.png" alt="Icon Selector">
+          </div>
+          <div class="gallery-info">
+            <h4>High-Res Icon Extractor</h4>
+            <p>Scrapes vector favicons, Apple touch icons, and PWA manifests automatically.</p>
+          </div>
+        </div>
+
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/icon_editor_menu.png" alt="Canvas Editor">
+          </div>
+          <div class="gallery-info">
+            <h4>Icon Canvas Editor</h4>
+            <p>Fine-tune scale, padding, and corner color palettes with 1-tap matching.</p>
+          </div>
+        </div>
+
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/updates_screen.png" alt="Updates Hub">
+          </div>
+          <div class="gallery-info">
+            <h4>Updates Center</h4>
+            <p>Track remote manifest changes, batch compile updates, and verify SHA-256 hashes.</p>
+          </div>
+        </div>
+
+        <div class="gallery-card">
+          <div class="gallery-img-wrap">
+            <img src="assets/screenshots/history_screen.png" alt="Build History">
+          </div>
+          <div class="gallery-info">
+            <h4>Build History & Artifacts</h4>
+            <p>Inspect compiled APK sizes, timestamps, and reuse previous build configurations.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Matrix -->
+  <section id="comparison" class="section" style="background: var(--bg-secondary);">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-tag">Comparison</span>
+        <h2 class="section-title">Why Packora Outperforms the Rest</h2>
+        <p class="section-desc">See how Packora stacks up against standard browser shortcuts and container wrappers.</p>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="highlight-col">Packora v5.5.0</th>
+              <th>Chrome PWA Shortcut</th>
+              <th>Hermit Lite Apps</th>
+              <th>Bubblewrap / TWA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Standalone Native APK</strong></td>
+              <td class="highlight-col">✅ Real Standalone APK</td>
+              <td>❌ Browser Tab / Shell</td>
+              <td>❌ Sandbox Container</td>
+              <td>✅ Real APK</td>
+            </tr>
+            <tr>
+              <td><strong>100% On-Device Compilation</strong></td>
+              <td class="highlight-col">✅ No PC Needed</td>
+              <td>✅ On-Device</td>
+              <td>✅ On-Device</td>
+              <td>❌ Requires PC & JDK</td>
+            </tr>
+            <tr>
+              <td><strong>Deterministic RSA-3072 Signing</strong></td>
+              <td class="highlight-col">✅ Isolated Per Package</td>
+              <td>❌ N/A</td>
+              <td>❌ Shared Key</td>
+              <td>⚠️ Manual Keystore</td>
+            </tr>
+            <tr>
+              <td><strong>50+ Vector Stealth Shield</strong></td>
+              <td class="highlight-col">✅ Canvas, WebGL, Audio, IP</td>
+              <td>❌ None</td>
+              <td>⚠️ User-Agent Only</td>
+              <td>❌ None</td>
+            </tr>
+            <tr>
+              <td><strong>Encrypted DNS-over-HTTPS (DoH)</strong></td>
+              <td class="highlight-col">✅ 9 Built-in Resolvers</td>
+              <td>❌ OS Default Only</td>
+              <td>❌ OS Default Only</td>
+              <td>❌ OS Default Only</td>
+            </tr>
+            <tr>
+              <td><strong>16KB Page Alignment</strong></td>
+              <td class="highlight-col">✅ Android 15+ Ready</td>
+              <td>⚠️ Browser Dependent</td>
+              <td>⚠️ Container Dependent</td>
+              <td>⚠️ Build Tool Dependent</td>
+            </tr>
+            <tr>
+              <td><strong>Open Source & Free</strong></td>
+              <td class="highlight-col">✅ GPL-3.0 Auditable</td>
+              <td>❌ Proprietary</td>
+              <td>❌ Freemium / Proprietary</td>
+              <td>✅ Open Source</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Banner -->
+  <section class="section">
+    <div class="container">
+      <div class="cta-banner">
+        <h2>Ready to Build Standalone WebAPKs?</h2>
+        <p>Download the latest release of Packora and transform your favorite websites, SPAs, and offline HTML bundles into hardened Android applications directly on your phone.</p>
+        <div class="cta-btns">
+          <a href="https://github.com/maheswara660/Packora/releases/latest" class="btn btn-primary" target="_blank" rel="noreferrer">
+            Download Latest APK (v5.5.0)
+          </a>
+          <a href="https://github.com/maheswara660/Packora" class="btn btn-secondary" target="_blank" rel="noreferrer">
+            Explore GitHub Repository
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div>
+        <p>Released under the <strong>GNU General Public License v3.0 (GPL-3.0)</strong>.</p>
+        <p>Copyright © 2026 Maheswara660 · Packora</p>
+      </div>
+      <div class="footer-links">
+        <a href="#simulator">Simulator</a>
+        <a href="#architectures">Architectures</a>
+        <a href="#privacy">Privacy Shield</a>
+        <a href="#engine">Binary Engine</a>
+        <a href="https://github.com/maheswara660/Packora" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

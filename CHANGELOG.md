@@ -2,6 +2,20 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.5.0] - 2026-09-29
+### Added & Enhanced
+- **Streamlined History Screen Action Buttons**:
+  - Removed redundant App Info icon buttons from build history cards in `HistoryScreen`, creating a cleaner card layout with balanced "Reuse Config" and "Remove" actions.
+  - The comprehensive architectural inspection bottom sheet (`PackoraAppInfoBottomSheetDialog`) is preserved exclusively on `MyAppsScreen` where app-level inspections belong.
+- **Brand-New Zero-Dependency Website in Standard Web Languages**:
+  - Completely purged previous framework dependencies, VitePress tooling, and `node_modules`.
+  - Rebuilt the official website from scratch using pure **HTML5, CSS3, and Vanilla JavaScript** with zero external dependencies.
+  - Features an interactive in-browser **WebAPK Studio Simulator** with presets, architecture switching, toggle controls, and an animated 8-stage on-device compilation pipeline.
+  - Fully authentic documentation covering Packora's 5 core architectures, 50+ vector stealth privacy shield, 9 DoH resolvers, and low-level binary compilation engine.
+  - Deployed directly through GitHub Pages with a streamlined workflow requiring zero npm or build steps.
+- **Complete README.md Renewal**:
+  - Overhauled repository documentation with modern v5.5.0 badges, Mermaid compilation flowcharts, in-depth architectural breakdowns, comparison matrix, and Gradle build instructions.
+
 ## [5.4.0] - 2026-09-29
 ### Added & Enhanced
 - **Custom UI Module Unification Across All Screens**:

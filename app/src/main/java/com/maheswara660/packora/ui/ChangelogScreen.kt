@@ -34,9 +34,22 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "5.4.0",
+        version = "5.5.0",
         date = "September 29, 2026",
         isLatest = true,
+        summary = "Streamlined History Cards, Brand-New Zero-Dependency Website in Standard Languages (HTML/CSS/JS), and Complete README Renewal",
+        changes = listOf(
+            "Streamlined History Screen: Removed redundant App Info buttons from build history cards, reserving the detailed architectural inspection sheet exclusively for My Apps Screen.",
+            "Brand-New Lightweight Website: Replaced framework and toolchain dependencies with a fast, responsive, zero-dependency website built purely in HTML5, CSS3, and Vanilla JavaScript with 100% accurate Packora information.",
+            "Live Interactive Studio Simulator: Built-in interactive WebAPK compiler simulator running directly in the browser showcasing real-time architecture selection and binary compilation pipelines.",
+            "Complete README.md Renewal: Completely overhauled project documentation with modern release badges, on-device binary compiling flowcharts, 5 architecture deep-dives, and competitive matrix.",
+            "Workflow Modernization: Updated GitHub Pages deployment action to publish static site files directly without npm or build step overhead."
+        )
+    ),
+    ReleaseItem(
+        version = "5.4.0",
+        date = "September 29, 2026",
+        isLatest = false,
         summary = "Custom UI Module Unification (iOS Spring Switches & Check Indicators across All Screens), Rebuilt Kotlin Multiplatform Website from Scratch with Exact Packora Data",
         changes = listOf(
             "Custom UI Module Unification: Replaced all remaining standard Android Material Switch widgets with custom Packora iOS-styled spring switches (PackoraIosSwitch) across Build Studio (SPA Routing Fallback, Keep Screen On, Background Audio Playback).",

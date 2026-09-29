@@ -98,14 +98,5 @@ compose_compiler/
 temp_release
 temp/
 
-# Docs Website
-docs/node_modules/
-docs/.vitepress/dist/
-docs/.vitepress/.temp/
-docs/.vitepress/cache/
-
 # Scraper & Builder Temp Packages
 offline_pack_*
-
-# Kotlin Multiplatform Web Build
-kmp-web/build/

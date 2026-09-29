@@ -5,7 +5,6 @@ on:
     branches: [ "main", "master" ]
     paths:
       - 'docs/**'
-      - 'kmp-web/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
@@ -24,35 +23,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
         with:
           enablement: true
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: docs
-
-      - name: Build with VitePress
-        run: npm run build
-        working-directory: docs
-        env:
-          DOCS_BASE: /Packora/
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: docs
 
   deploy:
     environment:

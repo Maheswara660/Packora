@@ -13,10 +13,22 @@ Each card shows:
 - **Health dot** — a small status dot on the icon from URL health monitoring: green (online), amber (slow), red (offline).
 - **Preview thumbnail** — a captured screenshot of the site; tap it to re-capture.
 
+## Card Action Buttons
+
+Each app card provides ergonomic direct action buttons:
+
+- **Row 1**:
+  - **Open**: Launches the installed application instantly.
+  - **App Info**: Opens the Android system settings screen for the app (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`) to manage permissions, notifications, storage, and battery optimization.
+- **Row 2**:
+  - **Uninstall**: Dedicated full-width button to prompt clean uninstallation of the package.
+
 ## Interactions
 
-| Gesture | Result |
+| Action | Result |
 | --- | --- |
-| **Tap the card** | Preview the app |
+| **Tap Open** | Launches the installed WebAPK |
+| **Tap App Info** | Opens Android System App Details settings |
+| **Tap Uninstall** | Prompts system package uninstallation |
 | **Tap ⋮ on the card** | Open the [action menu](/guide/app-actions/edit-core-config) |
 | **Swipe the card left** | Quick [delete](/guide/app-actions/delete) (with confirmation) |

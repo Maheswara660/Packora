@@ -302,6 +302,17 @@ fun MyAppsScreen(
                                 modifier = Modifier.animateItem(),
                                 app = app,
                                 onOpen = { openApp(context, app.packageName) },
+                                onAppInfo = {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", app.packageName, null)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open App Info: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
                                 onUninstall = { appToUninstall = app }
                             )
                         }
@@ -694,6 +705,7 @@ private fun AppCard(
     modifier: Modifier = Modifier,
     app: InstalledPackoraApp,
     onOpen: () -> Unit,
+    onAppInfo: () -> Unit,
     onUninstall: () -> Unit
 ) {
     Card(
@@ -791,19 +803,36 @@ private fun AppCard(
                 }
 
                 FilledTonalButton(
-                    onClick = onUninstall,
+                    onClick = onAppInfo,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                        contentColor = MaterialTheme.colorScheme.error
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     modifier = Modifier.weight(1f).height(38.dp)
                 ) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("App Info", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            FilledTonalButton(
+                onClick = onUninstall,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth().height(38.dp)
+            ) {
+                Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

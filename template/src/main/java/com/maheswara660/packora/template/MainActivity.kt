@@ -68,6 +68,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import androidx.credentials.CustomCredential
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.credentials.CreateCredentialResponse
 import androidx.credentials.CreatePublicKeyCredentialRequest
@@ -456,7 +457,32 @@ class MainActivity : ComponentActivity() {
     // JavaScript Bridge to allow WebApp push notifications to show as real Android System Bar Notifications
     inner class NotificationBridge {
         @JavascriptInterface
-        fun showNotification(title: String, body: String, iconUrl: String?) {
+        fun requestPermission(): String {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                }
+            }
+            val isGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                NotificationManagerCompat.from(this@MainActivity).areNotificationsEnabled()
+            }
+            return if (isGranted) "granted" else "default"
+        }
+
+        @JavascriptInterface
+        fun getPermission(): String {
+            val isGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                NotificationManagerCompat.from(this@MainActivity).areNotificationsEnabled()
+            }
+            return if (isGranted) "granted" else "default"
+        }
+
+        @JavascriptInterface
+        fun showNotification(title: String?, body: String?, iconUrl: String?) {
             runOnUiThread {
                 try {
                     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -471,8 +497,16 @@ class MainActivity : ComponentActivity() {
                             description = "Notifications from Web App"
                             enableLights(true)
                             enableVibration(true)
+                            setShowBadge(true)
                         }
                         notificationManager.createNotificationChannel(channel)
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                            return@runOnUiThread
+                        }
                     }
 
                     val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
@@ -480,22 +514,26 @@ class MainActivity : ComponentActivity() {
                     }
                     val pendingIntent = PendingIntent.getActivity(
                         this@MainActivity,
-                        0,
+                        System.currentTimeMillis().toInt(),
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
                     )
 
                     val appTitle = config?.optString("appName", "Notification") ?: "Notification"
+                    val displayTitle = if (!title.isNullOrBlank()) title else appTitle
+                    val displayBody = body ?: ""
+
                     val builder = NotificationCompat.Builder(this@MainActivity, channelId)
                         .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle(if (title.isNotBlank()) title else appTitle)
-                        .setContentText(body)
-                        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                        .setContentTitle(displayTitle)
+                        .setContentText(displayBody)
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(displayBody))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent)
 
-                    val notificationId = (System.currentTimeMillis() % 10000).toInt()
+                    val notificationId = (System.currentTimeMillis() % 100000).toInt()
                     notificationManager.notify(notificationId, builder.build())
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -957,6 +995,7 @@ class MainActivity : ComponentActivity() {
                 injectPrivacyDisguise(view)
                 injectCosmeticAdFilter(view)
                 if (hideWebFooter) {
+                    injectInstantFooterCss(view)
                     injectWebFooterHider(view)
                 }
 
@@ -1286,60 +1325,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val targetUrl = config?.optString("targetUrl", "") ?: ""
-                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
-                val currentHost = uri.host?.lowercase()
-
-                val isSameDomainFamily = targetHost != null && currentHost != null && (
-                    currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost) ||
-                    currentHost.removePrefix("www.") == targetHost.removePrefix("www.") ||
-                    currentHost.split(".").takeLast(2) == targetHost.split(".").takeLast(2)
-                )
-
-                // 2. Intra-domain navigation and auth flows MUST remain directly inside this app's WebView
-                if (isSameDomainFamily || url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
-                    view?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
-                    return false // Load internally in app WebView!
-                }
-
-                // 3. Deep Linking to Popular Installed Native Apps (YouTube, Maps, etc.) - never other Packora apps
-                if (tryLaunchInInstalledNativeApp(url)) {
-                    return true
-                }
-
-                // 4. Automatic redirects vs User-initiated navigation
-                if (isRedirect) {
-                    // Block ad, popunder, and gambling promotional redirect links
-                    if (isAdOrGamblingUrl(url)) {
-                        return true
-                    }
-                    // Allow intra-domain, auth/login, CDNs, and Cloudflare/bot challenge verification
-                    if (isSameDomainFamily || url.contains("accounts.google.com") || isAuthOrLoginUrl(url, uri.host)) {
-                        return false
-                    }
-                    // For redirect-heavy sites (e.g. streaming mirror rotators, URL shorteners, news redirects):
-                    // Keep them inside WebView unless explicitly an external ad
-                    return false
-                }
-
-                // 5. User-initiated external links:
-                val openExternalLinks = webViewConfig?.optBoolean("openExternalLinks", false) ?: false
-                if (openExternalLinks && targetUrl.isNotEmpty() && !isSameDomainFamily) {
-                    try {
-                        val customTabsIntent = CustomTabsIntent.Builder().build()
-                        customTabsIntent.launchUrl(this@MainActivity, uri)
-                        return true
-                    } catch (e: Exception) {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, uri)
-                            startActivity(intent)
-                            return true
-                        } catch (ex: Exception) { }
-                    }
-                    return true
-                }
-
-                // By default keep all navigation running freely inside WebView
+                // Keep all web links and navigation directly inside this app's WebView!
                 return false
             }
         }
@@ -1357,223 +1343,17 @@ class MainActivity : ComponentActivity() {
 
                 val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
 
-                // Check if the popup target belongs to the current app's domain
-                val targetUrl = config?.optString("targetUrl", "") ?: ""
-                val targetHost = try { Uri.parse(targetUrl).host?.lowercase() } catch (e: Exception) { null }
-                val popupHost = try { if (!popupUrl.isNullOrBlank()) Uri.parse(popupUrl).host?.lowercase() else null } catch (e: Exception) { null }
-
-                if (targetHost != null && popupHost != null) {
-                    val cleanTarget = targetHost.removePrefix("www.")
-                    val cleanPopup = popupHost.removePrefix("www.")
-                    val targetRoot = cleanTarget.split(".").takeLast(2).joinToString(".")
-                    val popupRoot = cleanPopup.split(".").takeLast(2).joinToString(".")
-                    if (cleanPopup == cleanTarget || cleanPopup.endsWith(".$cleanTarget") || cleanTarget.endsWith(".$cleanPopup") || (targetRoot.isNotEmpty() && targetRoot == popupRoot)) {
-                        // Same domain link with target="_blank" -> Load directly in main WebView, no popup dialog needed!
-                        transport.webView = view
-                        resultMsg.sendToTarget()
-                        return true
-                    }
-                }
-
-                val isDark = isNightMode
-                val popupBgColor = if (isDark) Color.parseColor("#121212") else Color.WHITE
-                val topBarBgColor = if (isDark) Color.parseColor("#1E293B") else Color.parseColor("#F1F5F9")
-                val textColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
-                val subtextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
-
-                val popupWebView = WebView(this@MainActivity).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    @Suppress("DEPRECATION")
-                    settings.databaseEnabled = true
-                    settings.setSupportMultipleWindows(true)
-                    settings.javaScriptCanOpenWindowsAutomatically = true
-                    settings.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
-                    CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    setBackgroundColor(popupBgColor)
-
-                    // Strip X-Requested-With header on popup WebView so Google doesn't block with 403 disallowed_useragent
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        try {
-                            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
-                                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
-                            }
-                        } catch (e: Exception) {}
-                    }
-                }
-
-                val container = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    setBackgroundColor(popupBgColor)
-                }
-
-                val topBar = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt())
-                    gravity = Gravity.CENTER_VERTICAL
-                    setBackgroundColor(topBarBgColor)
-                    setPadding((16 * resources.displayMetrics.density).toInt(), 0, (12 * resources.displayMetrics.density).toInt(), 0)
-                }
-
-                val titleView = TextView(this@MainActivity).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    text = "Sign In / Secure Window"
-                    textSize = 14f
-                    typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(textColor)
-                }
-
-                val closeBtn = ImageView(this@MainActivity).apply {
-                    val size = (36 * resources.displayMetrics.density).toInt()
-                    layoutParams = LinearLayout.LayoutParams(size, size)
-                    setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                    setColorFilter(subtextColor)
-                    setPadding((6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt(), (6 * resources.displayMetrics.density).toInt())
-                    contentDescription = "Close"
-                }
-
-                val progressBar = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (3 * resources.displayMetrics.density).toInt())
-                    max = 100
-                    progress = 10
-                }
-
-                topBar.addView(titleView)
-                topBar.addView(closeBtn)
-                container.addView(topBar)
-                container.addView(progressBar)
-
-                popupWebView.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
-                container.addView(popupWebView)
-
-                val popupDialog = Dialog(this@MainActivity, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen).apply {
-                    setContentView(container)
-                    window?.apply {
-                        setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    }
-                    setCanceledOnTouchOutside(true)
-                    setCancelable(true)
-                    setOnDismissListener {
-                        try {
-                            popupWebView.stopLoading()
-                            popupWebView.destroy()
-                        } catch (e: Exception) {}
-                    }
-                    setOnKeyListener { _, keyCode, event ->
-                        if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                            if (popupWebView.canGoBack()) {
-                                popupWebView.goBack()
-                                true
-                            } else {
-                                dismiss()
-                                true
-                            }
-                        } else false
-                    }
-                }
-
-                closeBtn.setOnClickListener {
-                    try { popupDialog.dismiss() } catch (e: Exception) {}
-                }
-
-                popupWebView.webChromeClient = object : WebChromeClient() {
-                    override fun onCloseWindow(window: WebView?) {
-                        try { popupDialog.dismiss() } catch (e: Exception) {}
-                    }
-
-                    override fun onProgressChanged(v: WebView?, newProgress: Int) {
-                        super.onProgressChanged(v, newProgress)
-                        progressBar.progress = newProgress
-                        progressBar.visibility = if (newProgress >= 100) View.GONE else View.VISIBLE
-                    }
-
-                    override fun onReceivedTitle(v: WebView?, title: String?) {
-                        super.onReceivedTitle(v, title)
-                        if (!title.isNullOrBlank()) {
-                            titleView.text = title
-                        }
-                    }
-                }
-
-                popupWebView.webViewClient = object : WebViewClient() {
-                    override fun onPageStarted(v: WebView?, url: String?, favicon: Bitmap?) {
-                        super.onPageStarted(v, url, favicon)
-                        injectPasskeyPolyfill(v)
-                        injectAutoAcceptCookies(v)
-                    }
-
-                    override fun onPageFinished(v: WebView?, url: String?) {
-                        super.onPageFinished(v, url)
-                        try { CookieManager.getInstance().flush() } catch (e: Exception) {}
-                        injectPasskeyPolyfill(v)
-                        injectAutoAcceptCookies(v)
-
-                        // If login flow completed in popup and navigated back to target app domain, auto-close popup & refresh main WebView
-                        val currentHost = try { Uri.parse(url ?: "").host?.lowercase() } catch (e: Exception) { null }
-                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(url)) {
-                            try {
-                                popupDialog.dismiss()
-                                binding.webView.reload()
-                            } catch (e: Exception) {}
-                        }
-                    }
-
-                    @Suppress("DEPRECATION")
-                    override fun shouldOverrideUrlLoading(v: WebView?, url: String?): Boolean {
-                        if (url == null) return false
-                        if (isAdOrGamblingUrl(url)) return true
-                        if (url.contains("accounts.google.com") || isAuthOrLoginUrl(url)) {
-                            v?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
-                            return false
-                        }
-                        // Check if returned to main app
-                        val currentHost = try { Uri.parse(url).host?.lowercase() } catch (e: Exception) { null }
-                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(url)) {
-                            try {
-                                popupDialog.dismiss()
-                                binding.webView.loadUrl(url)
-                                return true
-                            } catch (e: Exception) {}
-                        }
-                        return false
-                    }
-
-                    override fun shouldOverrideUrlLoading(v: WebView?, req: WebResourceRequest?): Boolean {
-                        val target = req?.url?.toString() ?: return false
-                        if (isAdOrGamblingUrl(target)) {
-                            return true
-                        }
-                        if (target.contains("accounts.google.com") || isAuthOrLoginUrl(target)) {
-                            v?.settings?.userAgentString = getCleanDefaultUserAgent(this@MainActivity)
-                            return false // Let Google Account Chooser & Auth load inside popup window!
-                        }
-                        // Check if returned to main app
-                        val currentHost = try { req.url?.host?.lowercase() } catch (e: Exception) { null }
-                        if (targetHost != null && currentHost != null && (currentHost.endsWith(targetHost) || targetHost.endsWith(currentHost)) && !isAuthOrLoginUrl(target)) {
-                            try {
-                                popupDialog.dismiss()
-                                binding.webView.loadUrl(target)
-                                return true
-                            } catch (e: Exception) {}
-                        }
-                        if (tryLaunchInInstalledNativeApp(target)) {
-                            try { popupDialog.dismiss() } catch (e: Exception) {}
-                            return true
-                        }
-                        return false // Let popupWebView navigate internally
-                    }
-                }
-
-                transport.webView = popupWebView
+                // Load all window popups and target="_blank" links directly inside this app's main WebView
+                transport.webView = view ?: binding.webView
                 resultMsg.sendToTarget()
-                try { popupDialog.show() } catch (e: Exception) {}
                 return true
             }
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 super.onProgressChanged(view, newProgress)
+                if (newProgress > 15 && hideWebFooter) {
+                    injectInstantFooterCss(view)
+                }
                 if (newProgress > 25) {
                     syncWebPageThemeColor(view)
                 }
@@ -2262,26 +2042,55 @@ class MainActivity : ComponentActivity() {
             """
             (function() {
                 try {
-                    if (!window.Notification) {
-                        window.Notification = function(title, options) {
-                            options = options || {};
-                            var body = options.body || '';
-                            var icon = options.icon || '';
-                            if (window.AndroidNotification && window.AndroidNotification.showNotification) {
-                                window.AndroidNotification.showNotification(title, body, icon);
-                            }
-                        };
-                        window.Notification.permission = 'granted';
-                        window.Notification.requestPermission = function(cb) {
-                            if (cb) cb('granted');
-                            return Promise.resolve('granted');
-                        };
-                    } else {
-                        window.Notification.permission = 'granted';
-                        var origReq = window.Notification.requestPermission;
-                        window.Notification.requestPermission = function(cb) {
-                            if (cb) cb('granted');
-                            return Promise.resolve('granted');
+                    function PackoraNotification(title, options) {
+                        options = options || {};
+                        var body = options.body || '';
+                        var icon = options.icon || '';
+                        if (window.AndroidNotification && window.AndroidNotification.showNotification) {
+                            window.AndroidNotification.showNotification(title || '', body, icon);
+                        }
+                    }
+
+                    PackoraNotification.requestPermission = function(cb) {
+                        var perm = 'granted';
+                        if (window.AndroidNotification && window.AndroidNotification.requestPermission) {
+                            try { perm = window.AndroidNotification.requestPermission(); } catch(e) {}
+                        }
+                        PackoraNotification.permission = perm;
+                        if (cb) cb(perm);
+                        return Promise.resolve(perm);
+                    };
+
+                    try {
+                        var permStatus = 'granted';
+                        if (window.AndroidNotification && window.AndroidNotification.getPermission) {
+                            permStatus = window.AndroidNotification.getPermission();
+                        }
+                        PackoraNotification.permission = permStatus;
+                    } catch(e) {
+                        PackoraNotification.permission = 'granted';
+                    }
+
+                    PackoraNotification.prototype.close = function() {};
+                    PackoraNotification.prototype.addEventListener = function() {};
+                    PackoraNotification.prototype.removeEventListener = function() {};
+                    PackoraNotification.prototype.dispatchEvent = function() { return false; };
+
+                    try {
+                        Object.defineProperty(window, 'Notification', {
+                            value: PackoraNotification,
+                            writable: true,
+                            configurable: true,
+                            enumerable: true
+                        });
+                    } catch(e) {
+                        window.Notification = PackoraNotification;
+                    }
+
+                    if (typeof ServiceWorkerRegistration !== 'undefined' && ServiceWorkerRegistration.prototype) {
+                        ServiceWorkerRegistration.prototype.showNotification = function(title, options) {
+                            new PackoraNotification(title, options);
+                            return Promise.resolve();
                         };
                     }
                 } catch(e) {}
@@ -2347,12 +2156,52 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun injectInstantFooterCss(webView: WebView?) {
+        if (!hideWebFooter) return
+        val css = """
+            footer:not([role="navigation"]):not([role="tablist"]):not(.bottom-nav):not(.tab-bar),
+            [role="contentinfo"]:not([role="navigation"]):not([role="tablist"]),
+            #footer, #site-footer, #colophon, #site-info,
+            .site-footer, .page-footer, .main-footer, .global-footer, .footer,
+            .sub-footer, .bottom-footer, .footer-wrap, .footer-container, .footer-content, .footer-bar,
+            .copyright-area, .legal-notice, .site-info, .credit-footer,
+            [data-section*="footer" i], [data-area*="footer" i], [data-component*="footer" i],
+            div[class*="copyright" i]:not([role="navigation"]),
+            section[class*="copyright" i]:not([role="navigation"]) {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0px !important;
+                min-height: 0px !important;
+                max-height: 0px !important;
+                margin: 0px !important;
+                padding: 0px !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+        """.trimIndent().replace("\n", " ").replace("\"", "\\\"")
+
+        val script = """
+            (function() {
+                try {
+                    if (document.getElementById('__packora_instant_footer_style')) return;
+                    var style = document.createElement('style');
+                    style.id = '__packora_instant_footer_style';
+                    style.textContent = "$css";
+                    (document.head || document.documentElement).appendChild(style);
+                } catch(e) {}
+            })();
+        """.trimIndent()
+        webView?.evaluateJavascript(script, null)
+    }
+
     private fun injectWebFooterHider(webView: WebView?) {
+        if (!hideWebFooter) return
+        injectInstantFooterCss(webView)
         webView?.evaluateJavascript(
             """
             (function() {
                 try {
-                    var hideInfoFooters = function() {
+                    var hideCustomFooters = function() {
                         var selectors = [
                             'footer', '#footer', '[id*="footer" i]', '[id*="colophon" i]', '[id*="site-info" i]',
                             '.site-footer', '.page-footer', '.main-footer', '.global-footer', '.footer',
@@ -2365,89 +2214,53 @@ class MainActivity : ComponentActivity() {
                         ];
 
                         var keywords = [
-                            // Copyright, Legal, Licensing & Trademarks (Multi-Language)
-                            '©', '&copy;', 'copyright', 'all rights reserved', 'rights reserved', 'all rights', 'trademarks', 'trade marks',
-                            'registered trademark', 'registered trademarks', 'reg. u.s. pat.', 'creative commons', 'cc by', 'todos los derechos reservados',
-                            'tous droits réservés', 'alle rechte vorbehalten', 'tutti i diritti riservati', 'todos os direitos reservados',
-                            'alle rechten voorbehouden', 'все права защищены', '版权所有', '保留所有权利', '無断転載を禁じます', '모든 권리 보유',
-                            'सर्वाधिकार सुरक्षित', 'جميع الحقوق محفوظة', 'tüm hakları saklıdır',
-
-                            // Terms & Policies
-                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'terms of sale', 'terms & policies',
-                            'user agreement', 'service terms', 'conditions of use', 'general terms', 'site terms', 'nutzungsbedingungen',
-                            'conditions d\'utilisation', 'términos de uso', 'términos de servicio', 'términos y condiciones', 'termos de uso',
-                            'termos de serviço', 'termini di servizio', 'termini e condizioni', 'gebruiksvoorwaarden', 'algemene voorwaarden',
-                            'пользовательское соглашение', 'условия использования', '服务条款', '使用条款', '用户协议', '利用規約', '이용약관',
-                            'उपयोग की शर्तें', 'شروط الاستخدام', 'kullanım koşulları',
-
-                            // Privacy, Cookies & Consent
-                            'privacy policy', 'privacy notice', 'privacy statement', 'privacy practices', 'privacy center', 'privacy choices',
-                            'your privacy choices', 'consumer health data privacy', 'california privacy', 'ca privacy notice',
-                            'do not sell my personal info', 'do not sell my personal information', 'do not sell or share',
-                            'datenschutzerklärung', 'datenschutz', 'politique de confidentialité', 'données personnelles',
-                            'política de privacidad', 'política de privacidade', 'informativa sulla privacy', 'privacybeleid',
-                            'политика конфиденциальности', '隐私政策', '个人信息保护', 'プライバシーポリシー', '개인정보처리방침',
-                            'गोपनीयता नीति', 'سياسة الخصوصية', 'gizlilik politikası',
-                            'cookie policy', 'cookie preferences', 'cookie settings', 'manage cookies', 'cookies settings',
-                            'cookies preferences', 'cookie notice', 'cookies policy', 'gestión de cookies', 'gestion des cookies',
-                            'gestione dei cookie', 'cookie-instellingen', 'politica sui cookie', 'política de cookies',
-
-                            // Legal, Disclaimer, Imprint & Compliance
-                            'legal notice', 'legal information', 'legal notices', 'impressum', 'imprint', 'disclaimer', 'disclaimers',
-                            'liability notice', 'haftungsausschluss', 'mentions légales', 'avis juridique', 'aviso legal', 'note legali',
-                            'juridische kennisgeving', 'правовая информация', '法律声明', '免责声明', '特定商取引法', '법적 고지', 'yasal uyarı',
-                            'accessibility statement', 'accessibility policy', 'security policy', 'vulnerability reporting', 'compliance',
-                            'code of conduct', 'community guidelines', 'modern slavery statement', 'anti-slavery statement',
-                            'regulatory disclosures', 'icp备', '公网安备', '备案号', '增值电信业务', '经营许可证', '网安备', '사업자등록번호',
-
-                            // Platform Attribution & Hosting
-                            'powered by', 'proudly powered by', 'built with', 'published with', 'hosted by', 'designed by', 'developed by',
-                            'created by', 'made with love', 'theme by', 'wordpress', 'shopify', 'ghost.org', 'wix.com', 'squarespace',
-                            'webflow', 'gitbook', 'vitepress', 'docusaurus',
-
-                            // Site Info & Links
-                            'site map', 'sitemap', 'site directory', 'about us', 'contact us', 'contact support', 'help center', 'faq',
-                            'careers', 'press room', 'press releases', 'investor relations', 'affiliate disclosure', 'all system operational'
+                            '©', '&copy;', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks',
+                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'user agreement',
+                            'privacy policy', 'privacy notice', 'privacy statement', 'your privacy choices',
+                            'cookie policy', 'cookie preferences', 'cookie settings', 'manage cookies',
+                            'legal notice', 'impressum', 'imprint', 'disclaimer', 'accessibility statement',
+                            'powered by', 'proudly powered by', 'built with', 'published with',
+                            'site map', 'sitemap', 'about us', 'contact us'
                         ];
 
                         var candidates = document.querySelectorAll(selectors.join(', '));
-                        candidates.forEach(function(el) {
+                        for (var i = 0; i < candidates.length; i++) {
+                            var el = candidates[i];
                             var tag = (el.tagName || '').toUpperCase();
-                            if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') return;
-
-                            // Protection safeguard: Do NOT hide if element is a genuine docked/fixed bottom navigation bar or tablist
-                            var isAppNav = el.querySelector('[role="tablist"], [class*="bottom-nav" i], [class*="tab-bar" i], [class*="tabbar" i], [class*="docked-nav" i], [class*="dock-bar" i], [class*="app-bar-bottom" i]');
-                            if (isAppNav) return;
-
-                            // Protect large layout containers exceeding 75% of viewport
-                            var rect = el.getBoundingClientRect();
-                            if (rect.height > window.innerHeight * 0.75) return;
+                            if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') continue;
+                            if (el.querySelector('[role="tablist"], [class*="bottom-nav" i], [class*="tab-bar" i], [class*="tabbar" i]')) continue;
 
                             var text = (el.innerText || el.textContent || '').toLowerCase();
-                            var hasInfoKeyword = keywords.some(function(kw) { return text.includes(kw); });
-
-                            // Also detect structural footers near bottom of document
-                            var isBottomLocated = (rect.top > window.innerHeight * 0.3) || (el.offsetTop > (document.documentElement.scrollHeight * 0.4));
-                            var isStructuralFooter = (tag === 'FOOTER' || el.getAttribute('role') === 'contentinfo' || (el.classList && (el.classList.contains('site-footer') || el.classList.contains('page-footer')))) && isBottomLocated;
-
-                            if (hasInfoKeyword || isStructuralFooter) {
+                            var match = tag === 'FOOTER' || el.getAttribute('role') === 'contentinfo';
+                            if (!match) {
+                                for (var k = 0; k < keywords.length; k++) {
+                                    if (text.indexOf(keywords[k]) !== -1) {
+                                        match = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (match) {
                                 el.style.setProperty('display', 'none', 'important');
+                                el.style.setProperty('visibility', 'hidden', 'important');
                                 el.style.setProperty('height', '0px', 'important');
                                 el.style.setProperty('min-height', '0px', 'important');
                                 el.style.setProperty('max-height', '0px', 'important');
-                                el.style.setProperty('margin', '0px', 'important');
-                                el.style.setProperty('padding', '0px', 'important');
                                 el.style.setProperty('opacity', '0', 'important');
-                                el.style.setProperty('visibility', 'hidden', 'important');
                                 el.style.setProperty('pointer-events', 'none', 'important');
                             }
-                        });
+                        }
                     };
 
-                    hideInfoFooters();
+                    hideCustomFooters();
                     if (!window.__packora_footer_observer) {
+                        var timer = null;
                         window.__packora_footer_observer = new MutationObserver(function() {
-                            hideInfoFooters();
+                            if (timer) return;
+                            timer = setTimeout(function() {
+                                timer = null;
+                                hideCustomFooters();
+                            }, 200);
                         });
                         window.__packora_footer_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
                     }

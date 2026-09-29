@@ -2,6 +2,29 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.1.0] - 2026-09-29
+### Added & Enhanced
+- **In-Place Update Signature Conflict Fix (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`)**:
+  - Permanently resolved the Android package installer "There was a problem parsing the package" error during in-place app updates.
+  - Automatically inspects the SHA-256 certificate fingerprint of any already-installed app before compilation and selects the matching signer (`default` vs `per-app`), ensuring seamless update installations without requiring uninstallation.
+- **Native HTML5 Web Notifications Bridge**:
+  - Added full JavaScript bridging for standard `window.Notification` constructors, `Notification.permission`, `Notification.requestPermission()`, and PWA Service Worker push notifications (`ServiceWorkerRegistration.prototype.showNotification`).
+  - Web notifications trigger native Android system bar notifications with app title, custom icons, and dedicated notification channels on Android 8.0+ and Android 13+ runtime permissions.
+- **0ms Instant Footer Suppressor**:
+  - Injected ultra-early CSS stylesheet rules directly at `onPageStarted` and when progress exceeds 15% to suppress sticky footers and mobile app promotion banners before initial paint.
+  - Optimized DOM `MutationObserver` with 200ms throttled scans to eliminate layout shift delays while safely preserving navigation bars and interactive modals.
+- **In-App Web Navigation Freedom**:
+  - Removed popup WebView dialogs and external browser kickouts; all web links, OAuth redirects, and `target="_blank"` popup windows load cleanly inside the main app WebView without leaving the app.
+- **My Apps Screen App Info Button**:
+  - Added dedicated "App Info" button launching Android system application details settings (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`).
+  - Positioned "App Info" alongside "Open" in Row 1, and placed "Uninstall" alone on Row 2 with a full-width ergonomic touch target.
+- **About Screen Official Website Link**:
+  - Added official Packora website card tile under Connect & Support for instant access to docs and releases.
+- **Full Options Parity**:
+  - Harmonized configuration options across Build Studio, Build History, Update Center, and Template runtime engines.
+- **Complete Documentation Homepage Redesign**:
+  - Redesigned `docs/index.md` and `docs/.vitepress/theme/custom.css` with a high-end UI design standard (Stripe/Linear caliber) featuring an interactive WebAPK Studio simulator, modern Bento grid architecture, and a competitive comparison matrix.
+
 ## [5.0.0] - 2026-09-26
 ### Added & Enhanced
 - **Stealth Privacy Shield (50+ Fingerprinting Vectors Blocked)**:

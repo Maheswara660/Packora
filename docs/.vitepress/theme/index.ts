@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import LatestRelease from './LatestRelease.vue'
 import CustomLayout from './CustomLayout.vue'
+import StudioSimulator from './StudioSimulator.vue'
 import './custom.css'
 
 export default {
@@ -9,5 +10,6 @@ export default {
   Layout: CustomLayout,
   enhanceApp({ app }) {
     app.component('LatestRelease', LatestRelease)
+    app.component('StudioSimulator', StudioSimulator)
   }
 } satisfies Theme

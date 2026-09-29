@@ -112,6 +112,20 @@ fun AboutScreen(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         AboutActionTile(
+                            icon = Icons.Rounded.Language,
+                            title = "Official Website",
+                            description = "Documentation, guides, and releases",
+                            onClick = {
+                                uriHandler.openUri("https://maheswara660.github.io/Packora/")
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        AboutActionTile(
                             icon = Icons.Rounded.Code,
                             title = "GitHub Repository",
                             description = "View source code, star, and contribute",
@@ -200,9 +214,9 @@ fun HeroAppCard() {
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "5.0.0"
+            pInfo.versionName ?: "5.1.0"
         } catch (e: Exception) {
-            "5.0.0"
+            "5.1.0"
         }
     }
 
@@ -211,7 +225,7 @@ fun HeroAppCard() {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pInfo).toString()
         } catch (e: Exception) {
-            "50"
+            "51"
         }
     }
 

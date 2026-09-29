@@ -81,7 +81,7 @@ class BuildHistoryManager(context: Context) {
                         disguiseFingerprint = obj.optBoolean("disguiseFingerprint", false),
                         adBlockEnabled = obj.optBoolean("adBlockEnabled", false),
                         dohProvider = obj.optString("dohProvider", "SYSTEM"),
-                        perAppSigning = obj.optBoolean("perAppSigning", true),
+                        perAppSigning = if (obj.has("perAppSigning")) obj.optBoolean("perAppSigning", true) else false,
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
                         iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null

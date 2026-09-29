@@ -49,6 +49,7 @@
 
 # 3. Binary Rebuilders & WebAPK Generator Engine
 -keep class com.maheswara660.packora.builder.ApkBuilder { *; }
+-keep class com.maheswara660.packora.builder.ApkBuilder$* { *; }
 -keep class com.maheswara660.packora.builder.ApkTemplate { *; }
 -keep class com.maheswara660.packora.builder.AxmlRebuilder { *; }
 -keep class com.maheswara660.packora.builder.ArscRebuilder { *; }
@@ -59,6 +60,8 @@
 -keep class com.maheswara660.packora.builder.AppLogger { *; }
 
 # 4. Data classes & Models — preserve field names for serialization/reflection safety
+-keep class com.maheswara660.packora.manager.HistoryItem { *; }
+-keepclassmembers class com.maheswara660.packora.manager.HistoryItem { *; }
 -keepclassmembers class com.maheswara660.packora.** {
     public <init>(...);
 }

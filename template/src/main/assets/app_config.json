@@ -5,7 +5,7 @@
   "versionCode": 1,
   "versionName": "1.0",
   "webViewConfig": {
-    "openExternalLinks": true,
+    "openExternalLinks": false,
     "desktopMode": false,
     "enableWebFooter": false,
     "hideWebFooter": true,

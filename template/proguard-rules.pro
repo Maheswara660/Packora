@@ -8,6 +8,9 @@
 
 # 2. Main WebAPK Container Activity & Template Engine
 -keep class com.maheswara660.packora.template.** { *; }
+-keepclassmembers class com.maheswara660.packora.template.MainActivity$* {
+    public <methods>;
+}
 
 # 3. Keep WebView client classes & WebChromeClient handlers
 -keep class * extends android.webkit.WebViewClient { *; }
@@ -25,8 +28,11 @@
 -keep class com.google.android.gms.auth.** { *; }
 -dontwarn com.google.android.gms.auth.**
 
-# 6. FileProvider & Core Components
+# 6. Notifications & Core AndroidX Compat
+-keep class androidx.core.app.NotificationCompat** { *; }
+-keep class androidx.core.app.NotificationManagerCompat** { *; }
 -keep class androidx.core.content.FileProvider { *; }
+-keep class androidx.core.content.ContextCompat { *; }
 
 # 7. Preserve stack trace line numbers for crash debugging
 -keepattributes SourceFile,LineNumberTable,*Annotation*,InnerClasses,EnclosingMethod

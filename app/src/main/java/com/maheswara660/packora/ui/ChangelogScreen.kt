@@ -34,9 +34,25 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
+        version = "5.1.0",
+        date = "September 29, 2026",
+        isLatest = true,
+        summary = "In-Place Update Signature Fix, Native HTML5 Web Notifications, Instant 0ms Footer Suppressor, App Info Settings Action, In-App Web Link Navigation Freedom, Complete Docs Redesign",
+        changes = listOf(
+            "In-Place Update Signature Conflict Fix: Permanently resolved the Android installer 'There was a problem parsing the package' error during app updates by automatically detecting installed certificate fingerprints and aligning signing identity.",
+            "Native HTML5 Web Notifications Bridge: Complete bridge for window.Notification, Notification.requestPermission(), and Service Worker push notifications routed directly into Android system notifications with app icons and action intents.",
+            "0ms Instant Footer Suppressor: Early CSS stylesheet injection at onPageStarted and onProgressChanged with 200ms debounced MutationObserver eliminates detection delays and layout shifts.",
+            "In-App Web Navigation Freedom: Removed popup WebView dialogs and external browser kickouts; all links and target=_blank tabs navigate freely within the primary app WebView.",
+            "My Apps Screen App Info Action: Added 'App Info' button launching system application details settings, positioned alongside 'Open', with a dedicated full-width 'Uninstall' button row.",
+            "About Screen Official Website Link: Added verified Packora website link card in About screen for instant access to docs and releases.",
+            "Cross-Module Option Parity: Harmonized all configuration options across Build Studio, Build History, Updates Center, and Template runtime engines.",
+            "Modern Documentation Redesign: Complete redesign of the Packora documentation homepage featuring an interactive WebAPK Studio simulator, modern Bento grid, and competitive comparison matrix."
+        )
+    ),
+    ReleaseItem(
         version = "5.0.0",
         date = "September 26, 2026",
-        isLatest = true,
+        isLatest = false,
         summary = "Stealth Privacy Shield (50+ Vectors), Ad & Tracker Blocker, Encrypted DoH Engine (9 Resolvers), Per-App Signing Keys, 150+ Language Smart Footer Hider, Universal Reset",
         changes = listOf(
             "Stealth Privacy Shield: Client-side anti-fingerprinting shielding Canvas 2D hashes, WebGL GPU renderer strings, AudioContext oscillators, DOM ClientRects subpixel jittering, and WebRTC IP leak blocking with live badge indicators.",

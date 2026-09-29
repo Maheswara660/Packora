@@ -290,7 +290,34 @@ class ApkBuilder(private val context: Context) {
             }
 
             onProgress(80, "Signing APK...")
-            val signingIdentity = if (!isCustomSigningActive && perAppSigningEnabled) {
+            val installedCertSha256 = getInstalledAppCertSha256Hex(context, packageName)
+
+            val signingIdentity = if (isCustomSigningActive) {
+                null
+            } else if (installedCertSha256 != null) {
+                // Package is already installed on device:
+                // Match its certificate so in-place update succeeds without parse error / signature mismatch!
+                val defaultCertSha256 = try {
+                    signer.getCertificateSignatureHash().joinToString("") { "%02x".format(it) }
+                } catch (e: Exception) { null }
+
+                val perAppIdentity = try {
+                    PerAppSigningIdentity.identityFor(context, packageName)
+                } catch (e: Exception) { null }
+
+                if (defaultCertSha256 != null && installedCertSha256.equals(defaultCertSha256, ignoreCase = true)) {
+                    AppLogger.i("ApkBuilder", "Installed app matches default keystore. Using default signer for seamless update.")
+                    null
+                } else if (perAppIdentity != null && installedCertSha256.equals(perAppIdentity.certSha256Hex(), ignoreCase = true)) {
+                    AppLogger.i("ApkBuilder", "Installed app matches per-app signing identity. Using per-app signer.")
+                    perAppIdentity.toSigningIdentity()
+                } else if (perAppSigningEnabled && perAppIdentity != null) {
+                    AppLogger.w("ApkBuilder", "Installed app cert unrecognized; following perAppSigning setting.")
+                    perAppIdentity.toSigningIdentity()
+                } else {
+                    null
+                }
+            } else if (perAppSigningEnabled) {
                 try {
                     PerAppSigningIdentity.identityFor(context, packageName).toSigningIdentity()
                 } catch (e: Exception) {
@@ -471,7 +498,7 @@ class ApkBuilder(private val context: Context) {
             put("versionCode", versionCode)
             put("versionName", versionName)
             put("webViewConfig", JSONObject().apply {
-                put("openExternalLinks", true)
+                put("openExternalLinks", false)
                 put("desktopMode", isDesktopMode)
                 put("browserEngine", browserEngine)
                 put("allowCopying", allowCopying)
@@ -572,6 +599,31 @@ class ApkBuilder(private val context: Context) {
             canvas.drawLine(342f, 190f, 382f, 130f, paint)
 
             return bitmap
+        }
+
+        private fun getInstalledAppCertSha256Hex(context: Context, packageName: String): String? {
+            return try {
+                val pm = context.packageManager
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    val pi = pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+                    val history = pi.signingInfo?.signingCertificateHistory
+                    val certs = if (pi.signingInfo?.hasMultipleSigners() == true) {
+                        pi.signingInfo?.apkContentsSigners
+                    } else history
+                    certs?.firstOrNull()?.let { cert ->
+                        java.security.MessageDigest.getInstance("SHA-256").digest(cert.toByteArray()).joinToString("") { "%02x".format(it) }
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    val pi = pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+                    @Suppress("DEPRECATION")
+                    pi.signatures?.firstOrNull()?.let { cert ->
+                        java.security.MessageDigest.getInstance("SHA-256").digest(cert.toByteArray()).joinToString("") { "%02x".format(it) }
+                    }
+                }
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 }

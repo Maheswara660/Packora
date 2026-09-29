@@ -36,6 +36,7 @@ import androidx.core.content.pm.PackageInfoCompat
 import com.maheswara660.packora.builder.ApkBuilder
 import com.maheswara660.packora.incrementVersionString
 import com.maheswara660.packora.installApkFile
+import com.maheswara660.packora.installer.PackageInstallerHelper
 import com.maheswara660.packora.manager.BuildHistoryManager
 import androidx.compose.animation.*
 import com.maheswara660.packora.manager.HistoryItem
@@ -100,7 +101,18 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
             currentInstallingApp = next
             coroutineScope.launch {
                 delay(400)
-                installApkFile(context, next.apkPath)
+                val mode = prefsManager.updateInstallMode
+                if (mode == UpdateInstallMode.AUTOMATE_ALL || mode == UpdateInstallMode.UPDATE_ALL_ONLY) {
+                    PackageInstallerHelper.installPackage(
+                        context = context,
+                        apkPath = next.apkPath,
+                        packageName = next.packageName,
+                        appName = next.appName,
+                        silent = true
+                    )
+                } else {
+                    installApkFile(context, next.apkPath)
+                }
             }
         } else {
             currentInstallingApp = null
@@ -270,10 +282,22 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                     )
                 )
                 compiledApkPaths[app.packageName] = generatedApk!!
-                if (prefsManager.updateInstallMode == UpdateInstallMode.AUTO_PROMPT) {
-                    installApkFile(context, generatedApk!!)
-                } else {
-                    Toast.makeText(context, "Update compiled for ${app.appName}! Tap Install to proceed.", Toast.LENGTH_SHORT).show()
+                when (prefsManager.updateInstallMode) {
+                    UpdateInstallMode.AUTOMATE_ALL -> {
+                        PackageInstallerHelper.installPackage(
+                            context = context,
+                            apkPath = generatedApk!!,
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            silent = true
+                        )
+                    }
+                    UpdateInstallMode.AUTO_PROMPT, UpdateInstallMode.UPDATE_ALL_ONLY -> {
+                        installApkFile(context, generatedApk!!)
+                    }
+                    UpdateInstallMode.MANUAL -> {
+                        Toast.makeText(context, "Update compiled for ${app.appName}! Tap Install to proceed.", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 refreshApps(showLoading = false)
             } else {

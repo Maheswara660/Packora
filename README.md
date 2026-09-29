@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v5.1.0</h1>
+<h1 align="center">Packora v5.2.0</h1>
 
 <p align="center">
   <b>Next-Gen Standalone Android WebAPK Compiler — 100% On-Device, Offline & Privacy-Hardened.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.1.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.1.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.2.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.2.0"></a>
   <a href="https://maheswara660.github.io/Packora/"><img src="https://img.shields.io/badge/Documentation-Website-2563EB?style=for-the-badge&logo=vitepress&logoColor=white" alt="Documentation"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
@@ -32,6 +32,7 @@
 - [Overview](#-overview)
 - [Screenshots](#-screenshots)
 - [Architecture & How It Works](#-architecture--how-it-works)
+- [What's New in v5.2.0](#-whats-new-in-v520)
 - [What's New in v5.1.0](#-whats-new-in-v510)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [🎨 Dashboard & WebAPK Build Studio](#-dashboard--webapk-build-studio)
@@ -108,6 +109,31 @@ graph TD
 5. **V2/V3 APK Signature**: Generates RFC-compliant cryptographic signatures on-device using Android `apksig`.
 
 ---
+
+## 🚀 What's New in v5.2.0
+
+- **⚙️ Restored 4 Update Installation Modes with Full Background Automation**:
+  - Restored complete 4-tier update installation modes in Settings: `AUTO_PROMPT` (*Default*), `MANUAL`, `UPDATE_ALL_ONLY` ("Automate 'Update All' Only"), and `AUTOMATE_ALL` ("Automate All Updates").
+  - Seamlessly integrates `PackageInstallerHelper` for silent unattended installations on Android 12+ (API 31+) while preserving standard interactive installer prompts.
+- **🛡️ Material 3 Play Protect Warning BottomSheet**:
+  - Added a native Material 3 bottom sheet dialog styled consistently with all Packora menus (like the Changelog dialog) featuring a single ergonomic **"UNDERSTOOD"** button.
+  - Transparently explains to users why Google Play Protect scanning must be disabled to automate background updates without OS-level session aborts.
+- **⚡ Auto-Prompt Package Installer Reliability Fix**:
+  - Fixed issues where the installer prompt did not launch after compiling updates:
+    - Added verification for Android 8.0+ `REQUEST_INSTALL_PACKAGES` permission via `canRequestPackageInstalls()`, prompting the user directly to grant permission if missing.
+    - Added support for both filesystem paths and SAF `content://` URIs with explicit `FLAG_GRANT_READ_URI_PERMISSION`.
+    - Added reliable cached APK fallback in `context.cacheDir` to prevent FileProvider permission failures across scoped storage directories.
+- **❄️ Template Screen Freeze & Touch Lock Elimination**:
+  - Permanently fixed screen freezes and unclickable touch states in compiled WebAPKs:
+    - Removed unthrottled `MutationObserver` loops from cosmetic ad filtering that caused infinite reflows and 100% V8 JS main-thread CPU starvation.
+    - Debounced all remaining DOM observers (300ms–400ms) and configured automatic disconnection after 10–12 seconds once initial page rendering settles.
+    - Refined footer suppressor selectors to strictly semantic tags (`footer`, `[role="contentinfo"]`, `#footer`, `.site-footer`, `.page-footer`), completely eliminating broad class wildcards like `[class*="footer" i]` and `.footer-container` that previously hid whole-page layout wrappers.
+    - Removed `pointer-events: none` property overrides to ensure touch dispatch is never disabled.
+    - Restored viewport height guards (`height < 35%`) and protected `<main>`, `<article>`, `<form>`, and `<nav>` elements.
+    - Added automatic body and HTML `overflow: hidden` restoration to prevent consent overlays from locking screen scrolling.
+- **📱 Fluid Multi-Screen Responsive Documentation Redesign**:
+  - Overhauled documentation homepage (`docs/index.md`, `custom.css`, and `StudioSimulator.vue`) ensuring fluid scalability across mobile phones, tablets, and desktop computers.
+  - Added responsive breakpoints (`> 1024px`, `768px–1024px`, `480px–767px`, `< 480px`) with CSS `clamp()` fluid typography, touch-friendly 48px full-width mobile action buttons, clean vertical timeline steppers, touch-scrollable comparison tables, and screen-bounded notification mockups.
 
 ## 🚀 What's New in v5.1.0
 
@@ -285,13 +311,13 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **Language** | Kotlin | `2.2.10` | Coroutines, Flow, modern functional syntax |
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Custom Components |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
-| **Signing Engine** | Android `apksig` & `PerAppSigningIdentity` | `v5.1.0` | Cryptographic V2 / V3 signatures & isolated RSA-3072 keystores |
-| **Privacy Shield** | In-House `PackoraFingerprintDisguise` | `v5.1.0` | 50+ vector anti-fingerprinting & WebRTC IP leak blocking |
-| **Ad Blocker** | In-House `PackoraAdBlocker` | `v5.1.0` | Zero-dependency high-speed domain & cosmetic ad blocker |
-| **Encrypted DNS** | In-House `PackoraDnsManager` (OkHttp DoH) | `v5.1.0` | 9 privacy DNS-over-HTTPS resolvers & custom DoH |
-| **Page Alignment** | In-House `ElfAligner16k` | `v5.1.0` | 16KB ELF boundary alignment for Android 15+ kernels |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v5.1.0` | Low-level byte-level binary manifest & resource rewriter |
-| **Template Engine** | In-House `:template` Shell | `v5.1.0` | High-performance standalone WebAPK runtime container |
+| **Signing Engine** | Android `apksig` & `PerAppSigningIdentity` | `v5.2.0` | Cryptographic V2 / V3 signatures & isolated RSA-3072 keystores |
+| **Privacy Shield** | In-House `PackoraFingerprintDisguise` | `v5.2.0` | 50+ vector anti-fingerprinting & WebRTC IP leak blocking |
+| **Ad Blocker** | In-House `PackoraAdBlocker` | `v5.2.0` | Zero-dependency high-speed domain & cosmetic ad blocker |
+| **Encrypted DNS** | In-House `PackoraDnsManager` (OkHttp DoH) | `v5.2.0` | 9 privacy DNS-over-HTTPS resolvers & custom DoH |
+| **Page Alignment** | In-House `ElfAligner16k` | `v5.2.0` | 16KB ELF boundary alignment for Android 15+ kernels |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v5.2.0` | Low-level byte-level binary manifest & resource rewriter |
+| **Template Engine** | In-House `:template` Shell | `v5.2.0` | High-performance standalone WebAPK runtime container |
 
 ---
 
@@ -425,6 +451,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v5.1.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v5.2.0 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

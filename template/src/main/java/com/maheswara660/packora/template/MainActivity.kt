@@ -1131,7 +1131,20 @@ class MainActivity : ComponentActivity() {
                                 });
                             };
                             attachGoogleListener();
-                            new MutationObserver(attachGoogleListener).observe(document.body || document.documentElement, { childList: true, subtree: true });
+                            var googleTimer = null;
+                            var obs = new MutationObserver(function() {
+                                if (googleTimer) return;
+                                googleTimer = setTimeout(function() {
+                                    googleTimer = null;
+                                    attachGoogleListener();
+                                }, 300);
+                            });
+                            if (document.body || document.documentElement) {
+                                obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                                setTimeout(function() {
+                                    try { obs.disconnect(); } catch(e) {}
+                                }, 10000);
+                            }
                         } catch(e) {}
                     })();
                     """.trimIndent(), null
@@ -1927,24 +1940,25 @@ class MainActivity : ComponentActivity() {
                             } catch(e) {}
                         }
 
-                        var candidates = document.querySelectorAll('button, a, div[role="button"], span[role="button"], input[type="button"], input[type="submit"]');
-                        for (var j = 0; j < candidates.length; j++) {
-                            var btn = candidates[j];
-                            try {
-                                if (!isVisible(btn)) continue;
-                                var text = (btn.innerText || btn.textContent || btn.value || '').trim();
-                                if (!text) continue;
-
-                                if (acceptTextRegex.test(text)) {
-                                    var parent = btn.closest('[id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i], [id*="gdpr" i], [class*="gdpr" i], [id*="notice" i], [class*="notice" i], [id*="banner" i], [class*="banner" i], [role="dialog"], [role="alertdialog"], aside, footer, header') || btn.parentElement;
-                                    if (parent) {
+                        // Search within cookie/consent containers rather than scanning all document elements
+                        var containerSelectors = '[id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i], [id*="gdpr" i], [class*="gdpr" i], [id*="notice" i], [class*="notice" i], [id*="banner" i], [class*="banner" i], [role="dialog"], [role="alertdialog"]';
+                        var containers = document.querySelectorAll(containerSelectors);
+                        for (var c = 0; c < containers.length; c++) {
+                            var parent = containers[c];
+                            var btns = parent.querySelectorAll('button, input[type="button"], input[type="submit"], [role="button"]');
+                            for (var j = 0; j < btns.length; j++) {
+                                var btn = btns[j];
+                                try {
+                                    if (!isVisible(btn)) continue;
+                                    var text = (btn.innerText || btn.textContent || btn.value || '').trim();
+                                    if (text && acceptTextRegex.test(text)) {
                                         if (simulateClick(btn)) {
                                             cleanupOverlays();
                                             return true;
                                         }
                                     }
-                                }
-                            } catch(e) {}
+                                } catch(e) {}
+                            }
                         }
                         return false;
                     }
@@ -1962,19 +1976,26 @@ class MainActivity : ComponentActivity() {
 
                     findAndAcceptCookies();
 
-                    var delays = [300, 800, 1500, 2500, 4000];
+                    var delays = [300, 800, 1500, 2500];
                     delays.forEach(function(delay) {
                         setTimeout(findAndAcceptCookies, delay);
                     });
 
+                    var cookieTimer = null;
                     var observer = new MutationObserver(function() {
-                        findAndAcceptCookies();
+                        if (cookieTimer) return;
+                        cookieTimer = setTimeout(function() {
+                            cookieTimer = null;
+                            if (findAndAcceptCookies()) {
+                                try { observer.disconnect(); } catch(e) {}
+                            }
+                        }, 400);
                     });
                     if (document.body || document.documentElement) {
                         observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
                         setTimeout(function() {
                             try { observer.disconnect(); } catch(e) {}
-                        }, 10000);
+                        }, 8000);
                     }
                 } catch(e) {}
             })();
@@ -2003,7 +2024,6 @@ class MainActivity : ComponentActivity() {
                                 padding: 0 !important;
                                 visibility: hidden !important;
                                 opacity: 0 !important;
-                                pointer-events: none !important;
                                 overflow: hidden !important;
                             }
                         `;
@@ -2019,18 +2039,28 @@ class MainActivity : ComponentActivity() {
                         selectors.forEach(function(s) {
                             try {
                                 document.querySelectorAll(s).forEach(function(el) {
-                                    // Safeguard: Never collapse or disable elements containing media or form controls
                                     if (el.querySelector('video, audio, input, textarea, button, [role="button"]')) return;
                                     el.style.setProperty('display', 'none', 'important');
                                     el.style.setProperty('height', '0px', 'important');
-                                    el.style.setProperty('pointer-events', 'none', 'important');
                                 });
                             } catch(e) {}
                         });
                     };
                     cleanAdElements();
-                    var observer = new MutationObserver(cleanAdElements);
-                    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                    var adTimer = null;
+                    var observer = new MutationObserver(function() {
+                        if (adTimer) return;
+                        adTimer = setTimeout(function() {
+                            adTimer = null;
+                            cleanAdElements();
+                        }, 300);
+                    });
+                    if (document.body || document.documentElement) {
+                        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                        setTimeout(function() {
+                            try { observer.disconnect(); } catch(e) {}
+                        }, 10000);
+                    }
                 } catch(e) {}
             })();
             """.trimIndent(), null
@@ -2162,23 +2192,19 @@ class MainActivity : ComponentActivity() {
             footer:not([role="navigation"]):not([role="tablist"]):not(.bottom-nav):not(.tab-bar),
             [role="contentinfo"]:not([role="navigation"]):not([role="tablist"]),
             #footer, #site-footer, #colophon, #site-info,
-            .site-footer, .page-footer, .main-footer, .global-footer, .footer,
-            .sub-footer, .bottom-footer, .footer-wrap, .footer-container, .footer-content, .footer-bar,
-            .copyright-area, .legal-notice, .site-info, .credit-footer,
-            [data-section*="footer" i], [data-area*="footer" i], [data-component*="footer" i],
-            div[class*="copyright" i]:not([role="navigation"]),
-            section[class*="copyright" i]:not([role="navigation"]) {
-                display: none !important;
-                visibility: hidden !important;
-                height: 0px !important;
-                min-height: 0px !important;
-                max-height: 0px !important;
-                margin: 0px !important;
-                padding: 0px !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
-        """.trimIndent().replace("\n", " ").replace("\"", "\\\"")
+            .site-footer, .page-footer, .main-footer, .global-footer,
+            .copyright-area, .legal-notice, .credit-footer
+        """.trimIndent().replace("\n", " ").replace("\"", "\\\"") +
+        """ {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0px !important;
+            min-height: 0px !important;
+            max-height: 0px !important;
+            margin: 0px !important;
+            padding: 0px !important;
+            opacity: 0 !important;
+        }""".replace("\n", " ")
 
         val script = """
             (function() {
@@ -2203,32 +2229,31 @@ class MainActivity : ComponentActivity() {
                 try {
                     var hideCustomFooters = function() {
                         var selectors = [
-                            'footer', '#footer', '[id*="footer" i]', '[id*="colophon" i]', '[id*="site-info" i]',
-                            '.site-footer', '.page-footer', '.main-footer', '.global-footer', '.footer',
-                            '[class*="footer" i]', 'div[role="contentinfo"]', 'section[role="contentinfo"]', 'aside[role="contentinfo"]',
-                            'div[class*="copyright" i]', 'div[class*="site-info" i]', 'div[class*="legal" i]', 'div[class*="policy" i]',
-                            'section[class*="copyright" i]', 'section[class*="legal" i]', 'section[class*="policy" i]',
-                            '.sub-footer', '.bottom-footer', '.footer-wrap', '.footer-container', '.footer-content', '.footer-bar',
-                            '[data-section*="footer" i]', '[data-area*="footer" i]', '[data-testid*="footer" i]', '[data-component*="footer" i]',
+                            'footer:not([role="navigation"]):not([role="tablist"])',
+                            '#site-footer', '#colophon', '#site-info',
+                            '.site-footer', '.page-footer', '.main-footer', '.global-footer',
+                            'div[role="contentinfo"]', 'section[role="contentinfo"]',
                             '.site-info', '.colophon', '.credit-footer', '.copyright-area', '.legal-notice'
                         ];
 
                         var keywords = [
-                            '©', '&copy;', 'copyright', 'all rights reserved', 'rights reserved', 'trademarks',
-                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions', 'user agreement',
-                            'privacy policy', 'privacy notice', 'privacy statement', 'your privacy choices',
-                            'cookie policy', 'cookie preferences', 'cookie settings', 'manage cookies',
-                            'legal notice', 'impressum', 'imprint', 'disclaimer', 'accessibility statement',
-                            'powered by', 'proudly powered by', 'built with', 'published with',
-                            'site map', 'sitemap', 'about us', 'contact us'
+                            '©', 'copyright', 'all rights reserved', 'rights reserved',
+                            'terms of service', 'terms of use', 'terms & conditions', 'terms and conditions',
+                            'privacy policy', 'privacy notice', 'privacy statement',
+                            'cookie policy', 'cookie preferences', 'cookie settings',
+                            'legal notice', 'impressum', 'disclaimer'
                         ];
 
                         var candidates = document.querySelectorAll(selectors.join(', '));
                         for (var i = 0; i < candidates.length; i++) {
                             var el = candidates[i];
                             var tag = (el.tagName || '').toUpperCase();
-                            if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE') continue;
-                            if (el.querySelector('[role="tablist"], [class*="bottom-nav" i], [class*="tab-bar" i], [class*="tabbar" i]')) continue;
+                            if (tag === 'BODY' || tag === 'HTML' || tag === 'MAIN' || tag === 'ARTICLE' || tag === 'FORM' || tag === 'NAV') continue;
+                            if (el.querySelector('[role="tablist"], [class*="bottom-nav" i], [class*="tab-bar" i], [class*="tabbar" i], form, input, textarea, select')) continue;
+
+                            // Height safety guard: A legitimate footer should never exceed 35% of the viewport height
+                            var rect = el.getBoundingClientRect();
+                            if (rect.height > window.innerHeight * 0.35) continue;
 
                             var text = (el.innerText || el.textContent || '').toLowerCase();
                             var match = tag === 'FOOTER' || el.getAttribute('role') === 'contentinfo';
@@ -2247,7 +2272,6 @@ class MainActivity : ComponentActivity() {
                                 el.style.setProperty('min-height', '0px', 'important');
                                 el.style.setProperty('max-height', '0px', 'important');
                                 el.style.setProperty('opacity', '0', 'important');
-                                el.style.setProperty('pointer-events', 'none', 'important');
                             }
                         }
                     };
@@ -2260,9 +2284,17 @@ class MainActivity : ComponentActivity() {
                             timer = setTimeout(function() {
                                 timer = null;
                                 hideCustomFooters();
-                            }, 200);
+                            }, 300);
                         });
                         window.__packora_footer_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+                        setTimeout(function() {
+                            try {
+                                if (window.__packora_footer_observer) {
+                                    window.__packora_footer_observer.disconnect();
+                                    window.__packora_footer_observer = null;
+                                }
+                            } catch(e) {}
+                        }, 10000);
                     }
                 } catch(e) {}
             })();
@@ -2502,21 +2534,6 @@ class MainActivity : ComponentActivity() {
                     var style = document.createElement('style');
                     style.textContent = adSelectors.join(', ') + ' { display: none !important; visibility: hidden !important; height: 0 !important; }';
                     (document.head || document.documentElement).appendChild(style);
-
-                    function removeAds() {
-                        adSelectors.forEach(function(sel) {
-                            document.querySelectorAll(sel).forEach(function(el) {
-                                el.style.setProperty('display', 'none', 'important');
-                            });
-                        });
-                    }
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', removeAds);
-                    } else {
-                        removeAds();
-                    }
-                    var observer = new MutationObserver(function() { removeAds(); });
-                    observer.observe(document.documentElement, { childList: true, subtree: true });
                 } catch(e) {}
             })();
             """.trimIndent(), null

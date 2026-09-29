@@ -2,6 +2,31 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.2.0] - 2026-09-29
+### Added & Enhanced
+- **Restoration of 4 Update Installation Modes**:
+  - Restored full selection of update modes in Settings: `AUTO_PROMPT` (*Default*), `MANUAL`, `UPDATE_ALL_ONLY` ("Automate 'Update All' Only"), and `AUTOMATE_ALL` ("Automate All Updates").
+  - Seamlessly integrates `PackageInstallerHelper` for silent background batch installations on Android 12+ (API 31+) while preserving standard interactive installer prompts where requested.
+- **Material 3 Play Protect Warning BottomSheet**:
+  - Designed consistent with all other bottom sheets in Packora (like the Changelog menu) featuring a clean title, security shield badge, step-by-step guidance, and a single ergonomic **"UNDERSTOOD"** button.
+  - Automatically alerts users when enabling automated background updates to turn off Google Play Protect scanning so unattended package sessions are not blocked by the OS.
+- **Auto-Prompt Installer Launching Reliability Fix**:
+  - Fixed issues where the installer prompt did not launch after compiling updates:
+    - Added verification for Android 8.0+ `REQUEST_INSTALL_PACKAGES` permission via `canRequestPackageInstalls()`, prompting the user directly to grant permission if missing.
+    - Added support for both filesystem paths and SAF `content://` URIs with explicit `FLAG_GRANT_READ_URI_PERMISSION`.
+    - Added reliable cached APK fallback in `context.cacheDir` to prevent FileProvider permission failures across scoped storage directories.
+- **Template App Freeze & Touch Responsiveness Fix**:
+  - Permanently fixed screen freezes and unclickable touch states in compiled WebAPKs:
+    - Removed unthrottled `MutationObserver` loops from cosmetic ad filtering that caused infinite reflows and 100% V8 JS main-thread CPU starvation.
+    - Debounced all remaining DOM observers (300ms–400ms) and configured automatic disconnection after 10–12 seconds once initial page rendering settles.
+    - Refined footer suppressor selectors to strictly semantic tags (`footer`, `[role="contentinfo"]`, `#footer`, `.site-footer`, `.page-footer`), completely eliminating broad class wildcards like `[class*="footer" i]` and `.footer-container` that previously hid whole-page layout wrappers.
+    - Removed `pointer-events: none` property overrides to ensure touch dispatch is never disabled.
+    - Restored viewport height guards (`height < 35%`) and protected `<main>`, `<article>`, `<form>`, and `<nav>` elements.
+    - Added automatic body and HTML `overflow: hidden` restoration to prevent consent overlays from locking screen scrolling.
+- **Full Multi-Screen Responsive Website Redesign**:
+  - Overhauled documentation homepage (`docs/index.md`, `custom.css`, and `StudioSimulator.vue`) ensuring fluid scalability across mobile phones, tablets, and desktop computers.
+  - Added responsive breakpoints (`> 1024px`, `768px–1024px`, `480px–767px`, `< 480px`) with CSS `clamp()` fluid typography, touch-friendly 48px full-width mobile action buttons, clean vertical timeline steppers, touch-scrollable comparison tables, and screen-bounded notification mockups.
+
 ## [5.1.0] - 2026-09-29
 ### Added & Enhanced
 - **In-Place Update Signature Conflict Fix (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`)**:

@@ -123,7 +123,7 @@ function testNotification() {
             <span class="traffic-light yellow"></span>
             <span class="traffic-light green"></span>
           </div>
-          <span class="studio-title-badge">Packora WebAPK Compiler v5.1.0</span>
+          <span class="studio-title-badge">Packora WebAPK Compiler v5.2.0</span>
         </div>
         <div class="studio-header-right">
           <span class="studio-status-pill">
@@ -966,5 +966,87 @@ function testNotification() {
 .pop-in-enter-from, .pop-in-leave-to {
   opacity: 0;
   transform: translateY(-10px) scale(0.98);
+}
+
+/* Multi-screen Scalability: Tablet & Mobile phones */
+@media (max-width: 768px) {
+  .studio-main-card, .studio-detail-card {
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .studio-tabs {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .studio-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .studio-tab-btn {
+    flex: 1;
+    min-width: fit-content;
+    white-space: nowrap;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .studio-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .studio-header-right {
+    width: 100%;
+  }
+
+  .studio-status-pill {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .action-buttons-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .build-trigger-btn, .test-notif-btn {
+    width: 100%;
+    flex: 1 1 100%;
+    padding: 12px 18px;
+    font-size: 0.9rem;
+  }
+
+  .simulated-notification {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .preset-chip {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+
+  .studio-title-badge {
+    font-size: 0.78rem;
+  }
+
+  .toggle-card {
+    padding: 12px 10px;
+  }
+
+  .toggle-title {
+    font-size: 0.82rem;
+  }
 }
 </style>

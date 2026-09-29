@@ -4,7 +4,7 @@ App information and data tools. Open it from [⋮ → About](/guide/main-screen/
 
 ## Features
 
-- **About & Version Details** — shows current version (`v5.1.0`), build code, and project links.
+- **About & Version Details** — shows current version (`v5.2.0`), build code, and project links.
 - **Official Website Link** — direct 1-tap access to the [Packora Documentation & Web Portal](https://maheswara660.github.io/Packora/).
 - **Connect & Support** — links to the GitHub repository, releases, and author sponsorship.
 - **Data backup / restore** — back up and restore your projects and app data.

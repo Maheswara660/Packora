@@ -5,8 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -378,9 +382,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "5.0.0"
+        pInfo.versionName ?: "5.2.0"
     } catch (e: Exception) {
-        "5.0.0"
+        "5.2.0"
     }
 }
 
@@ -447,21 +451,52 @@ fun deleteApksForPackage(context: Context, installedPackageName: String) {
 @Suppress("DEPRECATION")
 fun installApkFile(context: Context, apkPath: String) {
     try {
-        val file = File(apkPath)
-        if (!file.exists()) return
+        val uri: Uri = if (apkPath.startsWith("content://")) {
+            Uri.parse(apkPath)
+        } else {
+            var file = File(apkPath)
+            if (!file.exists()) {
+                val fallbackCache = File(context.cacheDir, file.name)
+                val fallbackBuilt = File(context.cacheDir, "built_app.apk")
+                file = if (fallbackCache.exists()) fallbackCache
+                else if (fallbackBuilt.exists()) fallbackBuilt
+                else file
+            }
+            if (!file.exists()) {
+                Toast.makeText(context, "APK file not found: ${file.name}", Toast.LENGTH_SHORT).show()
+                return
+            }
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+        }
 
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
+        // Verify Android 8.0+ Unknown App Sources Permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(context, "Please allow Packora to install apps from this source", Toast.LENGTH_LONG).show()
+                val permIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(permIntent)
+                return
+            }
+        }
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
-            putExtra(Intent.EXTRA_ALLOW_REPLACE, true)
-            putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, context.packageName)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        // Grant URI read permission to all matching package installer handlers
+        val resInfoList = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        for (resolveInfo in resInfoList) {
+            val pkgName = resolveInfo.activityInfo.packageName
+            context.grantUriPermission(pkgName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
         context.startActivity(intent)

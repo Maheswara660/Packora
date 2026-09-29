@@ -28,6 +28,14 @@ enum class UpdateInstallMode(val title: String, val subtitle: String) {
     MANUAL(
         title = "Manual",
         subtitle = "Never prompts installer automatically; build updates and tap Install on each card"
+    ),
+    UPDATE_ALL_ONLY(
+        title = "Automate 'Update All' Only",
+        subtitle = "Silently installs updates during batch 'Update All'; single updates prompt installer"
+    ),
+    AUTOMATE_ALL(
+        title = "Automate All Updates",
+        subtitle = "Silently installs all WebAPK and Packora updates in the background without installer prompts"
     )
 }
 
@@ -57,6 +65,8 @@ class PackoraPreferencesManager(context: Context) {
             val name = prefs.getString("update_install_mode", UpdateInstallMode.AUTO_PROMPT.name) ?: UpdateInstallMode.AUTO_PROMPT.name
             return when (name) {
                 "COMPLETELY_MANUAL", "MANUAL" -> UpdateInstallMode.MANUAL
+                "UPDATE_ALL_ONLY" -> UpdateInstallMode.UPDATE_ALL_ONLY
+                "AUTOMATE_ALL" -> UpdateInstallMode.AUTOMATE_ALL
                 else -> UpdateInstallMode.AUTO_PROMPT
             }
         }

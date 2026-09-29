@@ -331,6 +331,14 @@ class ApkBuilder(private val context: Context) {
                 return null
             }
 
+            // Preserve cached copy in internal cache for immediate local installer access
+            try {
+                signedApk.copyTo(File(context.cacheDir, "built_app.apk"), overwrite = true)
+                signedApk.copyTo(File(context.cacheDir, outputPath), overwrite = true)
+            } catch (e: Exception) {
+                AppLogger.w("ApkBuilder", "Failed to cache local copy of APK: ${e.message}")
+            }
+
             onProgress(90, "Exporting generated APK to Downloads folder...")
             // Copy final signed APK to public Downloads/Packora/<AppName>/
             val finalPath = copyFileToPublicDownloads(context, signedApk, relativeFolder, outputPath, "application/vnd.android.package-archive", customExportUri)
@@ -338,6 +346,12 @@ class ApkBuilder(private val context: Context) {
                 onProgress(100, "APK generated successfully!")
                 return finalPath
             } else {
+                // If public export failed, fallback to local cached APK path
+                val localFallback = File(context.cacheDir, outputPath)
+                if (localFallback.exists()) {
+                    onProgress(100, "APK generated in internal storage!")
+                    return localFallback.absolutePath
+                }
                 AppLogger.e("ApkBuilder", "Exporting APK to public downloads folder failed")
                 return null
             }

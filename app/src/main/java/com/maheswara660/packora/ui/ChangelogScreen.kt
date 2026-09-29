@@ -34,9 +34,22 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "5.1.0",
+        version = "5.2.0",
         date = "September 29, 2026",
         isLatest = true,
+        summary = "Restored 4 Update Installation Modes with Background Automation, Material 3 Play Protect Warning BottomSheet, Fixed Auto-Prompt Installer Launching, Fixed Template Freeze & Touch Lock, Full Multi-Screen Responsive Docs Redesign",
+        changes = listOf(
+            "Restored 4 Update Installation Modes: Brought back 'Automate Update All Only' and 'Automate All Updates' alongside 'Auto-Prompt' (Default) and 'Manual', giving users total control over background and sequential update automation.",
+            "Material 3 Play Protect Warning Menu: Added standard Packora-styled bottom sheet menu with a single 'UNDERSTOOD' button, guiding users to turn off Google Play Protect scanning whenever automated background update modes are selected.",
+            "Auto-Prompt Installer Launching Fix: Resolved installer dialog failing to launch by adding Android unknown app sources permission verification, robust content URI handling, and reliable cached APK fallback.",
+            "Template Screen Freeze & Touch Lock Fix: Eliminated runaway MutationObserver loops and synchronous forced reflows that froze the JS thread. Refined footer suppressor to strictly semantic tags, restored layout height safeguards, and ensured body overflow is never permanently locked.",
+            "Complete Multi-Screen Website Redesign: Full responsive overhaul of documentation homepage and WebAPK Studio simulator across desktops, tablets, and mobile phones with fluid clamp typography, full-width touch actions, and bounded notification mockups."
+        )
+    ),
+    ReleaseItem(
+        version = "5.1.0",
+        date = "September 29, 2026",
+        isLatest = false,
         summary = "In-Place Update Signature Fix, Native HTML5 Web Notifications, Instant 0ms Footer Suppressor, App Info Settings Action, In-App Web Link Navigation Freedom, Complete Docs Redesign",
         changes = listOf(
             "In-Place Update Signature Conflict Fix: Permanently resolved the Android installer 'There was a problem parsing the package' error during app updates by automatically detecting installed certificate fingerprints and aligning signing identity.",

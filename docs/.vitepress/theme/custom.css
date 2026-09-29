@@ -580,56 +580,6 @@
   margin: 0;
 }
 
-/* Stats Ribbon */
-.packora-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin: 40px 0;
-}
-
-@media (max-width: 767px) {
-  .packora-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.packora-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px 16px;
-  border: 1px solid var(--packora-glass-border);
-  border-radius: 18px;
-  background: var(--vp-c-bg-soft);
-  backdrop-filter: blur(12px);
-  transition: transform 0.25s ease;
-}
-
-.packora-stat:hover {
-  transform: translateY(-3px);
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.packora-stat b {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2.2rem;
-  font-weight: 900;
-  background: var(--packora-gradient-hero);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1.1;
-}
-
-.packora-stat span {
-  margin-top: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--vp-c-text-2);
-}
-
 /* Bento Grid Section */
 .packora-bento-grid {
   display: grid;
@@ -727,9 +677,11 @@
 }
 
 /* Comparison Table */
+/* Comparison Table */
 .packora-comparison-table-wrapper {
   margin: 36px 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 18px;
   border: 1px solid var(--packora-glass-border);
   background: var(--vp-c-bg-soft);
@@ -738,6 +690,7 @@
 
 .packora-comparison-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.9rem;
   text-align: left;
@@ -786,15 +739,18 @@
   margin: 48px 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .packora-stats {
     grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .packora-stats {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 32px 0;
   }
 }
 
@@ -833,6 +789,19 @@
   letter-spacing: 0.5px;
   color: var(--vp-c-text-2);
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .packora-stat {
+    padding: 16px 10px;
+    border-radius: 14px;
+  }
+  .packora-stat b {
+    font-size: 1.6rem;
+  }
+  .packora-stat span {
+    font-size: 0.72rem;
+  }
 }
 
 /* High-Conversion Call to Action Box */
@@ -927,4 +896,86 @@
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(59, 130, 246, 0.4);
   transform: translateY(-2px);
+}
+
+/* Comprehensive Multi-Screen Optimization */
+@media (max-width: 768px) {
+  .VPHero .name {
+    font-size: clamp(2rem, 8vw, 3rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  .VPHero .text {
+    font-size: clamp(1.3rem, 5.5vw, 2rem) !important;
+    line-height: 1.25 !important;
+  }
+
+  .VPHero .tagline {
+    font-size: 0.95rem !important;
+    line-height: 1.55 !important;
+  }
+
+  .VPHero .actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .VPHero .action {
+    width: 100%;
+    margin: 0 !important;
+  }
+
+  .VPHero .action .VPButton {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px !important;
+    font-size: 0.95rem !important;
+  }
+
+  .packora-home {
+    padding: 0 8px 48px;
+  }
+
+  .packora-section-header {
+    margin-top: 48px;
+  }
+
+  .packora-section-header h2 {
+    font-size: 1.5rem !important;
+  }
+
+  .packora-section-subtitle {
+    font-size: 0.88rem !important;
+    padding: 0 6px;
+  }
+
+  .packora-cta {
+    padding: 36px 18px;
+    margin-top: 44px;
+    border-radius: 20px;
+  }
+
+  .packora-cta h3 {
+    font-size: 1.45rem;
+  }
+
+  .packora-cta p {
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+
+  .packora-cta .cta-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .cta-primary-btn, .cta-secondary-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+    box-sizing: border-box;
+  }
 }

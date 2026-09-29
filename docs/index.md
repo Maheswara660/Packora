@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Packora
   text: Next-Gen Android WebAPK Studio
-  tagline: Transform websites, modern SPAs, and full-stack server runtimes into native, hardened Android applications directly on your phone. Features deterministic on-device RSA signing, 50+ vector anti-fingerprint shield, encrypted DoH, instant footer hiding, and HTML5 web notifications — zero PC required.
+  tagline: Transform websites, modern SPAs, and server runtimes into native, hardened Android apps right on your phone. Deterministic RSA signing, 50+ vector privacy shield, encrypted DoH, and automated updates — zero PC required.
   image:
     src: /logo.png
     alt: Packora Logo
@@ -192,7 +192,7 @@ features:
     <thead>
       <tr>
         <th>Feature</th>
-        <th class="highlight-col">Packora v5.1.0</th>
+        <th class="highlight-col">Packora v5.2.0</th>
         <th>Chrome PWA Shortcut</th>
         <th>Hermit Lite Apps</th>
         <th>TWA / Bubblewrap</th>

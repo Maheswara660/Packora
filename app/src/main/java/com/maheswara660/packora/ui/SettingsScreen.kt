@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,6 +90,8 @@ fun SettingsScreen(
     var showIconSheet by remember { mutableStateOf(false) }
     var updateInstallMode by remember { mutableStateOf(prefsManager.updateInstallMode) }
     var showUpdateInstallModeSheet by remember { mutableStateOf(false) }
+    var showPlayProtectWarningSheet by remember { mutableStateOf(false) }
+    var pendingAutomatedMode by remember { mutableStateOf<UpdateInstallMode?>(null) }
 
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var availableRelease by remember { mutableStateOf<AppReleaseInfo?>(null) }
@@ -1006,10 +1010,29 @@ fun SettingsScreen(
                 currentMode = updateInstallMode,
                 onDismiss = { showUpdateInstallModeSheet = false },
                 onConfirm = { newMode ->
-                    updateInstallMode = newMode
-                    prefsManager.updateInstallMode = newMode
                     showUpdateInstallModeSheet = false
-                    Toast.makeText(context, "Update mode set to ${newMode.title}", Toast.LENGTH_SHORT).show()
+                    if (newMode == UpdateInstallMode.UPDATE_ALL_ONLY || newMode == UpdateInstallMode.AUTOMATE_ALL) {
+                        pendingAutomatedMode = newMode
+                        showPlayProtectWarningSheet = true
+                    } else {
+                        updateInstallMode = newMode
+                        prefsManager.updateInstallMode = newMode
+                        Toast.makeText(context, "Update mode set to ${newMode.title}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
+
+        if (showPlayProtectWarningSheet) {
+            PlayProtectWarningBottomSheet(
+                onDismiss = {
+                    pendingAutomatedMode?.let { mode ->
+                        updateInstallMode = mode
+                        prefsManager.updateInstallMode = mode
+                        Toast.makeText(context, "Update mode set to ${mode.title}", Toast.LENGTH_SHORT).show()
+                    }
+                    showPlayProtectWarningSheet = false
+                    pendingAutomatedMode = null
                 }
             )
         }
@@ -1801,13 +1824,20 @@ fun UpdateInstallModeBottomSheetDialog(
                                 )
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = mode.title,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = mode.title,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = mode.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -1841,5 +1871,156 @@ fun UpdateInstallModeBottomSheetDialog(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayProtectWarningBottomSheet(
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Security,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Google Play Protect Notice",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primary
+            ) {
+                Text(
+                    text = "ACTION REQUIRED",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = "If you want to automate WebAPK updates in this app with this feature, please turn off Google Play Protect so Android does not block background installation sessions.",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val instructions = listOf(
+                "Open Google Play Store -> Tap Profile Icon -> Play Protect.",
+                "Tap Settings (gear icon in the top right corner).",
+                "Turn OFF 'Scan apps with Play Protect' and 'Improve harmful app detection'.",
+                "Background WebAPK installs will now proceed smoothly without system blocks."
+            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                instructions.forEach { instruction ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(18.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = instruction,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text(
+                    text = "UNDERSTOOD",
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+            }
+        }
+    }
+}
+
 
 

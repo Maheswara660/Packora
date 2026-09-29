@@ -1,38 +1,33 @@
-# Web
+# Default Web App Architecture
 
-Wraps a remote URL in a WebView. This is the most common — and most configurable — app type.
+The **Web** architecture (`PackoraAppType.WEB`) is the default and most versatile target in Packora. It transforms any responsive website or Progressive Web App (PWA) into an independent, production-grade Android WebAPK.
 
-## When to use
+---
 
-Landing pages, tools, dashboards, documentation, and internal systems that already live at a URL.
+## Key Capabilities
 
-## Core config
+- **Isolated Window & Process**: Runs with its own dedicated Android `taskAffinity`, window title, icon, and lifecycle independent of any installed browser.
+- **50+ Vector Stealth Privacy Shield**: Protects Canvas 2D pixel readback, WebGL GPU parameters, AudioContext curves, and blocks WebRTC local ICE leaks.
+- **Built-in Ad & Tracker Blocker**: High-speed local request filtering against bundled blocklists with automatic cosmetic container collapsing.
+- **Encrypted DNS-over-HTTPS (DoH)**: Native resolution through 9 privacy resolvers (Cloudflare, Google, AdGuard, NextDNS, CleanBrowsing, Quad9, Mullvad, System, Custom).
+- **150+ Multilingual Smart Footer Hider**: Two-stage CSS and DOM suppression to eliminate sticky web footers without impacting bottom navigation bars.
+- **Deterministic RSA-3072 Keystore**: Cryptographic signing identity generated specifically for the package ID for lifetime conflict-free in-place updates.
+- **Android 15 16KB Page Alignment**: Ensures full compatibility with modern 16KB kernel memory pages.
 
-The Web type's core config is the WebView behavior (backed by `WebViewConfig`).
+---
 
-### Target & engine
+## Configuration Options
 
-- **Target URL** — the site to load.
-- **Browser engine** — System WebView by default; optional GeckoView (download it in Browser Kernel before building; required for ECH). See [Browser Kernel](/guide/more-features/browser-kernel).
-
-### User agent & display
-
-- **User agent mode** — system default or a custom UA string (`userAgentMode`, `customUserAgent`).
-- **Desktop mode** — request the desktop version of the site (`desktopMode`).
-- **Zoom & viewport** — enable zoom, initial scale, and viewport mode.
-
-### Injection
-
-- **JS/CSS injection** — inject scripts/styles at document-start, document-end, or idle (`injectScripts`).
-
-### Popups & windows
-
-- **New-window behavior** — how popups/new windows open (`newWindowBehavior`: same window, external browser, popup window).
-- **Popup blocker** — block popups (`popupBlockerEnabled`).
-- **JS can open windows** — with policy (`javaScriptCanOpenWindows`, `jsOpenWindowsPolicy`).
-
-## Notes
-
-- The Web editor exposes the **full** set of capability cards (fullscreen, splash, ad blocking, DNS, disguise, and more) in a single screen — Web apps have one combined editor rather than separate core/common config.
-- For multiple sites in one app, use [Multi-Web](/guide/app-types/multi-web).
-- To archive a site for offline use, use [Offline Pack](/guide/app-types/offline-pack).
+When building a Web application, you can configure:
+- **Target URL**: Any secure HTTPS or HTTP endpoint. Auto-paste from clipboard and favicon extraction are built-in.
+- **Package Identity**: Custom application name, package ID (`com.example.app`), `versionName`, and `versionCode`.
+- **Runtime Toggles**:
+  - `Stealth Privacy Shield`: Anti-fingerprinting protection.
+  - `Ad & Tracker Blocker`: Request and cosmetic ad blocker.
+  - `Encrypted DNS`: Select resolver or custom DoH endpoint.
+  - `Hide Web Footer`: Multilingual footer suppressor.
+  - `Desktop Mode`: Desktop viewport and desktop Chrome User-Agent.
+  - `Force Dark Mode`: Algorithmic darkening for sites lacking dark mode.
+  - `Pinch Zoom`: Multi-touch zoom controls.
+  - `Allow Text Copying`: Override CSS user-select restrictions.
+- **Custom Download Location**: Select a dedicated subfolder on device storage for all downloaded files.

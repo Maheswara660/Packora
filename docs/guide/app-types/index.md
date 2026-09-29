@@ -1,34 +1,30 @@
-# Create App
+# App Architecture Targets
 
-Tap [Create](/guide/main-screen/create-app) on My Apps to open the app-type picker. Choose the type that matches your input; each opens its own creation flow, then shares the same [app configuration](/guide/config/) options.
+Packora provides **5 specialized application architectures** tailored for different web workloads. Each target configures the underlying Android WebView container, asset packaging, and background lifecycle policies for optimal performance.
 
-## The 12 types
+---
 
-| Type | Input | Output | Good for |
-| --- | --- | --- | --- |
-| [Web](/guide/app-types/web) | A URL | WebView APK | Landing pages, tools, dashboards, docs |
-| [Multi-Web](/guide/app-types/multi-web) | Several URLs | Tab/card/feed/drawer APK | Link hubs, portals |
-| [HTML](/guide/app-types/html) | Local HTML / zip | File-protocol APK (localhost optional) | Static builds, offline web apps |
-| [Offline Pack](/guide/app-types/offline-pack) | A URL (scraped) | Self-contained offline APK | Archiving a site |
-| [Frontend](/guide/app-types/frontend) | Built front-end project | File-protocol APK (localhost optional) | React, Vue, Vite builds |
-| [PHP](/guide/app-types/php) | PHP project | APK + on-device PHP | Small PHP apps |
-| [WordPress](/guide/app-types/wordpress) | WordPress site | APK + PHP + SQLite | Portable sites |
-| [Node.js](/guide/app-types/nodejs) | Node project | APK + on-device Node | Express/Fastify/Koa, APIs |
-| [Python](/guide/app-types/python) | Python project | APK + on-device Python | Flask, Django, FastAPI |
-| [Go](/guide/app-types/go) | Go project | APK + on-device Go | Gin/Echo/Fiber |
-| [Media](/guide/app-types/media) | An image or video | Media-player APK | Single media viewers |
-| [Gallery](/guide/app-types/gallery) | A media collection | Gallery APK | Albums, portfolios |
+## The 5 Packora Architectures
 
-## The creation flow
+| Architecture | Type Key | Input | Runtime Characteristics | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **[Web App](/guide/app-types/web)** | `WEB` | Public HTTPS / HTTP URL | Standard standalone WebAPK with independent task affinity, anti-fingerprinting, and custom keystores. | Dashboards, SaaS, responsive websites, blogs, and documentation portals. |
+| **[Offline HTML](/guide/app-types/html)** | `HTML` | Local HTML, CSS & JS directory | Self-contained offline package bundled into `assets/www/`. Loads via secure file protocol with zero network dependencies. | Local documentation, offline calculators, interactive reference guides, games. |
+| **[Frontend SPA](/guide/app-types/frontend)** | `FRONTEND` | SPA URL or static bundle | Optimized Single Page Application with client-side history routing fallback (`spaRoutingFallback`), IndexedDB, and persistent DOM storage. | React, Vue, Vite, Svelte, Nuxt, and Next.js static exports. |
+| **[Multi-Web Hub](/guide/app-types/multi-web)** | `MULTI_WEB` | Primary URL + Secondary URLs | Multi-tab destination workspace rendering an interactive, native dark pill tab bar for instant in-app navigation. | Developer hubs, service portals, documentation + forum suites. |
+| **[Media Streamer](/guide/app-types/media)** | `MEDIA` | Streaming web player URL | Configures `FLAG_KEEP_SCREEN_ON`, unconstrained video autoplay, and continuous background audio streaming during minimization. | Music players, podcasts, audiobooks, video streaming platforms. |
 
-Every type follows the same shape:
+---
 
-1. **Type-specific form** — e.g. Web asks for a URL; Node.js asks for the project and start command; Gallery asks for media and layout. Runtime types link to the [Linux Environment](/guide/more-features/linux-environment) for toolchain setup.
-2. **Basic info** — name and icon. The icon can be fetched from the website's favicon, picked from the **Icon Library** (AI-generated or your own uploaded images — uploads go through a crop step with square / free / circle modes, WeChat-avatar style), or selected directly from the gallery.
-3. **Save** — the app is created and appears on [My Apps](/guide/main-screen/my-apps).
+## Architecture Selection in Build Studio
 
-After creation, use the app's ⋮ menu: [Edit Core Config](/guide/app-actions/edit-core-config) returns to the type-specific form; [Edit Common Config](/guide/app-actions/edit-common-config/) opens the shared options.
+You can select your target architecture directly above the URL input bar in **Build Studio**:
 
-::: tip Try a sample first
-The app bundles sample projects (React, Vue, Vite, Node/Express, PHP/Laravel, Python/Flask, Go/Gin, WordPress, and more). Use one to see a working configuration for your stack.
-:::
+1. **Tap the Target Pill**: Choose between `Web`, `HTML`, `Frontend`, `Multi-Web`, or `Media`.
+2. **Context-Aware Fields**:
+   - Selecting `HTML` activates offline asset directory selection.
+   - Selecting `Frontend` activates the **Client History Routing Fallback** toggle.
+   - Selecting `Multi-Web` activates the **Secondary URLs** tab input card.
+   - Selecting `Media` activates **Keep Screen On** and **Background Audio Playback** toggles.
+3. **Automatic Inheritance**: When an app is built, its architecture target is saved into **Build History** and displayed in the **Packora App Info** sheet.
+4. **Update Parity**: Subsequent single and batch updates compiled via the **Updates Hub** automatically retain and apply the configured architecture.

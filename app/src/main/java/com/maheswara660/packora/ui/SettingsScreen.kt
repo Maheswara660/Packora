@@ -59,6 +59,7 @@ import com.maheswara660.packora.installApkFile
 import com.maheswara660.packora.ui.components.MarkdownText
 import com.maheswara660.packora.ui.components.PackoraDotLoader
 import com.maheswara660.packora.ui.components.PackoraIosSwitch
+import com.maheswara660.packora.ui.components.PackoraSelectionIndicator
 import com.maheswara660.packora.ui.theme.getAppColorAccentColor
 import kotlinx.coroutines.launch
 import java.io.File
@@ -1140,17 +1141,13 @@ fun <T> SelectionBottomSheetDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
                         ) {
-                            RadioButton(
+                            PackoraSelectionIndicator(
                                 selected = isSelected,
                                 onClick = {
                                     tempSelection = value
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                }
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             if (value is AppColorAccent) {
                                 val accentColor = getAppColorAccentColor(value) ?: MaterialTheme.colorScheme.primary
                                 Surface(
@@ -1813,17 +1810,13 @@ fun UpdateInstallModeBottomSheetDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp)
                         ) {
-                            RadioButton(
+                            PackoraSelectionIndicator(
                                 selected = isSelected,
                                 onClick = {
                                     tempSelection = mode
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                }
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Text(
                                 text = mode.title,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,

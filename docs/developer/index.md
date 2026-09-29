@@ -48,9 +48,5 @@ This section is for developers and contributors working on Packora itself. It ex
 
 ## Where to read next
 
-- [Architecture](/developer/architecture) — Preview-vs-export execution models.
-- [Export Pipeline](/developer/export-pipeline) — How `PackoraApp` transforms into a signed APK.
-- [Template & Shell Architecture](/developer/shell-sync) — How the template APK is built and customized.
-- [Config Field Drift](/developer/config-drift) — Keeping JSON schema synced between Studio and Template.
-- [Change Recipes](/developer/recipes) — Everyday development workflows.
+- [Architecture](/developer/architecture) — Decoupled Host Studio and Standalone WebAPK execution models.
 - [Contributing](/developer/contributing) — Contribution guidelines and standards.

@@ -1,5 +1,33 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+
+interface ArchitectureTarget {
+  id: string
+  title: string
+  badge: string
+  description: string
+}
+
+interface DnsResolver {
+  id: string
+  name: string
+  endpoint: string
+  features: string
+}
+
+interface PrivacyVector {
+  category: string
+  vectorName: string
+  attackSurface: string
+  mitigation: string
+}
+
+interface PipelineStep {
+  stepNumber: number
+  title: string
+  detail: string
+  durationMs: number
+}
 
 interface Preset {
   name: string
@@ -7,16 +35,57 @@ interface Preset {
   pkg: string
   icon: string
   theme: string
+  arch: string
 }
 
 const presets: Preset[] = [
-  { name: 'Linear', url: 'https://linear.app', pkg: 'app.linear.packora', icon: '⚡', theme: '#5e6ad2' },
-  { name: 'GitHub', url: 'https://github.com', pkg: 'com.github.packora', icon: '🐙', theme: '#238636' },
-  { name: 'Notion', url: 'https://notion.so', pkg: 'so.notion.packora', icon: '📝', theme: '#000000' },
-  { name: 'Claude', url: 'https://claude.ai', pkg: 'ai.claude.packora', icon: '✨', theme: '#d97706' }
+  { name: 'Linear', url: 'https://linear.app', pkg: 'app.linear.packora', icon: '⚡', theme: '#000000', arch: 'web' },
+  { name: 'GitHub', url: 'https://github.com', pkg: 'com.github.packora', icon: '🐙', theme: '#000000', arch: 'web' },
+  { name: 'Notion', url: 'https://notion.so', pkg: 'so.notion.packora', icon: '📝', theme: '#000000', arch: 'frontend' },
+  { name: 'Excalidraw', url: 'https://excalidraw.com', pkg: 'com.excalidraw.packora', icon: '🎨', theme: '#000000', arch: 'html' }
 ]
 
+// Fallback targets matching KMP definitions
+const defaultTargets: ArchitectureTarget[] = [
+  { id: 'web', title: 'Default Web App', badge: 'Universal PWA', description: 'Full standalone WebAPK with independent task affinity and custom keystores.' },
+  { id: 'html', title: 'Offline HTML Pack', badge: '100% Offline', description: 'Self-contained local web assets bundled into assets/www/ with zero network dependency.' },
+  { id: 'frontend', title: 'Frontend SPA', badge: 'SPA Router', description: 'Single Page App with client-side history routing fallback for React, Vue, Vite, Nuxt.' },
+  { id: 'multi-web', title: 'Multi-Web Hub', badge: 'Tabbed Workspace', description: 'Aggregates multiple destinations with an interactive native dark pill navigation bar.' },
+  { id: 'media', title: 'Media Streamer', badge: 'Background Audio', description: 'Video and audio player with auto-keep-screen-on and uninterrupted background playback.' }
+]
+
+const defaultResolvers: DnsResolver[] = [
+  { id: 'cloudflare', name: 'Cloudflare DNS', endpoint: 'https://cloudflare-dns.com/dns-query', features: 'Ultra-fast global Anycast (1.1.1.1)' },
+  { id: 'google', name: 'Google Public DNS', endpoint: 'https://dns.google/dns-query', features: 'High-capacity worldwide infrastructure (8.8.8.8)' },
+  { id: 'adguard', name: 'AdGuard DNS', endpoint: 'https://dns.adguard-dns.com/dns-query', features: 'Built-in ad & tracker blocking resolver' },
+  { id: 'quad9', name: 'Quad9 DNS', endpoint: 'https://dns.quad9.net/dns-query', features: 'Swiss privacy-first security & threat protection' },
+  { id: 'mullvad', name: 'Mullvad DoH', endpoint: 'https://doh.mullvad.net/dns-query', features: 'Strict zero-logging audited privacy resolver' },
+  { id: 'controld', name: 'Control D', endpoint: 'https://freedns.controld.com/p0', features: 'High-performance privacy resolver with zero telemetry' },
+  { id: 'dnssb', name: 'DNS.SB', endpoint: 'https://doh.dns.sb/dns-query', features: 'European privacy-first non-censored DNS resolver' },
+  { id: 'cleanbrowsing', name: 'CleanBrowsing Security', endpoint: 'https://doh.cleanbrowsing.org/doh/security-filter/', features: 'Malware, phishing & malicious domain blocker' },
+  { id: 'opendns', name: 'OpenDNS', endpoint: 'https://doh.opendns.com/dns-query', features: 'Cisco Anycast recursive DNS network' }
+]
+
+const defaultVectors: PrivacyVector[] = [
+  { category: 'Canvas 2D', vectorName: 'toDataURL & getImageData', attackSurface: 'Pixel hashing to identify browser graphics stack', mitigation: 'Injects microscopic, deterministic pixel noise to randomize tracking hashes without visual degradation.' },
+  { category: 'WebGL', vectorName: 'UNMASKED_RENDERER_WEBGL', attackSurface: 'GPU vendor, renderer strings & extensions profiling', mitigation: 'Spoofs GPU strings to generic high-end Adreno/Mali profiles and masks shader precision.' },
+  { category: 'AudioContext', vectorName: 'OscillatorNode & AnalyserNode', attackSurface: 'Acoustic frequency response & FFT fingerprinting', mitigation: 'Applies sub-audible jitter (+/- 0.0001) to buffer frequencies, breaking audio fingerprint curves.' },
+  { category: 'DOM Geometry', vectorName: 'getClientRects & getBoundingClientRect', attackSurface: 'Subpixel font rendering & display scaling telemetry', mitigation: 'Injects microscopic fractional floating-point jitter to subpixel coordinate readbacks.' },
+  { category: 'WebRTC', vectorName: 'RTCPeerConnection ICE Candidates', attackSurface: 'Local intranet IP address & network topology leakage', mitigation: 'Blocks host-type ICE candidate generation, preventing local private IP leakages.' },
+  { category: 'Battery API', vectorName: 'navigator.getBattery()', attackSurface: 'Battery charging level & discharge time fingerprinting', mitigation: 'Spoofs charging status to 100% constant, preventing timing-based session correlation.' },
+  { category: 'Device Memory', vectorName: 'navigator.deviceMemory', attackSurface: 'RAM capacity device categorization', mitigation: 'Normalizes memory reporting to standard 8GB profiles across all devices.' },
+  { category: 'Hardware Concurrency', vectorName: 'navigator.hardwareConcurrency', attackSurface: 'CPU core count correlation', mitigation: 'Clamps CPU core reports to standard 8-core mobile baseline.' },
+  { category: 'Data Hygiene', vectorName: 'Storage & Cache Eviction', attackSurface: 'Persistent cross-session tracking via IndexedDB/Cookies', mitigation: 'Performs comprehensive cache, DOM storage, and cookie wiping upon application exit when enabled.' }
+]
+
+const kmpVersion = ref('5.4.0')
+const targets = ref<ArchitectureTarget[]>(defaultTargets)
+const resolvers = ref<DnsResolver[]>(defaultResolvers)
+const privacyVectors = ref<PrivacyVector[]>(defaultVectors)
+
 const activePreset = ref<Preset>(presets[0])
+const selectedArch = ref<string>('web')
+const selectedDns = ref<string>('cloudflare')
 const customUrl = ref(presets[0].url)
 const customName = ref(presets[0].name)
 const customPkg = ref(presets[0].pkg)
@@ -35,14 +104,24 @@ const buildProgress = ref(0)
 const buildStage = ref('')
 const buildDone = ref(false)
 const notificationTriggered = ref(false)
-
 const activeTab = ref<'studio' | 'vectors' | 'specs'>('studio')
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && (window as any).PackoraKMP) {
+    const kmp = (window as any).PackoraKMP
+    if (kmp.getVersion) kmpVersion.value = kmp.getVersion()
+    if (kmp.getTargets) targets.value = kmp.getTargets()
+    if (kmp.getResolvers) resolvers.value = kmp.getResolvers()
+    if (kmp.getPrivacyVectors) privacyVectors.value = kmp.getPrivacyVectors()
+  }
+})
 
 function selectPreset(p: Preset) {
   activePreset.value = p
   customUrl.value = p.url
   customName.value = p.name
   customPkg.value = p.pkg
+  selectedArch.value = p.arch
   buildDone.value = false
   buildProgress.value = 0
 }
@@ -52,28 +131,48 @@ function startBuild() {
   isBuilding.value = true
   buildDone.value = false
   buildProgress.value = 5
-  buildStage.value = 'Parsing PWA manifest & fetching 512x512 icons...'
+  buildStage.value = 'Initializing Packora KMP Compiler v' + kmpVersion.value + '...'
 
-  const stages = [
-    { p: 25, msg: 'Injecting 0ms early CSS stylesheets & footer hider...' },
-    { p: 50, msg: 'Bridging HTML5 Web Notifications to Android NotificationManager...' },
-    { p: 75, msg: 'Applying 50+ vector anti-fingerprinting & DoH resolver...' },
-    { p: 90, msg: 'Signing APK with deterministic RSA-3072 keystore (V1/V2/V3)...' },
-    { p: 100, msg: 'Package compiled successfully! 3.4 MB standalone WebAPK ready.' }
-  ]
+  let pipeline: PipelineStep[] = []
+  if (typeof window !== 'undefined' && (window as any).PackoraKMP?.getPipeline) {
+    pipeline = (window as any).PackoraKMP.getPipeline(
+      selectedArch.value,
+      customUrl.value,
+      customName.value,
+      customPkg.value
+    )
+  }
 
-  let step = 0
-  const interval = setInterval(() => {
-    if (step < stages.length) {
-      buildProgress.value = stages[step].p
-      buildStage.value = stages[step].msg
-      step++
+  if (!pipeline || pipeline.length === 0) {
+    pipeline = [
+      { stepNumber: 1, title: 'Parsing Web Target', detail: `Harvesting manifest from ${customUrl.value}...`, durationMs: 300 },
+      { stepNumber: 2, title: 'Extracting Template APK', detail: 'Staging webview_shell.apk base container (Android 15 ready)...', durationMs: 250 },
+      { stepNumber: 3, title: 'In-House AXML Patching', detail: `Patching AndroidManifest.xml: package=${customPkg.value}...`, durationMs: 350 },
+      { stepNumber: 4, title: 'In-House ARSC Rebuilding', detail: `Updating string pools: appName="${customName.value}"...`, durationMs: 300 },
+      { stepNumber: 5, title: '16KB ELF Boundary Alignment', detail: 'Aligning native shared libraries to 16,384-byte boundaries...', durationMs: 350 },
+      { stepNumber: 6, title: 'Deterministic Keystore Gen', detail: `Computing isolated RSA-3072 key for ${customPkg.value}...`, durationMs: 400 },
+      { stepNumber: 7, title: 'APK Signature Scheme v2/v3', detail: 'Applying cryptographic signature blocks...', durationMs: 300 },
+      { stepNumber: 8, title: 'WebAPK Compilation Complete', detail: 'Production-ready standalone WebAPK ready for in-place updates.', durationMs: 200 }
+    ]
+  }
+
+  let currentStep = 0
+  const total = pipeline.length
+
+  function runNext() {
+    if (currentStep < total) {
+      const step = pipeline[currentStep]
+      buildStage.value = `[${step.stepNumber}/${total}] ${step.title}: ${step.detail}`
+      buildProgress.value = Math.round(((currentStep + 1) / total) * 100)
+      currentStep++
+      setTimeout(runNext, step.durationMs || 300)
     } else {
-      clearInterval(interval)
       isBuilding.value = false
       buildDone.value = true
     }
-  }, 400)
+  }
+
+  setTimeout(runNext, 200)
 }
 
 function testNotification() {
@@ -110,7 +209,7 @@ function testNotification() {
         @click="activeTab = 'specs'"
       >
         <span class="tab-icon">⚙️</span>
-        <span>Runtime & Specs</span>
+        <span>Engine Specs</span>
       </button>
     </div>
 
@@ -123,11 +222,11 @@ function testNotification() {
             <span class="traffic-light yellow"></span>
             <span class="traffic-light green"></span>
           </div>
-          <span class="studio-title-badge">Packora WebAPK Compiler v5.2.0</span>
+          <span class="studio-title-badge">Packora Studio Compiler v{{ kmpVersion }}</span>
         </div>
         <div class="studio-header-right">
           <span class="studio-status-pill">
-            <span class="status-dot"></span> On-Device Engine Ready
+            <span class="status-dot"></span> Kotlin Multiplatform Core Active
           </span>
         </div>
       </div>
@@ -147,10 +246,30 @@ function testNotification() {
         </button>
       </div>
 
+      <!-- Architecture Picker (5 True Architectures) -->
+      <div class="arch-selector-section">
+        <label class="section-label">Target Architecture (5 Core Engines):</label>
+        <div class="arch-chips-grid">
+          <button
+            v-for="t in targets"
+            :key="t.id"
+            class="arch-chip"
+            :class="{ active: selectedArch === t.id }"
+            @click="selectedArch = t.id"
+          >
+            <div class="arch-chip-top">
+              <span class="arch-chip-title">{{ t.title }}</span>
+              <span class="arch-chip-badge">{{ t.badge }}</span>
+            </div>
+            <p class="arch-chip-desc">{{ t.description }}</p>
+          </button>
+        </div>
+      </div>
+
       <!-- URL & Metadata Row -->
       <div class="studio-meta-grid">
         <div class="input-group">
-          <label>Target URL</label>
+          <label>Target URL / Bundle Endpoint</label>
           <div class="input-with-icon">
             <span class="input-icon">🔗</span>
             <input v-model="customUrl" type="url" placeholder="https://example.com" />
@@ -178,7 +297,7 @@ function testNotification() {
           <div class="toggle-info">
             <div class="toggle-title">
               <span class="toggle-icon">🛡️</span>
-              <b>50+ Vector Privacy Shield</b>
+              <b>50+ Vector Stealth Shield</b>
             </div>
             <p>Spoof Canvas 2D, WebGL GPU, AudioContext & WebRTC local IP</p>
           </div>
@@ -192,9 +311,9 @@ function testNotification() {
           <div class="toggle-info">
             <div class="toggle-title">
               <span class="toggle-icon">🚫</span>
-              <b>Smart AdBlocker & Cosmetic DOM</b>
+              <b>EasyList Ad & Tracker Blocker</b>
             </div>
-            <p>Block tracking networks & collapse empty banner spaces</p>
+            <p>70,000+ rules matched in WebView pipeline with 0ms overhead</p>
           </div>
           <label class="switch-ui">
             <input v-model="adBlock" type="checkbox" />
@@ -208,7 +327,7 @@ function testNotification() {
               <span class="toggle-icon">⚡</span>
               <b>Instant 0ms Footer Hider</b>
             </div>
-            <p>Early CSS injection hides annoying web footers before paint</p>
+            <p>Early CSS injection hides annoying web footers before initial paint</p>
           </div>
           <label class="switch-ui">
             <input v-model="instantFooter" type="checkbox" />
@@ -222,7 +341,7 @@ function testNotification() {
               <span class="toggle-icon">🔒</span>
               <b>Encrypted DNS-over-HTTPS (DoH)</b>
             </div>
-            <p>Cloudflare, Google, AdGuard, Quad9 with Strict DoH mode</p>
+            <p>9 built-in privacy resolvers with zero ISP tracking</p>
           </div>
           <label class="switch-ui">
             <input v-model="encryptedDns" type="checkbox" />
@@ -234,7 +353,7 @@ function testNotification() {
           <div class="toggle-info">
             <div class="toggle-title">
               <span class="toggle-icon">🔔</span>
-              <b>Native HTML5 Web Notifications</b>
+              <b>Native HTML5 Notifications</b>
             </div>
             <p>Real Android system bar push notifications with badge</p>
           </div>
@@ -248,9 +367,9 @@ function testNotification() {
           <div class="toggle-info">
             <div class="toggle-title">
               <span class="toggle-icon">🔑</span>
-              <b>Deterministic RSA-3072 Signing</b>
+              <b>Deterministic RSA-3072 Keys</b>
             </div>
-            <p>Prevents package parse errors during in-place app updates</p>
+            <p>Isolated signing identities for conflict-free in-place updates</p>
           </div>
           <label class="switch-ui">
             <input v-model="perAppSigning" type="checkbox" />
@@ -322,39 +441,15 @@ function testNotification() {
     <!-- TAB 2: 50+ PRIVACY VECTORS -->
     <div v-if="activeTab === 'vectors'" class="studio-detail-card">
       <div class="detail-card-head">
-        <h3>50+ Real-Time Anti-Fingerprinting Defenses</h3>
-        <p>Packora neutralizes modern invasive tracking scripts (FingerprintJS, CreepJS, DataDome, Cloudflare Bot Management) directly at the DOM API layer.</p>
+        <h3>50+ Real-Time Stealth Anti-Fingerprinting Defenses</h3>
+        <p>Packora intercepts invasive tracking scripts directly at the DOM API layer before execution.</p>
       </div>
       <div class="vectors-grid">
-        <div class="vector-item">
-          <span class="vector-badge">Canvas 2D</span>
-          <h4>Sub-Perceptual Noise Injection</h4>
-          <p>Injects deterministic cryptographic micro-noise into <code>toDataURL()</code> and <code>getImageData()</code>, producing unique canvas hashes per session.</p>
-        </div>
-        <div class="vector-item">
-          <span class="vector-badge">WebGL GPU</span>
-          <h4>Renderer & Vendor Normalization</h4>
-          <p>Spoofs <code>UNMASKED_RENDERER_WEBGL</code> to a generic Adreno/Mali GPU profile while preserving 60 FPS hardware acceleration.</p>
-        </div>
-        <div class="vector-item">
-          <span class="vector-badge">AudioContext</span>
-          <h4>Oscillator Frequency Jitter</h4>
-          <p>Adds fractional phase shifting to DynamicsCompressor audio buffer rendering, defeating audio frequency fingerprinting.</p>
-        </div>
-        <div class="vector-item">
-          <span class="vector-badge">DOM ClientRects</span>
-          <h4>Sub-Pixel Dimension Jitter</h4>
-          <p>Perturbs <code>getBoundingClientRect()</code> return values by ±0.0001px to scramble font and display scaling telemetry.</p>
-        </div>
-        <div class="vector-item">
-          <span class="vector-badge">WebRTC Leak</span>
-          <h4>Host Candidate Suppression</h4>
-          <p>Neutralizes <code>RTCPeerConnection.createOffer</code> local IP probing, strictly preventing internal LAN address discovery.</p>
-        </div>
-        <div class="vector-item">
-          <span class="vector-badge">Timezone & Locale</span>
-          <h4>Deterministic Offset Spoofing</h4>
-          <p>Synchronizes <code>Intl.DateTimeFormat</code> and <code>Date.prototype.getTimezoneOffset</code> with user-configured location preferences.</p>
+        <div v-for="vec in privacyVectors" :key="vec.category + vec.vectorName" class="vector-item">
+          <span class="vector-badge">{{ vec.category }}</span>
+          <h4>{{ vec.vectorName }}</h4>
+          <p class="vector-attack"><strong>Attack:</strong> {{ vec.attackSurface }}</p>
+          <p class="vector-mitigation"><strong>Defense:</strong> {{ vec.mitigation }}</p>
         </div>
       </div>
     </div>
@@ -362,29 +457,29 @@ function testNotification() {
     <!-- TAB 3: RUNTIME & SPECS -->
     <div v-if="activeTab === 'specs'" class="studio-detail-card">
       <div class="detail-card-head">
-        <h3>Architecture & Performance Metrics</h3>
-        <p>Packora is engineered in Kotlin using Jetpack Compose, native JNI bytecode modification, and Android Signature Scheme V1/V2/V3.</p>
+        <h3>Architecture & Engine Performance Specifications</h3>
+        <p>Built with Jetpack Compose, native binary bytecode manipulation, and Android Signature Scheme V1/V2/V3.</p>
       </div>
       <div class="specs-grid">
         <div class="spec-card">
-          <span class="spec-metric">&lt; 800ms</span>
-          <span class="spec-title">Compilation Latency</span>
-          <p>Fast on-device AXML patching, resource rewriting, and signing with zero network overhead.</p>
+          <span class="spec-metric">&lt; 1.2s</span>
+          <span class="spec-title">On-Device Compile Time</span>
+          <p>Direct in-memory AXML patching, resource re-indexing, and V1/V2 signing with zero PC needed.</p>
         </div>
         <div class="spec-card">
-          <span class="spec-metric">51.0 KB</span>
-          <span class="spec-title">Template Overhead</span>
-          <p>Ultra-lean native container with zero bloat, no analytics libraries, and zero telemetry.</p>
+          <span class="spec-metric">16KB</span>
+          <span class="spec-title">ELF Page Alignment</span>
+          <p>Full support for modern Android 15+ kernels with strict 16,384-byte ELF boundaries.</p>
         </div>
         <div class="spec-card">
-          <span class="spec-metric">12</span>
-          <span class="spec-title">Native On-Device Runtimes</span>
-          <p>Node.js, PHP, Python, Go, WordPress, Frontend SPAs, Offline Crawlers compiled to APKs.</p>
+          <span class="spec-metric">5</span>
+          <span class="spec-title">True Architectures</span>
+          <p>PWA/URL Web App, Offline HTML5, Frontend SPA, Multi-Web Tabbed Hub, and Immersive Media.</p>
         </div>
         <div class="spec-card">
           <span class="spec-metric">RSA-3072</span>
-          <span class="spec-title">Isolated Keystores</span>
-          <p>Deterministic per-package signing identities preventing update parse failures.</p>
+          <span class="spec-title">Deterministic Keys</span>
+          <p>Isolated per-package cryptographic keystores preventing update signature mismatch errors.</p>
         </div>
       </div>
     </div>
@@ -402,7 +497,7 @@ function testNotification() {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  background: rgba(14, 21, 38, 0.6);
+  background: rgba(0, 0, 0, 0.4);
   padding: 6px;
   border-radius: 14px;
   border: 1px solid var(--packora-glass-border);
@@ -430,9 +525,9 @@ function testNotification() {
 }
 
 .studio-tab-btn.active {
-  background: var(--vp-c-brand-soft);
-  color: var(--vp-c-brand-1);
-  border: 1px solid var(--packora-glass-border);
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #ffffff;
 }
 
 /* Main Card */
@@ -448,7 +543,7 @@ function testNotification() {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--packora-glass-border);
   margin-bottom: 20px;
 }
 
@@ -467,38 +562,39 @@ function testNotification() {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.traffic-light.red { background: #ef4444; }
-.traffic-light.yellow { background: #f59e0b; }
-.traffic-light.green { background: #10b981; }
+.traffic-light.red { background: #555555; }
+.traffic-light.yellow { background: #888888; }
+.traffic-light.green { background: #cccccc; }
 
 .studio-title-badge {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--vp-c-text-1);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
 }
 
 .studio-status-pill {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
+  color: var(--vp-c-text-1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--packora-glass-border);
   padding: 4px 10px;
-  border-radius: 9999px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 20px;
 }
 
 .status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
+  background: #ffffff;
+  box-shadow: 0 0 8px #ffffff;
 }
 
 /* Presets */
@@ -506,51 +602,121 @@ function testNotification() {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .preset-label {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--vp-c-text-3);
+  color: var(--vp-c-text-2);
 }
 
 .preset-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 9999px;
   font-size: 0.82rem;
-  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   color: var(--vp-c-text-2);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .preset-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--vp-c-text-1);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .preset-chip.active {
-  background: var(--vp-c-brand-1);
-  border-color: var(--vp-c-brand-1);
-  color: var(--vp-c-bg);
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+  font-weight: 700;
 }
 
-/* Metadata inputs */
+/* Architecture Selector Section */
+.arch-selector-section {
+  margin-bottom: 20px;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--vp-c-text-2);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.arch-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.arch-chip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--packora-glass-border);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.arch-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.arch-chip.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #ffffff;
+}
+
+.arch-chip-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.arch-chip-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+}
+
+.arch-chip-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--vp-c-text-1);
+}
+
+.arch-chip-desc {
+  font-size: 0.74rem;
+  color: var(--vp-c-text-2);
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* Inputs */
 .studio-meta-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1.5fr;
   gap: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 800px) {
   .studio-meta-grid {
     grid-template-columns: 1fr;
   }
@@ -567,21 +733,30 @@ function testNotification() {
 .input-with-icon {
   display: flex;
   align-items: center;
-  background: rgba(10, 15, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 10px;
-  padding: 8px 12px;
-  gap: 8px;
+  padding: 0 12px;
+  transition: border-color 0.2s;
+}
+
+.input-with-icon:focus-within {
+  border-color: #ffffff;
+}
+
+.input-icon {
+  margin-right: 8px;
+  font-size: 0.9rem;
 }
 
 .input-with-icon input {
+  width: 100%;
+  padding: 10px 0;
   background: transparent;
   border: none;
   outline: none;
+  font-size: 0.85rem;
   color: var(--vp-c-text-1);
-  font-size: 0.88rem;
-  width: 100%;
-  font-family: inherit;
 }
 
 /* Toggles Grid */
@@ -600,47 +775,46 @@ function testNotification() {
 
 .toggle-card {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  align-items: center;
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 12px;
+  padding: 14px 16px;
   transition: all 0.2s;
 }
 
 .toggle-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .toggle-info {
   flex: 1;
-  padding-right: 12px;
+  padding-right: 14px;
 }
 
 .toggle-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 8px;
+  font-size: 0.88rem;
   color: var(--vp-c-text-1);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .toggle-info p {
-  font-size: 0.74rem;
-  color: var(--vp-c-text-3);
+  font-size: 0.75rem;
+  color: var(--vp-c-text-2);
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
-/* Switch UI */
+/* iOS Switch UI */
 .switch-ui {
   position: relative;
   display: inline-block;
-  width: 42px;
-  height: 24px;
+  width: 44px;
+  height: 26px;
   flex-shrink: 0;
 }
 
@@ -654,30 +828,31 @@ function testNotification() {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(255, 255, 255, 0.15);
-  transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: 24px;
+  background-color: #333333;
+  transition: .25s;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .switch-slider:before {
   position: absolute;
   content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #888888;
+  transition: .25s;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .switch-ui input:checked + .switch-slider {
-  background: var(--vp-c-brand-1);
+  background-color: #ffffff;
 }
 
 .switch-ui input:checked + .switch-slider:before {
   transform: translateX(18px);
+  background-color: #000000;
 }
 
 /* Action Area */
@@ -691,23 +866,23 @@ function testNotification() {
   background: var(--vp-c-bg-mute);
   border: 1px solid var(--packora-glass-border);
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 14px;
 }
 
 .progress-bar-track {
   width: 100%;
-  height: 6px;
-  background: var(--vp-c-bg-soft);
-  border-radius: 6px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: var(--vp-c-brand-1);
+  background: #ffffff;
+  border-radius: 4px;
   transition: width 0.3s ease;
-  border-radius: 6px;
 }
 
 .progress-info-row {
@@ -715,18 +890,16 @@ function testNotification() {
   justify-content: space-between;
   align-items: center;
   font-size: 0.8rem;
+  color: var(--vp-c-text-1);
 }
 
 .progress-stage-text {
-  color: #93c5fd;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
 }
 
 .progress-pct {
   font-weight: 700;
-  color: var(--vp-c-text-1);
 }
 
 .action-buttons-row {
@@ -736,28 +909,23 @@ function testNotification() {
 }
 
 .build-trigger-btn {
+  flex: 2;
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 14px 24px;
-  background: var(--vp-c-brand-1);
-  border: 1px solid var(--vp-c-brand-1);
-  border-radius: 14px;
-  color: var(--vp-c-bg);
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
   overflow: hidden;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #ffffff;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .build-trigger-btn:hover:not(:disabled) {
-  opacity: 0.9;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
 }
 
 .build-trigger-btn:disabled {
@@ -768,122 +936,112 @@ function testNotification() {
 .btn-content {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
 }
 
 .test-notif-btn {
-  display: inline-flex;
+  flex: 1;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 14px 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  background: var(--vp-c-bg-mute);
   color: var(--vp-c-text-1);
+  border: 1px solid var(--packora-glass-border);
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 0.85rem;
   font-weight: 600;
-  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .test-notif-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--vp-c-brand-1);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* Simulated Android Notification */
 .simulated-notification {
-  background: var(--vp-c-bg-mute);
-  border: 1px solid var(--packora-glass-border);
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+  padding: 14px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .notif-header {
   display: flex;
   justify-content: space-between;
-  font-size: 0.74rem;
-  color: #94a3b8;
+  font-size: 0.75rem;
+  color: #aaaaaa;
   margin-bottom: 8px;
 }
 
 .notif-body {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .notif-icon-box {
-  font-size: 1.4rem;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 8px;
-  border-radius: 10px;
-  line-height: 1;
+  width: 36px;
+  height: 36px;
+  background: #222222;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
 }
 
 .notif-text b {
+  font-size: 0.85rem;
+  color: #ffffff;
   display: block;
-  font-size: 0.88rem;
-  color: #f8fafc;
-  margin-bottom: 2px;
 }
 
 .notif-text p {
-  font-size: 0.8rem;
-  color: #cbd5e1;
-  margin: 0;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  color: #bbbbbb;
+  margin: 2px 0 0 0;
 }
 
-/* Tab 2 & 3 Details */
+/* Vectors Grid */
 .detail-card-head {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .detail-card-head h3 {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: var(--vp-c-text-1);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .detail-card-head p {
   color: var(--vp-c-text-2);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   margin: 0;
-  line-height: 1.5;
 }
 
 .vectors-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 900px) {
-  .vectors-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .vectors-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .vector-item {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 14px;
   padding: 16px;
   transition: all 0.2s;
 }
 
 .vector-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -891,9 +1049,8 @@ function testNotification() {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg-mute);
-  border: 1px solid var(--packora-glass-border);
+  color: #000000;
+  background: #ffffff;
   padding: 3px 8px;
   border-radius: 6px;
   margin-bottom: 8px;
@@ -903,16 +1060,24 @@ function testNotification() {
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--vp-c-text-1);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
-.vector-item p {
-  font-size: 0.8rem;
-  color: var(--vp-c-text-3);
+.vector-attack {
+  font-size: 0.78rem;
+  color: #bbbbbb;
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+}
+
+.vector-mitigation {
+  font-size: 0.78rem;
+  color: #ffffff;
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
+/* Specs Grid */
 .specs-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -926,8 +1091,8 @@ function testNotification() {
 }
 
 .spec-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 14px;
   padding: 20px 16px;
   text-align: center;
@@ -951,7 +1116,7 @@ function testNotification() {
 
 .spec-card p {
   font-size: 0.78rem;
-  color: var(--vp-c-text-3);
+  color: var(--vp-c-text-2);
   margin: 0;
   line-height: 1.4;
 }
@@ -963,87 +1128,5 @@ function testNotification() {
 .pop-in-enter-from, .pop-in-leave-to {
   opacity: 0;
   transform: translateY(-10px) scale(0.98);
-}
-
-/* Multi-screen Scalability: Tablet & Mobile phones */
-@media (max-width: 768px) {
-  .studio-main-card, .studio-detail-card {
-    padding: 18px 14px;
-    border-radius: 16px;
-  }
-
-  .studio-tabs {
-    width: 100%;
-    display: flex;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    padding: 4px;
-    gap: 4px;
-  }
-
-  .studio-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .studio-tab-btn {
-    flex: 1;
-    min-width: fit-content;
-    white-space: nowrap;
-    justify-content: center;
-    font-size: 0.8rem;
-    padding: 8px 12px;
-  }
-
-  .studio-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .studio-header-right {
-    width: 100%;
-  }
-
-  .studio-status-pill {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .action-buttons-row {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .build-trigger-btn, .test-notif-btn {
-    width: 100%;
-    flex: 1 1 100%;
-    padding: 12px 18px;
-    font-size: 0.9rem;
-  }
-
-  .simulated-notification {
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-}
-
-@media (max-width: 480px) {
-  .preset-chip {
-    padding: 5px 10px;
-    font-size: 0.78rem;
-  }
-
-  .studio-title-badge {
-    font-size: 0.78rem;
-  }
-
-  .toggle-card {
-    padding: 12px 10px;
-  }
-
-  .toggle-title {
-    font-size: 0.82rem;
-  }
 }
 </style>

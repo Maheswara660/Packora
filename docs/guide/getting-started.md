@@ -1,86 +1,84 @@
-# Getting Started
+# Getting Started with Packora
 
-This walkthrough takes you from a fresh install to your first signed APK. At each step it notes what the app is actually doing under the hood, so the flow makes sense in terms of the code.
+This guide walks you through compiling your very first standalone, hardened WebAPK directly on your Android device using Packora Studio.
 
-## 1. Install and launch
+---
 
-Install the Packora builder on a device running **Android 7.0 (API 24) or newer**.
+## 1. Installation & Requirements
 
-<div class="packora-install">
+- **Supported OS**: Android 7.0 (Nougat, API 24) through Android 15 (Vanilla Ice Cream, API 35) and beyond.
+- **Hardware Architecture**: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`.
+- **Root Required**: No. Packora operates entirely in user space without requiring root or unlocked bootloaders. (Optional Root/Shizuku modes are available in Settings for unattended silent updates).
 
-**Download the builder**
+Download the latest signed release APK from [GitHub Releases](https://github.com/Maheswara660/Packora/releases) and install it on your device.
 
-<LatestRelease variant="install" />
+---
 
-Get the APK from [GitHub Releases](https://github.com/Maheswara660/Packora/releases) and install it like any other APK. The button auto-detects the newest version.
+## 2. Launching Packora Studio
 
-</div>
+When you launch Packora, the **My Apps** dashboard presents:
+- A search bar for filtering your generated WebAPKs.
+- Category filters to organize apps into work, media, tools, and social categories.
+- A floating action button (**＋**) to initiate a new app build.
+- Quick navigation to **Updates**, **History**, and **Settings**.
 
-On launch, `PackoraApplication` starts in **builder mode** (`SHELL_RUNTIME_ONLY = false`): it initializes the i18n strings, the Room database, and the dependency graph, then shows **My Apps** — the home screen that lists every app you create. See [Main Screen](/guide/main-screen/my-apps).
+---
 
-## 2. Create an app definition
+## 3. Creating Your First WebAPK
 
-At the bottom of **My Apps**, tap **Create**. A panel expands with a 3-column grid of the 12 [app types](/guide/app-types/):
+Tap the **＋ (Create)** button to open the **Build Studio**.
 
-**Web · Multi-Web · HTML · Offline Pack · Frontend · PHP · WordPress · Node.js · Python · Go · Media · Gallery**
+### Step A: Choose an Architecture
+Select the target architecture matching your source:
+1. **Web App (URL / PWA)**: Ideal for existing websites and cloud applications (e.g. `https://linear.app`, `https://notion.so`).
+2. **Offline HTML5**: Ideal for offline games, interactive calculators, documentation bundles, or zip archives containing `index.html`.
+3. **Frontend SPA**: Ideal for client-routed single-page apps (React, Vue, Svelte, Angular).
+4. **Multi-Web Hub**: Ideal for portals combining multiple URLs with a native bottom navigation bar.
+5. **Media Stream**: Ideal for HLS/DASH video streams, live audio, or radio stations.
 
-Tap **Web** for your first app. The Web editor opens.
+### Step B: Configure App Identity
+- **App Name**: Enter the title that will appear in the Android system launcher and splash screen.
+- **Package Name**: Packora suggests a reverse-domain identifier (e.g., `com.company.myapp`). You can customize this freely or generate a random clean identifier.
+- **App Icon**: Select an image from your device gallery, enter an icon URL, or let Packora scrape the high-resolution vector favicon directly from the target website.
 
-## 3. Fill in the basics
+### Step C: Customize Privacy & Network
+- **Stealth Privacy Shield**: Toggle ON to intercept 50+ fingerprinting vectors (Canvas, WebGL, AudioContext, Battery, WebRTC).
+- **Ad & Tracker Blocker**: Toggle ON to load the 70,000+ EasyList rule engine.
+- **Encrypted DNS**: Pick from 9 zero-logging DoH providers (Cloudflare, AdGuard, Quad9, Google, Mullvad, etc.) or enter a custom DoH endpoint.
 
-Fill in the top **Basic info** card:
+### Step D: Compile the WebAPK
+Tap the **Build WebAPK** button at the bottom.
+Packora's on-device binary compiler will:
+1. Extract and clone the pre-compiled template APK.
+2. Binary-patch `AndroidManifest.xml` (AXML) with the custom package name, permissions, and launcher activities.
+3. Re-index and patch `resources.arsc` with custom strings and colors.
+4. Replace the launcher icon mipmaps with adaptive icon layers.
+5. Inject the serialized `app_config.json` containing runtime policies.
+6. Align all zip entries and native binaries to 16KB page boundaries.
+7. Generate an isolated RSA-3072 keystore and sign the package using APK Signature Scheme v1 and v2.
 
-- **App name**
-- **Target URL** — e.g. `https://example.com`
-- **Icon** — optional; a type-specific default is used otherwise
+The entire process takes **between 1 and 4 seconds**.
 
-The rest of the editor is a long list of optional capability cards (fullscreen, splash, ad blocking, DNS, disguise, …). Ignore them for now — defaults are used. Each is covered under [App Configuration](/guide/config/).
+---
 
-Tap **Save**. Under the hood, the editor assembles a `WebApp` object (with `appType = WEB` and a `webViewConfig`) and writes it to the `web_apps` Room table. Your app now appears in the list.
+## 4. Installing and Testing
 
-## 4. Preview
+Once compilation completes, Packora prompts you to install the APK:
+- Tap **Install APK** to invoke the Android package installer.
+- Once installed, the WebAPK appears on your launcher just like any native application.
+- Launch the app to experience native splash animations, hardware-accelerated rendering, and privacy isolation.
 
-On **My Apps**, tap your app's card. The preview router checks the app's `appType` and launches the matching runtime:
+---
 
-- `IMAGE` / `VIDEO` → the media player activity
-- `GALLERY` → the gallery player activity
-- everything else (including `WEB`) → the WebView activity
+## 5. Managing Updates & Build History
 
-For a Web app, the WebView activity loads your URL with your configured settings — the same code the exported app will run. (Tap the card's ⋮ button instead to open the [action menu](/guide/app-actions/edit-core-config).)
+- **Build History**: Access the **History** tab to review all previously compiled APKs, inspect SHA-256 hashes, verify file sizes, or share artifacts with other devices.
+- **Updates Hub**: The **Updates** screen automatically monitors remote endpoints for manifest changes, allowing you to update your WebAPKs with one tap.
 
-::: warning Preview ≠ export
-Preview runs the **host** path (everything on the builder's classpath). Export runs the **shell** path, reading your config from an embedded JSON. A feature can work in preview yet vanish after export if a config field doesn't survive that trip. See [Config Field Drift](/developer/config-drift).
-:::
+---
 
-## 5. Build the APK
+## Next Steps
 
-Tap ⋮ on your app's card, then **Build APK**. In the dialog you can:
-
-- pick the **browser engine** (System WebView or GeckoView),
-- optionally enable **resource encryption**, **isolation**, **background run**, and **notifications**,
-- force a **full rebuild** (otherwise an incremental mode is chosen automatically).
-
-Tap build. The `ApkBuilder` takes the shell template APK, patches its package name / icon / permissions, embeds your `WebApp` config as `app_config.json`, and signs the result (V1/V2/V3). See [Build APK](/guide/app-actions/build-apk).
-
-## 6. Install it
-
-Open **⋮ → [File Manager](/guide/more-features/file-manager)** from the top-right of My Apps. Your APK is there — install it or share it. When you launch it, that APK runs in **shell mode** (`SHELL_RUNTIME_ONLY = true`): `ShellModeManager` reads *your* embedded `app_config.json` and drives the runtime, fully independent of the builder.
-
-## Next steps
-
-- Tour the [Main Screen](/guide/main-screen/my-apps).
-- Learn what each [app type](/guide/app-types/) does.
-- Explore the per-app [App Actions](/guide/app-actions/edit-core-config).
-- Open the top-right **⋮** menu — see [More Features](/guide/more-features/agent).
-
-## Build from source
-
-Requirements: Android Studio Hedgehog or newer, JDK 17. The Gradle wrapper pins Gradle 8.11+.
-
-```bash
-git clone https://github.com/Maheswara660/Packora.git
-cd Packora
-./gradlew :app:assembleDebug
-```
-
-For release builds, configure signing through `local.properties` and `app/build.gradle.kts`.
+- Learn more about the [5 App Architectures](/guide/app-types/).
+- Configure [Encrypted DNS](/guide/security-privacy/encrypted-dns) and [Ad Blocking](/guide/security-privacy/ad-blocking).
+- Explore [Deterministic Keystores](/developer/deterministic-keys).

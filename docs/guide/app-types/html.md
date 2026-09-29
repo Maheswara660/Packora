@@ -1,44 +1,29 @@
-# HTML
+# Offline HTML Pack Architecture
 
-Packages local HTML into the APK and serves it from local files — no remote URL required.
+The **HTML** architecture (`PackoraAppType.HTML`) packages static web assets directly into the compiled APK binary, enabling fully functional offline web apps that run without an active internet connection.
 
-## When to use
+---
 
-Static builds and offline web apps where you already have the HTML/CSS/JS files.
+## How It Works
 
-## Core config
+1. **Asset Bundling**: Web assets (HTML, CSS, JS, images, fonts, web manifests) are packaged into the APK's `assets/www/` directory.
+2. **Local Protocol Resolution**: The application loads the entrypoint directly from `file:///android_asset/www/index.html`.
+3. **Local Access Security**: The WebView runtime safely configures `allowFileAccess = true`, `allowContentAccess = true`, and allows local DOM storage and IndexedDB persistence.
+4. **Zero Network Latency**: Pages and assets load instantaneously from on-device flash storage.
 
-Backed by `HtmlConfig`.
+---
 
-### Source
+## Best For
 
-- **Project directory** (`projectDir`) — the folder of HTML/CSS/JS, or a `.zip` extracted on import.
-- **Files** (`files`) — the packaged files, typed as HTML/CSS/JS/image/font/other.
+- Interactive documentation & offline reference manuals.
+- Offline tools, engineering calculators, and utility apps.
+- HTML5 games and interactive graphic presentations.
+- Disaster-readiness and survival guides requiring 100% offline availability.
 
-### Entry
+---
 
-- **Entry file** (`entryFile`) — defaults to `index.html`.
+## Configuration
 
-### Loading
-
-- **Load mode** (`loadMode`) — `AUTO`, `FILE` (file scheme), or `LOCAL_HTTP` (local server).
-- **Port** (`port`) — the local server port (for `LOCAL_HTTP`).
-- **Port-conflict mode** (`portConflictMode`) — `AUTO_KILL` or `ALERT`.
-
-### Capabilities
-
-- **Enable JavaScript** (`enableJavaScript`).
-- **Enable local storage** (`enableLocalStorage`).
-- **Allow file access** (`allowFileAccess`) — required for pure file-based loads.
-
-### Appearance
-
-- **Background color** (`backgroundColor`).
-
-## Notes
-
-- The generated app gets `allowFileAccess` so pure file-based loads work offline.
-- **HTML vs Frontend vs Offline Pack:**
-  - **HTML** — you already have static files.
-  - [Frontend](/guide/app-types/frontend) — you have a framework project whose build output you package.
-  - [Offline Pack](/guide/app-types/offline-pack) — you start from a remote URL and scrape it down.
+- **Asset Folder**: Select the directory containing your static build using Android's Storage Access Framework (SAF).
+- **Entrypoint**: By default, `index.html` at the root of the folder serves as the launch screen.
+- **Privacy & Storage**: Stealth privacy protection and local storage isolation remain fully active.

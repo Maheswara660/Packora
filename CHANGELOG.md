@@ -2,6 +2,16 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.4.0] - 2026-09-29
+### Added & Enhanced
+- **Custom UI Module Unification Across All Screens**:
+  - Replaced all remaining raw Android Material `Switch` toggles in Build Studio (`SPA Routing Fallback`, `Keep Screen On during Playback`, and `Background Audio Playback`) with Packora's custom iOS-styled spring switch (`PackoraIosSwitch`), providing 100% toggle consistency across the entire app.
+  - Introduced `PackoraSelectionIndicator`, an animated checkmark badge with 200ms easing and theme-adaptive colors, replacing generic Android `RadioButton` widgets in `SelectionBottomSheetDialog`, `DnsProviderBottomSheetDialog`, and `UpdateInstallModeBottomSheetDialog`.
+  - Paired batch compilation progress tracks with `PackoraDotLoader` for bespoke pulsing loader states across all screens.
+- **Complete Rebuild of Packora Website with Kotlin Multiplatform**:
+  - Purged all legacy copied files and foreign runtimes (PHP, Python, Node, Go, WordPress, Linux Environment, and Chrome MV3) from previous templates.
+  - Rebuilt the official Packora website from scratch using Kotlin Multiplatform for Web, delivering 100% verified, accurate Packora architectural documentation, interactive WebAPK Studio simulator, and benchmark comparisons.
+
 ## [5.3.0] - 2026-09-29
 ### Added & Enhanced
 - **App Startup Package Scanning & In-Memory Session Caching**:

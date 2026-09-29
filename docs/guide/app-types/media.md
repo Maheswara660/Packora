@@ -1,38 +1,21 @@
-# Media
+# Media Streamer Architecture
 
-A single-image or single-video app played by a dedicated media player.
+The **Media Streamer** architecture (`PackoraAppType.MEDIA`) is engineered specifically for audio and video streaming platforms, podcasts, internet radio stations, and media viewers.
 
-## When to use
+---
 
-Single-image viewers, course media, or looping signage-style video.
+## Media-Centric Optimizations
 
-## Variants
+- **Auto-Keep-Screen-On**: Injects `FLAG_KEEP_SCREEN_ON` during active video playback so users can watch long-form video content without the display dimming or locking.
+- **Unconstrained Autoplay**: Configures `mediaPlaybackRequiresUserGesture = false`, allowing media streams and playlists to advance automatically without manual touch gestures.
+- **Continuous Background Audio**: In `template/MainActivity.kt`, `onPause()` is specialized for media apps, ensuring that background audio streams continue playing uninterrupted when the device screen is locked or when switching between apps.
+- **Hardware Acceleration**: Enforces GPU-accelerated video decoding for smooth 60fps and 4K video playback.
 
-- **Image** — displays a picture full-screen.
-- **Video** — plays a video with configurable playback.
+---
 
-## Core config
+## Best For
 
-Backed by `MediaConfig`.
-
-### Source
-
-- **Media path** (`mediaPath`) — a local media file packaged into the app (optionally encrypted).
-
-### Playback
-
-- **Auto-play** (`autoPlay`) — start playback on launch.
-- **Loop** (`loop`) — repeat playback.
-- **Enable audio** (`enableAudio`) — sound on/off.
-
-### Display
-
-- **Fill screen** (`fillScreen`) — crop to fill vs fit.
-- **Orientation** (`orientation`) — portrait/landscape.
-- **Background color** (`backgroundColor`).
-- **Keep screen on** (`keepScreenOn`).
-
-## Notes
-
-- Preview launches the media player activity directly (not a WebView).
-- For a *collection* of media, use [Gallery](/guide/app-types/gallery).
+- Internet radio stations and podcast players.
+- Music streaming web apps and personal cloud audio libraries (Subsonic, Jellyfin, Plex).
+- Video-on-demand platforms and tutorial video libraries.
+- Ambient sound, meditation, and white-noise web players.

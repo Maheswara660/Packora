@@ -34,9 +34,22 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "5.3.0",
+        version = "5.4.0",
         date = "September 29, 2026",
         isLatest = true,
+        summary = "Custom UI Module Unification (iOS Spring Switches & Check Indicators across All Screens), Rebuilt Kotlin Multiplatform Website from Scratch with Exact Packora Data",
+        changes = listOf(
+            "Custom UI Module Unification: Replaced all remaining standard Android Material Switch widgets with custom Packora iOS-styled spring switches (PackoraIosSwitch) across Build Studio (SPA Routing Fallback, Keep Screen On, Background Audio Playback).",
+            "Custom Selection Indicators: Replaced default Android RadioButton components across DNS Provider, Settings, and Update Installation dialogs with custom animated checkmark badges (PackoraSelectionIndicator).",
+            "Enhanced Loaders & Progress: Paired batch compilation and update progress tracks with PackoraDotLoader for consistent loading states across all screens.",
+            "Complete Website Rebuild with Kotlin Multiplatform: Built the new Packora website from scratch using Kotlin Multiplatform for Web, eliminating all legacy copied files and delivering 100% accurate, verified Packora documentation, interactive simulator, and benchmarks.",
+            "Android 15 & Keystore Alignment: Maintained 16KB ELF boundary page alignment and deterministic isolated RSA-3072 keystores for seamless in-place updates."
+        )
+    ),
+    ReleaseItem(
+        version = "5.3.0",
+        date = "September 29, 2026",
+        isLatest = false,
         summary = "Cross-Screen Config Parity, In-App Packora App Info BottomSheet, Interactive Multi-Web Tabs, Startup App Scanning & Caching, Decluttered Install Modes, Monochrome Black & White Website",
         changes = listOf(
             "Startup Package Scanning & Session Caching: Automatically performs installed package discovery once in the background on app startup. Cached across the entire session, eliminating screen re-scans and loading delays when navigating between My Apps and Updates screens.",

@@ -530,7 +530,8 @@ fun BuildScreen(
                                     Text("Client History Routing Fallback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                                     Text("Routes deep-links to index entrypoint preventing 404 errors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Switch(
+                                Spacer(modifier = Modifier.width(12.dp))
+                                PackoraIosSwitch(
                                     checked = enableSpaRoutingFallback,
                                     onCheckedChange = { enableSpaRoutingFallback = it }
                                 )
@@ -611,7 +612,8 @@ fun BuildScreen(
                                     Text("Keep Screen On during Playback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                                     Text("Prevents display sleep while watching videos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Switch(
+                                Spacer(modifier = Modifier.width(12.dp))
+                                PackoraIosSwitch(
                                     checked = keepScreenOnDuringPlayback,
                                     onCheckedChange = { keepScreenOnDuringPlayback = it }
                                 )
@@ -625,7 +627,8 @@ fun BuildScreen(
                                     Text("Background Audio Playback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                                     Text("Allows media stream to continue when app is minimized", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Switch(
+                                Spacer(modifier = Modifier.width(12.dp))
+                                PackoraIosSwitch(
                                     checked = enableBackgroundAudio,
                                     onCheckedChange = { enableBackgroundAudio = it }
                                 )
@@ -3247,17 +3250,13 @@ fun DnsProviderBottomSheetDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
                         ) {
-                            RadioButton(
+                            com.maheswara660.packora.ui.components.PackoraSelectionIndicator(
                                 selected = isSelected,
                                 onClick = {
                                     tempSelection = provider
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                }
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = provider.displayName,

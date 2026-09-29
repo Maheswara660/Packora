@@ -17,6 +17,7 @@
 
 # Packora Subpackages & Engine Modules
 -keep class com.maheswara660.packora.model.** { *; }
+-keep enum com.maheswara660.packora.model.** { *; }
 -keep class com.maheswara660.packora.adblock.** { *; }
 -keep class com.maheswara660.packora.crypto.** { *; }
 -keep class com.maheswara660.packora.dns.** { *; }
@@ -24,6 +25,7 @@
 -keep class com.maheswara660.packora.scraper.** { *; }
 -keep class com.maheswara660.packora.analyzer.** { *; }
 -keep class com.maheswara660.packora.extension.** { *; }
+-keep class com.maheswara660.packora.manager.InstalledAppsManager { *; }
 -keep class com.maheswara660.packora.builder.PerAppSigningIdentity { *; }
 -keep class com.maheswara660.packora.builder.PerAppSigningIdentity$* { *; }
 

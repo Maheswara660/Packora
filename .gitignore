@@ -103,3 +103,6 @@ docs/node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/.temp/
 docs/.vitepress/cache/
+
+# Scraper & Builder Temp Packages
+offline_pack_*

@@ -11,8 +11,8 @@ android {
         applicationId = "com.maheswara660.packora"
         minSdk = 24
         targetSdk = 35
-        versionCode = 52
-        versionName = "5.2.0"
+        versionCode = 53
+        versionName = "5.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

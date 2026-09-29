@@ -7,11 +7,13 @@ import android.graphics.Color
 import android.net.Uri
 import androidx.core.content.res.ResourcesCompat
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import com.maheswara660.packora.model.PackoraAppType
 
 class ApkBuilder(private val context: Context) {
 
@@ -60,10 +62,21 @@ class ApkBuilder(private val context: Context) {
         adBlockConfig: com.maheswara660.packora.model.PackoraAdBlockConfig? = null,
         networkConfig: com.maheswara660.packora.model.PackoraNetworkConfig? = null,
         perAppSigningEnabled: Boolean = true,
+        appType: PackoraAppType = PackoraAppType.WEB,
+        offlinePackDir: File? = null,
+        multiWebTabs: List<String> = emptyList(),
+        spaRoutingFallback: Boolean = true,
+        keepScreenOn: Boolean = false,
         onProgress: (Int, String) -> Unit = { _, _ -> }
     ): String? {
         cleanTempFiles()
         onProgress(5, "Preparing builder context...")
+
+        val effectiveTargetUrl = if (appType == PackoraAppType.HTML) {
+            "file:///android_asset/www/index.html"
+        } else {
+            targetUrl
+        }
 
         val templateApk = template.getTemplateApk()
         if (templateApk == null) {
@@ -143,7 +156,7 @@ class ApkBuilder(private val context: Context) {
 
                             entry.name == "AndroidManifest.xml" -> {
                                 val originalData = zipIn.getInputStream(entry).readBytes()
-                                val targetUri = try { Uri.parse(targetUrl) } catch (e: Exception) { null }
+                                val targetUri = try { Uri.parse(effectiveTargetUrl) } catch (e: Exception) { null }
                                 val targetHost = targetUri?.host?.lowercase()
                                 val deepLinkHosts = if (!targetHost.isNullOrBlank()) {
                                     val clean = targetHost.removePrefix("www.")
@@ -186,7 +199,7 @@ class ApkBuilder(private val context: Context) {
                                 val configJson = createConfigJson(
                                     appName = appName,
                                     packageName = packageName,
-                                    targetUrl = targetUrl,
+                                    targetUrl = effectiveTargetUrl,
                                     versionCode = versionCode,
                                     versionName = versionName,
                                     isDesktopMode = isDesktopMode,
@@ -199,7 +212,11 @@ class ApkBuilder(private val context: Context) {
                                     customDownloadFolder = customDownloadFolder,
                                     privacyConfig = privacyConfig,
                                     adBlockConfig = adBlockConfig,
-                                    networkConfig = networkConfig
+                                    networkConfig = networkConfig,
+                                    appType = appType,
+                                    multiWebTabs = multiWebTabs,
+                                    spaRoutingFallback = spaRoutingFallback,
+                                    keepScreenOn = keepScreenOn
                                 )
                                 val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                                 ZipUtils.writeEntryDeflated(zipOut, entry.name, configBytes)
@@ -262,7 +279,7 @@ class ApkBuilder(private val context: Context) {
                         val configJson = createConfigJson(
                             appName = appName,
                             packageName = packageName,
-                            targetUrl = targetUrl,
+                            targetUrl = effectiveTargetUrl,
                             versionCode = versionCode,
                             versionName = versionName,
                             isDesktopMode = isDesktopMode,
@@ -275,10 +292,24 @@ class ApkBuilder(private val context: Context) {
                             customDownloadFolder = customDownloadFolder,
                             privacyConfig = privacyConfig,
                             adBlockConfig = adBlockConfig,
-                            networkConfig = networkConfig
+                            networkConfig = networkConfig,
+                            appType = appType,
+                            multiWebTabs = multiWebTabs,
+                            spaRoutingFallback = spaRoutingFallback,
+                            keepScreenOn = keepScreenOn
                         )
                         val configBytes = configJson.toString().toByteArray(Charsets.UTF_8)
                         ZipUtils.writeEntryDeflated(zipOut, ApkTemplate.CONFIG_PATH, configBytes)
+                    }
+
+                    // Bundle offline HTML assets into assets/www/
+                    if (appType == PackoraAppType.HTML && offlinePackDir != null && offlinePackDir.exists()) {
+                        onProgress(50, "Injecting offline HTML assets...")
+                        offlinePackDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                            val relativePath = file.relativeTo(offlinePackDir).path.replace('\\', '/')
+                            val entryPath = "assets/www/$relativePath"
+                            ZipUtils.writeEntryDeflated(zipOut, entryPath, file.readBytes())
+                        }
                     }
                 }
             }
@@ -502,7 +533,11 @@ class ApkBuilder(private val context: Context) {
         customDownloadFolder: String?,
         privacyConfig: com.maheswara660.packora.model.PackoraPrivacyConfig?,
         adBlockConfig: com.maheswara660.packora.model.PackoraAdBlockConfig?,
-        networkConfig: com.maheswara660.packora.model.PackoraNetworkConfig?
+        networkConfig: com.maheswara660.packora.model.PackoraNetworkConfig?,
+        appType: PackoraAppType = PackoraAppType.WEB,
+        multiWebTabs: List<String> = emptyList(),
+        spaRoutingFallback: Boolean = true,
+        keepScreenOn: Boolean = false
     ): JSONObject {
         val sanitizedAppName = appName.replace(Regex("[^\\w\\s\\-]"), "").replace(" ", "_")
         return JSONObject().apply {
@@ -511,6 +546,22 @@ class ApkBuilder(private val context: Context) {
             put("targetUrl", targetUrl)
             put("versionCode", versionCode)
             put("versionName", versionName)
+            put("appType", appType.name)
+            if (appType == PackoraAppType.HTML) {
+                put("isOfflineHtml", true)
+            }
+            if (appType == PackoraAppType.FRONTEND) {
+                put("spaMode", true)
+                put("spaRoutingFallback", spaRoutingFallback)
+            }
+            if (appType == PackoraAppType.MULTI_WEB && multiWebTabs.isNotEmpty()) {
+                put("multiWebTabs", JSONArray(multiWebTabs))
+            }
+            if (appType == PackoraAppType.MEDIA || keepScreenOn) {
+                put("mediaMode", true)
+                put("keepScreenOn", true)
+                put("backgroundAudio", true)
+            }
             put("webViewConfig", JSONObject().apply {
                 put("openExternalLinks", false)
                 put("desktopMode", isDesktopMode)

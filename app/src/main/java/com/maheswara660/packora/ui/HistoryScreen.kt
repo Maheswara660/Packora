@@ -70,6 +70,7 @@ fun HistoryScreen(
 
     var showClearConfirmSheet by remember { mutableStateOf(false) }
     var itemToRemove by remember { mutableStateOf<HistoryItem?>(null) }
+    var selectedItemForInfo by remember { mutableStateOf<HistoryItem?>(null) }
 
     val filteredList = remember(historyList, searchQuery, sortMode) {
         val list = if (searchQuery.isBlank()) historyList
@@ -335,6 +336,14 @@ fun HistoryScreen(
                                         Icon(Icons.Outlined.AutoMode, contentDescription = null, modifier = Modifier.size(15.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text("Reuse Config", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    FilledTonalIconButton(
+                                        onClick = { selectedItemForInfo = item },
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.size(38.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.Info, contentDescription = "App Info", modifier = Modifier.size(17.dp))
                                     }
 
                                     FilledTonalButton(
@@ -646,6 +655,18 @@ fun HistoryScreen(
                     }
                 }
             }
+        }
+
+        if (selectedItemForInfo != null) {
+            val item = selectedItemForInfo!!
+            com.maheswara660.packora.ui.components.PackoraAppInfoBottomSheetDialog(
+                appName = item.appName,
+                packageName = item.packageName,
+                versionName = item.versionName,
+                versionCode = item.versionCode,
+                historyItem = item,
+                onDismiss = { selectedItemForInfo = null }
+            )
         }
 
         if (showSortSheet) {

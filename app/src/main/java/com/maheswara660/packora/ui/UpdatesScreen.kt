@@ -59,8 +59,12 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
     val historyManager = remember { BuildHistoryManager(context) }
     val prefsManager = remember { PackoraPreferencesManager(context) }
 
-    var apps by remember { mutableStateOf<List<InstalledPackoraApp>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedApps by com.maheswara660.packora.manager.InstalledAppsManager.installedApps.collectAsState()
+    val isScanning by com.maheswara660.packora.manager.InstalledAppsManager.isScanning.collectAsState()
+    val hasScannedOnce by com.maheswara660.packora.manager.InstalledAppsManager.hasScannedOnce.collectAsState()
+
+    val apps = cachedApps
+    val isLoading = isScanning && !hasScannedOnce
 
     val buildingPackages = remember { mutableStateListOf<String>() }
     val buildProgress = remember { mutableStateMapOf<String, Int>() }
@@ -72,27 +76,7 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
     var currentInstallingApp by remember { mutableStateOf<PendingInstallTask?>(null) }
 
     fun refreshApps(showLoading: Boolean = false) {
-        coroutineScope.launch {
-            if (showLoading || apps.isEmpty()) {
-                isLoading = true
-            }
-            withContext(Dispatchers.IO) {
-                val detected = detectInstalledPackoraApps(context, historyManager)
-                withContext(Dispatchers.Main) {
-                    apps = detected
-                    // Also check if any apps already have compiled updates ready in history
-                    detected.forEach { app ->
-                        val historyApk = app.historyItem?.apkPath
-                        if (!historyApk.isNullOrBlank() && File(historyApk).exists() &&
-                            app.historyItem.versionCode > app.installedVersionCode
-                        ) {
-                            compiledApkPaths[app.packageName] = historyApk
-                        }
-                    }
-                    isLoading = false
-                }
-            }
-        }
+        com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = true)
     }
 
     fun advanceInstallQueue() {
@@ -120,8 +104,21 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
         }
     }
 
+    LaunchedEffect(apps) {
+        apps.forEach { app ->
+            val historyApk = app.historyItem?.apkPath
+            if (!historyApk.isNullOrBlank() && File(historyApk).exists() &&
+                app.historyItem.versionCode > app.installedVersionCode
+            ) {
+                compiledApkPaths[app.packageName] = historyApk
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
-        refreshApps(showLoading = true)
+        if (!hasScannedOnce) {
+            com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = false)
+        }
     }
 
     // BroadcastReceiver listening for completed package installations
@@ -137,7 +134,7 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                         if (active != null && data == active.packageName) {
                             advanceInstallQueue()
                         }
-                        refreshApps()
+                        com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = true)
                     }
                 }
             }
@@ -170,10 +167,10 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                         if (installedVC >= active.targetVersionCode) {
                             compiledApkPaths.remove(active.packageName)
                             advanceInstallQueue()
+                            com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = true)
                         }
                     } catch (e: Exception) {}
                 }
-                refreshApps()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -217,12 +214,32 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                     try { BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
                 } else null
 
+                val parsedAppType = try {
+                    com.maheswara660.packora.model.PackoraAppType.valueOf(item.appType)
+                } catch (e: Exception) {
+                    com.maheswara660.packora.model.PackoraAppType.WEB
+                }
+                val effectiveCustomFolder = item.customDownloadFolder ?: customFolder
+                val tabsList = item.multiWebTabs.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }
+
                 val privacyConfig = if (item.disguiseFingerprint) {
-                    com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+                    com.maheswara660.packora.model.PackoraPrivacyConfig(
+                        disguiseFingerprint = true,
+                        maskCanvas = item.maskCanvas,
+                        maskWebGL = item.maskWebGL,
+                        maskAudioContext = item.maskAudioContext,
+                        maskClientRects = item.maskClientRects,
+                        maskWebRtcIp = item.maskWebRtcIp,
+                        clearDataOnExit = item.clearDataOnExit
+                    )
                 } else null
 
                 val adBlockConfig = if (item.adBlockEnabled) {
-                    com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+                    com.maheswara660.packora.model.PackoraAdBlockConfig(
+                        enabled = true,
+                        blockTrackers = item.blockTrackers,
+                        cosmeticFiltering = item.cosmeticFiltering
+                    )
                 } else null
 
                 val dnsProvider = try {
@@ -230,8 +247,13 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                 } catch (e: Exception) {
                     com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
                 }
-                val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
-                    com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+                val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM || item.customDohUrl.isNotBlank()) {
+                    com.maheswara660.packora.model.PackoraNetworkConfig(
+                        dohProvider = dnsProvider,
+                        customDohUrl = item.customDohUrl,
+                        strictDoh = item.strictDoh,
+                        enableEch = item.enableEch
+                    )
                 } else null
 
                 generatedApk = builder.buildApk(
@@ -243,7 +265,7 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                     iconBitmap = inputBitmap,
                     disableHeader = true,
                     outputPath = outputName,
-                    customDownloadFolder = customFolder,
+                    customDownloadFolder = effectiveCustomFolder,
                     isDesktopMode = item.isDesktopMode,
                     browserEngine = item.browserEngine,
                     allowCopying = item.allowCopying,
@@ -261,7 +283,11 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                     privacyConfig = privacyConfig,
                     adBlockConfig = adBlockConfig,
                     networkConfig = networkConfig,
-                    perAppSigningEnabled = item.perAppSigning
+                    perAppSigningEnabled = item.perAppSigning,
+                    appType = parsedAppType,
+                    multiWebTabs = tabsList,
+                    spaRoutingFallback = item.spaRoutingFallback,
+                    keepScreenOn = item.keepScreenOn
                 )
             }
 
@@ -333,12 +359,32 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                         try { BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
                     } else null
 
+                    val parsedAppType = try {
+                        com.maheswara660.packora.model.PackoraAppType.valueOf(item.appType)
+                    } catch (e: Exception) {
+                        com.maheswara660.packora.model.PackoraAppType.WEB
+                    }
+                    val effectiveCustomFolder = item.customDownloadFolder ?: customFolder
+                    val tabsList = item.multiWebTabs.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }
+
                     val privacyConfig = if (item.disguiseFingerprint) {
-                        com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+                        com.maheswara660.packora.model.PackoraPrivacyConfig(
+                            disguiseFingerprint = true,
+                            maskCanvas = item.maskCanvas,
+                            maskWebGL = item.maskWebGL,
+                            maskAudioContext = item.maskAudioContext,
+                            maskClientRects = item.maskClientRects,
+                            maskWebRtcIp = item.maskWebRtcIp,
+                            clearDataOnExit = item.clearDataOnExit
+                        )
                     } else null
 
                     val adBlockConfig = if (item.adBlockEnabled) {
-                        com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+                        com.maheswara660.packora.model.PackoraAdBlockConfig(
+                            enabled = true,
+                            blockTrackers = item.blockTrackers,
+                            cosmeticFiltering = item.cosmeticFiltering
+                        )
                     } else null
 
                     val dnsProvider = try {
@@ -346,8 +392,13 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                     } catch (e: Exception) {
                         com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
                     }
-                    val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
-                        com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+                    val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM || item.customDohUrl.isNotBlank()) {
+                        com.maheswara660.packora.model.PackoraNetworkConfig(
+                            dohProvider = dnsProvider,
+                            customDohUrl = item.customDohUrl,
+                            strictDoh = item.strictDoh,
+                            enableEch = item.enableEch
+                        )
                     } else null
 
                     finalApk = builder.buildApk(
@@ -359,7 +410,7 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                         iconBitmap = inputBitmap,
                         disableHeader = true,
                         outputPath = outputName,
-                        customDownloadFolder = customFolder,
+                        customDownloadFolder = effectiveCustomFolder,
                         isDesktopMode = item.isDesktopMode,
                         browserEngine = item.browserEngine,
                         allowCopying = item.allowCopying,
@@ -377,7 +428,11 @@ fun UpdatesScreen(onReuseConfig: ((HistoryItem) -> Unit)? = null) {
                         privacyConfig = privacyConfig,
                         adBlockConfig = adBlockConfig,
                         networkConfig = networkConfig,
-                        perAppSigningEnabled = item.perAppSigning
+                        perAppSigningEnabled = item.perAppSigning,
+                        appType = parsedAppType,
+                        multiWebTabs = tabsList,
+                        spaRoutingFallback = item.spaRoutingFallback,
+                        keepScreenOn = item.keepScreenOn
                     )
                 }
 

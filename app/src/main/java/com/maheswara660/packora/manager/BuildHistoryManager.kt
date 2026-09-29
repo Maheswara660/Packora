@@ -29,7 +29,23 @@ data class HistoryItem(
     val perAppSigning: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
     val apkPath: String? = null,
-    val iconPath: String? = null
+    val iconPath: String? = null,
+    val appType: String = "WEB",
+    val customDownloadFolder: String? = null,
+    val multiWebTabs: String = "",
+    val spaRoutingFallback: Boolean = true,
+    val keepScreenOn: Boolean = false,
+    val maskCanvas: Boolean = true,
+    val maskWebGL: Boolean = true,
+    val maskAudioContext: Boolean = true,
+    val maskClientRects: Boolean = true,
+    val maskWebRtcIp: Boolean = true,
+    val clearDataOnExit: Boolean = false,
+    val blockTrackers: Boolean = true,
+    val cosmeticFiltering: Boolean = true,
+    val customDohUrl: String = "",
+    val strictDoh: Boolean = false,
+    val enableEch: Boolean = false
 ) {
     fun formattedDate(): String {
         val sdf = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
@@ -84,7 +100,23 @@ class BuildHistoryManager(context: Context) {
                         perAppSigning = if (obj.has("perAppSigning")) obj.optBoolean("perAppSigning", true) else false,
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
                         apkPath = if (obj.has("apkPath")) obj.getString("apkPath") else null,
-                        iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null
+                        iconPath = if (obj.has("iconPath")) obj.getString("iconPath") else null,
+                        appType = obj.optString("appType", "WEB"),
+                        customDownloadFolder = if (obj.has("customDownloadFolder")) obj.getString("customDownloadFolder") else null,
+                        multiWebTabs = obj.optString("multiWebTabs", ""),
+                        spaRoutingFallback = obj.optBoolean("spaRoutingFallback", true),
+                        keepScreenOn = obj.optBoolean("keepScreenOn", false),
+                        maskCanvas = obj.optBoolean("maskCanvas", true),
+                        maskWebGL = obj.optBoolean("maskWebGL", true),
+                        maskAudioContext = obj.optBoolean("maskAudioContext", true),
+                        maskClientRects = obj.optBoolean("maskClientRects", true),
+                        maskWebRtcIp = obj.optBoolean("maskWebRtcIp", true),
+                        clearDataOnExit = obj.optBoolean("clearDataOnExit", false),
+                        blockTrackers = obj.optBoolean("blockTrackers", true),
+                        cosmeticFiltering = obj.optBoolean("cosmeticFiltering", true),
+                        customDohUrl = obj.optString("customDohUrl", ""),
+                        strictDoh = obj.optBoolean("strictDoh", false),
+                        enableEch = obj.optBoolean("enableEch", false)
                     )
                 )
             }
@@ -137,6 +169,22 @@ class BuildHistoryManager(context: Context) {
                 put("timestamp", item.timestamp)
                 if (item.apkPath != null) put("apkPath", item.apkPath)
                 if (item.iconPath != null) put("iconPath", item.iconPath)
+                put("appType", item.appType)
+                if (item.customDownloadFolder != null) put("customDownloadFolder", item.customDownloadFolder)
+                put("multiWebTabs", item.multiWebTabs)
+                put("spaRoutingFallback", item.spaRoutingFallback)
+                put("keepScreenOn", item.keepScreenOn)
+                put("maskCanvas", item.maskCanvas)
+                put("maskWebGL", item.maskWebGL)
+                put("maskAudioContext", item.maskAudioContext)
+                put("maskClientRects", item.maskClientRects)
+                put("maskWebRtcIp", item.maskWebRtcIp)
+                put("clearDataOnExit", item.clearDataOnExit)
+                put("blockTrackers", item.blockTrackers)
+                put("cosmeticFiltering", item.cosmeticFiltering)
+                put("customDohUrl", item.customDohUrl)
+                put("strictDoh", item.strictDoh)
+                put("enableEch", item.enableEch)
             }
             array.put(obj)
         }

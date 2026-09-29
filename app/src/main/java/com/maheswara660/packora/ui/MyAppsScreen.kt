@@ -93,45 +93,23 @@ fun MyAppsScreen(
     val coroutineScope = rememberCoroutineScope()
     val historyManager = remember { BuildHistoryManager(context) }
 
-    var apps by remember { mutableStateOf<List<InstalledPackoraApp>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedApps by com.maheswara660.packora.manager.InstalledAppsManager.installedApps.collectAsState()
+    val isScanning by com.maheswara660.packora.manager.InstalledAppsManager.isScanning.collectAsState()
+    val hasScannedOnce by com.maheswara660.packora.manager.InstalledAppsManager.hasScannedOnce.collectAsState()
+
+    val apps = cachedApps
+    val isLoading = isScanning && !hasScannedOnce
     var appToUninstall by remember { mutableStateOf<InstalledPackoraApp?>(null) }
+    var selectedAppForInfo by remember { mutableStateOf<InstalledPackoraApp?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var sortMode by remember { mutableStateOf(AppSortMode.NAME_AZ) }
     var showSortSheet by remember { mutableStateOf(false) }
 
-    fun refreshApps() {
-        coroutineScope.launch(Dispatchers.IO) {
-            val detected = detectInstalledPackoraApps(context, historyManager)
-            withContext(Dispatchers.Main) {
-                apps = detected
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
-        isLoading = true
-        withContext(Dispatchers.IO) {
-            val detected = detectInstalledPackoraApps(context, historyManager)
-            withContext(Dispatchers.Main) {
-                apps = detected
-                isLoading = false
-            }
-        }
-    }
-
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                refreshApps()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+        if (!hasScannedOnce) {
+            com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = false)
         }
     }
 
@@ -189,15 +167,8 @@ fun MyAppsScreen(
 
                     IconButton(
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
-                                isLoading = true
-                                val detected = detectInstalledPackoraApps(context, historyManager)
-                                withContext(Dispatchers.Main) {
-                                    apps = detected
-                                    isLoading = false
-                                    Toast.makeText(context, "Refreshed installed apps", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = true)
+                            Toast.makeText(context, "Scanning for apps...", Toast.LENGTH_SHORT).show()
                         }
                     ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "Refresh Apps")
@@ -302,17 +273,7 @@ fun MyAppsScreen(
                                 modifier = Modifier.animateItem(),
                                 app = app,
                                 onOpen = { openApp(context, app.packageName) },
-                                onAppInfo = {
-                                    try {
-                                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", app.packageName, null)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Unable to open App Info: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
+                                onAppInfo = { selectedAppForInfo = app },
                                 onUninstall = { appToUninstall = app }
                             )
                         }
@@ -498,6 +459,19 @@ fun MyAppsScreen(
         }
     }
 
+    if (selectedAppForInfo != null) {
+        val app = selectedAppForInfo!!
+        com.maheswara660.packora.ui.components.PackoraAppInfoBottomSheetDialog(
+            appName = app.appName,
+            packageName = app.packageName,
+            versionName = app.installedVersionName,
+            versionCode = app.installedVersionCode,
+            iconBitmap = app.icon,
+            historyItem = app.historyItem,
+            onDismiss = { selectedAppForInfo = null }
+        )
+    }
+
     if (showSortSheet) {
         SelectionBottomSheetDialog(
             title = "Sort Installed Apps",
@@ -527,6 +501,27 @@ fun CompileSettingsBadges(item: HistoryItem, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Target Mode
+        val targetLabel = when (item.appType.uppercase()) {
+            "HTML" -> "Offline HTML"
+            "FRONTEND" -> "PWA / SPA"
+            "MULTI_WEB" -> "Multi-Web"
+            "MEDIA" -> "Media Player"
+            else -> "Web App"
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                text = targetLabel,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
         // Desktop / Mobile
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -915,12 +910,32 @@ suspend fun buildAndInstall(
                 try { android.graphics.BitmapFactory.decodeFile(item.iconPath) } catch (e: Exception) { null }
             } else null
 
+            val parsedAppType = try {
+                com.maheswara660.packora.model.PackoraAppType.valueOf(item.appType)
+            } catch (e: Exception) {
+                com.maheswara660.packora.model.PackoraAppType.WEB
+            }
+            val effectiveCustomFolder = item.customDownloadFolder ?: effectiveFolder
+            val tabsList = item.multiWebTabs.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }
+
             val privacyConfig = if (item.disguiseFingerprint) {
-                com.maheswara660.packora.model.PackoraPrivacyConfig(disguiseFingerprint = true)
+                com.maheswara660.packora.model.PackoraPrivacyConfig(
+                    disguiseFingerprint = true,
+                    maskCanvas = item.maskCanvas,
+                    maskWebGL = item.maskWebGL,
+                    maskAudioContext = item.maskAudioContext,
+                    maskClientRects = item.maskClientRects,
+                    maskWebRtcIp = item.maskWebRtcIp,
+                    clearDataOnExit = item.clearDataOnExit
+                )
             } else null
 
             val adBlockConfig = if (item.adBlockEnabled) {
-                com.maheswara660.packora.model.PackoraAdBlockConfig(enabled = true)
+                com.maheswara660.packora.model.PackoraAdBlockConfig(
+                    enabled = true,
+                    blockTrackers = item.blockTrackers,
+                    cosmeticFiltering = item.cosmeticFiltering
+                )
             } else null
 
             val dnsProvider = try {
@@ -928,8 +943,13 @@ suspend fun buildAndInstall(
             } catch (e: Exception) {
                 com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
             }
-            val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM) {
-                com.maheswara660.packora.model.PackoraNetworkConfig(dohProvider = dnsProvider)
+            val networkConfig = if (dnsProvider != com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM || item.customDohUrl.isNotBlank()) {
+                com.maheswara660.packora.model.PackoraNetworkConfig(
+                    dohProvider = dnsProvider,
+                    customDohUrl = item.customDohUrl,
+                    strictDoh = item.strictDoh,
+                    enableEch = item.enableEch
+                )
             } else null
 
             val resultPath = builder.buildApk(
@@ -941,7 +961,7 @@ suspend fun buildAndInstall(
                 iconBitmap = inputBitmap,
                 disableHeader = true,
                 outputPath = outputName,
-                customDownloadFolder = effectiveFolder,
+                customDownloadFolder = effectiveCustomFolder,
                 isDesktopMode = item.isDesktopMode,
                 browserEngine = item.browserEngine,
                 allowCopying = item.allowCopying,
@@ -959,7 +979,11 @@ suspend fun buildAndInstall(
                 privacyConfig = privacyConfig,
                 adBlockConfig = adBlockConfig,
                 networkConfig = networkConfig,
-                perAppSigningEnabled = item.perAppSigning
+                perAppSigningEnabled = item.perAppSigning,
+                appType = parsedAppType,
+                multiWebTabs = tabsList,
+                spaRoutingFallback = item.spaRoutingFallback,
+                keepScreenOn = item.keepScreenOn
             )
             isBuildFinished.set(true)
             tickerJob.join()

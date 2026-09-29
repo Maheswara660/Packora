@@ -2,6 +2,24 @@
 
 All notable changes to the **Packora** project will be documented in this file.
 
+## [5.3.0] - 2026-09-29
+### Added & Enhanced
+- **App Startup Package Scanning & In-Memory Session Caching**:
+  - Implemented `InstalledAppsManager` singleton that initiates installed package discovery once in the background upon application startup.
+  - Caches installed Packora apps for the entire user session, completely eliminating repeated package queries and UI loading delays when switching between Home, Build, My Apps, Updates, and Settings screens.
+  - Manual top-bar "Refresh" button performs an immediate forced rescan when requested.
+- **Comprehensive Cross-Screen Config Parity & App Info Screen**:
+  - **Full Option Persistence in History**: Expanded `HistoryItem` and `BuildHistoryManager` to persist every configuration vector from Build Studio: target mode (`appType`), custom storage folder, multi-web tab URLs, SPA routing fallback, keep screen on, fine-grained anti-fingerprint vectors (canvas, webgl, audiocontext, clientrects, webrtc ip, clear data on exit), adblock & tracker defense vectors, custom DoH URL, strict DoH, and ECH.
+  - **Updates Screen Parity**: Single update and batch "Update All" compilation now inherit and apply all saved target modes, multi-web tabs, storage directories, privacy vectors, and encrypted DNS configurations.
+  - **Reuse Config in Build Studio**: Reusing config from My Apps, History, or Updates instantly restores 100% of the build settings including target mode, privacy vectors, tabs, and network options.
+  - **Packora App Info Bottom Sheet**: Designed a comprehensive in-app details dialog (`PackoraAppInfoBottomSheetDialog`) accessible from My Apps and History screens showing application architecture, stealth privacy shield status, tracker defense, DoH resolver, storage directory, and action buttons for app launch, system settings, and an ergonomic **"UNDERSTOOD"** button.
+  - **Template Runtime Parity**: Added dynamic native interactive tab switching for `MULTI_WEB` apps, custom download subfolder routing in Android `DownloadManager`, and uninterrupted background audio streaming during screen-off / app minimization in `MEDIA` mode.
+- **Decluttered Package Installation Dialog in Settings**:
+  - Removed secondary subtitle descriptions under options in the Update Installation Mode dialog, rendering clean, bold titles for streamlined selection.
+- **Simple & Elegant Monochrome Website Redesign**:
+  - Converted documentation website and Studio simulator to a high-contrast, pure black and white / grayscale design system.
+  - Removed all colorful neon gradients, atmospheric glows, and cyan drop-shadows in favor of crisp typography, subtle 1px borders, and consistent dark/light themes across all pages.
+
 ## [5.2.0] - 2026-09-29
 ### Added & Enhanced
 - **Restoration of 4 Update Installation Modes**:

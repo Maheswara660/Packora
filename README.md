@@ -4,14 +4,14 @@
   </a>
 </p>
 
-<h1 align="center">Packora v5.2.0</h1>
+<h1 align="center">Packora v5.3.0</h1>
 
 <p align="center">
   <b>Next-Gen Standalone Android WebAPK Compiler — 100% On-Device, Offline & Privacy-Hardened.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.2.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.2.0"></a>
+  <a href="https://github.com/maheswara660/Packora/releases/latest"><img src="https://img.shields.io/badge/Release-v5.3.0-00A86B?style=for-the-badge&logo=android&logoColor=white" alt="Version 5.3.0"></a>
   <a href="https://maheswara660.github.io/Packora/"><img src="https://img.shields.io/badge/Documentation-Website-2563EB?style=for-the-badge&logo=vitepress&logoColor=white" alt="Documentation"></a>
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.2.10"></a>
   <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/Compose-Material_3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose Material 3"></a>
@@ -32,8 +32,6 @@
 - [Overview](#-overview)
 - [Screenshots](#-screenshots)
 - [Architecture & How It Works](#-architecture--how-it-works)
-- [What's New in v5.2.0](#-whats-new-in-v520)
-- [What's New in v5.1.0](#-whats-new-in-v510)
 - [Key Features & Capabilities](#-key-features--capabilities)
   - [🎨 Dashboard & WebAPK Build Studio](#-dashboard--webapk-build-studio)
   - [🛡️ Stealth Privacy Shield (50+ Vectors)](#️-stealth-privacy-shield-50-vectors)
@@ -75,12 +73,12 @@
 
 <div align="center">
 
-| Build Studio | URL Icon Extractor | Icon Canvas Editor | Updates Hub |
-| :---: | :---: | :---: | :---: |
+| Build Studio                                                         | URL Icon Extractor                                                                    | Icon Canvas Editor                                                             | Updates Hub                                                           |
+| :--------------------------------------------------------------------:| :-------------------------------------------------------------------------------------:| :------------------------------------------------------------------------------:| :---------------------------------------------------------------------:|
 | <img src="assets/build_screen.png" width="220" alt="Build Studio" /> | <img src="assets/url_icon_selection_menu.png" width="220" alt="URL Icon Extractor" /> | <img src="assets/icon_editor_menu.png" width="220" alt="Icon Canvas Editor" /> | <img src="assets/updates_screen.png" width="220" alt="Updates Hub" /> |
 
-| My Apps Manager | Build History | Settings & Automation | Dynamic App Icons |
-| :---: | :---: | :---: | :---: |
+| My Apps Manager                                                           | Build History                                                           | Settings & Automation                                                            | Dynamic App Icons                                                                            |
+| :-------------------------------------------------------------------------:| :-----------------------------------------------------------------------:| :--------------------------------------------------------------------------------:| :--------------------------------------------------------------------------------------------:|
 | <img src="assets/my_apps_screen.png" width="220" alt="My Apps Manager" /> | <img src="assets/history_screen.png" width="220" alt="Build History" /> | <img src="assets/settings_screen.png" width="220" alt="Settings & Automation" /> | <img src="assets/packora_app_icon_selection_menu.png" width="220" alt="Dynamic App Icons" /> |
 
 </div>
@@ -110,92 +108,6 @@ graph TD
 
 ---
 
-## 🚀 What's New in v5.2.0
-
-- **⚙️ Restored 4 Update Installation Modes with Full Background Automation**:
-  - Restored complete 4-tier update installation modes in Settings: `AUTO_PROMPT` (*Default*), `MANUAL`, `UPDATE_ALL_ONLY` ("Automate 'Update All' Only"), and `AUTOMATE_ALL` ("Automate All Updates").
-  - Seamlessly integrates `PackageInstallerHelper` for silent unattended installations on Android 12+ (API 31+) while preserving standard interactive installer prompts.
-- **🛡️ Material 3 Play Protect Warning BottomSheet**:
-  - Added a native Material 3 bottom sheet dialog styled consistently with all Packora menus (like the Changelog dialog) featuring a single ergonomic **"UNDERSTOOD"** button.
-  - Transparently explains to users why Google Play Protect scanning must be disabled to automate background updates without OS-level session aborts.
-- **⚡ Auto-Prompt Package Installer Reliability Fix**:
-  - Fixed issues where the installer prompt did not launch after compiling updates:
-    - Added verification for Android 8.0+ `REQUEST_INSTALL_PACKAGES` permission via `canRequestPackageInstalls()`, prompting the user directly to grant permission if missing.
-    - Added support for both filesystem paths and SAF `content://` URIs with explicit `FLAG_GRANT_READ_URI_PERMISSION`.
-    - Added reliable cached APK fallback in `context.cacheDir` to prevent FileProvider permission failures across scoped storage directories.
-- **❄️ Template Screen Freeze & Touch Lock Elimination**:
-  - Permanently fixed screen freezes and unclickable touch states in compiled WebAPKs:
-    - Removed unthrottled `MutationObserver` loops from cosmetic ad filtering that caused infinite reflows and 100% V8 JS main-thread CPU starvation.
-    - Debounced all remaining DOM observers (300ms–400ms) and configured automatic disconnection after 10–12 seconds once initial page rendering settles.
-    - Refined footer suppressor selectors to strictly semantic tags (`footer`, `[role="contentinfo"]`, `#footer`, `.site-footer`, `.page-footer`), completely eliminating broad class wildcards like `[class*="footer" i]` and `.footer-container` that previously hid whole-page layout wrappers.
-    - Removed `pointer-events: none` property overrides to ensure touch dispatch is never disabled.
-    - Restored viewport height guards (`height < 35%`) and protected `<main>`, `<article>`, `<form>`, and `<nav>` elements.
-    - Added automatic body and HTML `overflow: hidden` restoration to prevent consent overlays from locking screen scrolling.
-- **📱 Fluid Multi-Screen Responsive Documentation Redesign**:
-  - Overhauled documentation homepage (`docs/index.md`, `custom.css`, and `StudioSimulator.vue`) ensuring fluid scalability across mobile phones, tablets, and desktop computers.
-  - Added responsive breakpoints (`> 1024px`, `768px–1024px`, `480px–767px`, `< 480px`) with CSS `clamp()` fluid typography, touch-friendly 48px full-width mobile action buttons, clean vertical timeline steppers, touch-scrollable comparison tables, and screen-bounded notification mockups.
-
-## 🚀 What's New in v5.1.0
-
-- **🔧 In-Place Update Signature Conflict Fix (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`)**:
-  - Permanently fixed the Android OS installer "There was a problem parsing the package" error during app updates.
-  - Automatically identifies the SHA-256 certificate fingerprint of any already-installed app before compilation and selects the matching signer (`default` vs `per-app`), ensuring seamless update installations without requiring uninstallation.
-- **🔔 Native HTML5 Web Notifications Bridge**:
-  - Full JavaScript bridging for standard `window.Notification` constructors, `Notification.permission`, `Notification.requestPermission()`, and PWA Service Worker push notifications (`ServiceWorkerRegistration.prototype.showNotification`).
-  - Web notifications trigger native Android system bar notifications with app title, custom icons, and dedicated notification channels on Android 8.0+ and Android 13+ runtime permissions.
-- **⚡ 0ms Instant Footer Suppressor**:
-  - Injected ultra-early CSS stylesheet rules directly at `onPageStarted` and when progress exceeds 15% to suppress sticky footers and mobile app promotion banners before initial paint.
-  - Optimized DOM `MutationObserver` with 200ms throttled scans to eliminate layout shift delays while safely preserving navigation bars and interactive modals.
-- **🌐 In-App Web Navigation Freedom**:
-  - Removed popup WebView dialogs and external browser kickouts; all web links, OAuth redirects, and `target="_blank"` popup windows load cleanly inside the main app WebView without leaving the app.
-- **📱 My Apps Screen App Info Action & Dedicated Uninstall Row**:
-  - Added dedicated "App Info" button launching Android system application details settings (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`).
-  - Positioned "App Info" alongside "Open" in Row 1, and placed "Uninstall" alone on Row 2 with a full-width ergonomic touch target.
-- **🔗 About Screen Official Website Link**:
-  - Added official Packora website card tile under Connect & Support for instant access to docs and releases.
-- **🔄 Cross-Module Parity & Hardening**:
-  - Harmonized configuration options across Build Studio, Build History, Update Center, and Template runtime engines.
-- **✨ Complete Documentation Homepage Redesign**:
-  - Redesigned `docs/index.md` and `docs/.vitepress/theme/custom.css` with a high-end UI design standard (Stripe/Linear caliber) featuring an interactive WebAPK Studio simulator, modern Bento grid architecture, and a competitive comparison matrix.
-
-## 🚀 What's New in v5.0.0
-
-- **🛡️ Stealth Privacy Shield (50+ Fingerprinting Vectors Blocked)**:
-  - Real-time client-side anti-fingerprinting injected at `onPageStarted` and `onPageFinished`.
-  - Spoofs Canvas 2D image data/hashing leaks, WebGL GPU renderer/vendor strings, AudioContext oscillator hashes, DOM ClientRects subpixel jittering, and WebRTC local ICE/IP leakage.
-  - Dedicated toggle in Build Screen with visual status badge indicators across My Apps and History screens.
-- **🚫 Built-in Ad & Tracker Blocker Engine**:
-  - High-efficiency pre-bundled filter rules blocking ad networks, tracking telemetry, and analytics domains via `shouldInterceptRequest`.
-  - Zero external dependencies with live toggle and status badge across app management screens.
-- **🔒 Encrypted DNS-over-HTTPS (DoH) Engine & Redesigned Selector**:
-  - Standalone DoH resolution in WebAPKs with 9 DNS resolvers: Cloudflare (`1.1.1.1`), Google Public DNS (`8.8.8.8`), AdGuard DNS, NextDNS, CleanBrowsing Security, Quad9 (`9.9.9.9`), Mullvad DoH, System Default, and Custom User DoH Endpoint.
-  - Redesigned DNS provider bottom sheet dialog: bounded height (`300.dp`), smooth vertical scrolling, authentic Material 3 midnight styling, and automatic keyboard/focus dismissal.
-- **🔑 Deterministic Per-App Dedicated Keystore & Signing Identity**:
-  - Automatic generation and isolation of unique RSA-3072 signing certificates per package name (`PerAppSigningIdentity`).
-  - Eliminates key conflicts across generated WebAPKs while ensuring seamless in-place updates.
-  - Status badge indicator integrated across My Apps and Build History cards.
-- **🧹 Advanced Multilingual Smart Footer Hiding Engine**:
-  - Expanded keyword dictionary to 150+ multilingual terms across English, German, French, Spanish, Portuguese, Italian, Dutch, Polish, Swedish, Russian, Japanese, Chinese, Korean, Hindi, Arabic, and Turkish.
-  - Dual-stage injection: Early CSS `display: none !important` at `onPageStarted` and high-speed `MutationObserver` at `onPageFinished`.
-  - Strict protection for interactive elements, modals, forms, and navigation bars to prevent breaking web app usability.
-- **🔄 Universal Form Reset in Build Screen**:
-  - Consolidated separate card-level reset buttons into a single universal top-right reset button with Material 3 confirmation bottom sheet.
-  - Clears all input fields, toggles, custom keystores, custom DNS settings, and icons in a single tap.
-- **📱 Ergonomic App Card Button Streamlining**:
-  - Strict 2-button sets per screen:
-    - **My Apps Screen**: Strictly **Open** and **Uninstall**.
-    - **Updates Screen**: Strictly **Update** and **Install**.
-    - **History Screen**: Strictly **Reuse Config** and **Remove**.
-- **⚙️ Settings Screen & Update Modes Refinement**:
-  - Moved Auto-Prompt option to first place and set it as the default update installation mode.
-  - Made Check for Updates release notes bottom sheet cleanly scrollable with bounded height without causing the sheet to expand off-screen.
-- **📚 Documentation & Web Portal Modernization**:
-  - Fully ported and modernized documentation site and landing page under GNU GPL v3 license in 100% English.
-
-> 💡 *For changes from earlier versions (v4.1.0, v4.0.0, v3.3.x), see [CHANGELOG.md](CHANGELOG.md).*
-
----
-
 ## ✨ Key Features & Capabilities
 
 ### 🎨 Dashboard & WebAPK Build Studio
@@ -212,6 +124,13 @@ graph TD
   - 📋 **Allow Text Copying**: Overrides CSS user-select locks to permit text selection.
 - **Inline Feature Cards**:
   - 🆔 **Package Identity & Versioning**: Custom package names and automatic version incrementing (`versionCode` + `versionName`).
+  - 🏗️ **App Architecture Targets**: Choose from 5 tailored WebAPK application types:
+    - `Default Web App`: Universal responsive web wrapper.
+    - `Offline HTML App`: Packages bundled local web files without network dependencies.
+    - `Frontend PWA / SPA`: Optimized Single Page Application with client-side routing fallback (`spaRoutingFallback`).
+    - `Multi-Web Workspace`: Multi-tab navigation pill bar with independent session isolation.
+    - `Background Media Player`: Keeps audio and video streams playing continuously in the background with wake-lock support.
+  - 📁 **Custom Downloads Folder**: Route all in-app file downloads directly to dedicated subdirectories within device storage.
   - 📁 **Storage Folder**: Choose destination folders using Android's Storage Access Framework (SAF).
   - 🔑 **Custom Signing Keystore**: Generate custom PKCS12 certificates or use isolated per-app deterministic keys.
 - **Icon Canvas Editor**:
@@ -225,6 +144,7 @@ graph TD
 - **AudioContext Hardening**: Injects microscopic jitter into audio oscillator frequency curves to block audio fingerprinting.
 - **DOM ClientRects Jitter**: Prevents micro-geometry subpixel layout fingerprinting.
 - **WebRTC Local IP Leak Blocker**: Blocks local ICE candidate leaks while preserving WebRTC peer-to-peer functionality.
+- **Data Cleanup**: Automatic browser cache and storage wiping on application exit when configured.
 
 ### 🚫 Built-in Ad & Tracker Blocker
 - **Zero-Dependency Interceptor**: Intercepts requests via `shouldInterceptRequest` against bundled domain blocklists (EasyList, AdGuard, tracking domains).
@@ -242,6 +162,7 @@ graph TD
   7. Mullvad DoH
   8. System Default
   9. Custom User Endpoint
+- **Strict DoH Fallback Control**: Enforce encrypted transport with optional fallback controls.
 - **Scrollable M3 Selector**: Bounded height (`300.dp`), smooth vertical scrolling, midnight Material 3 theme, and automatic keyboard dismissal.
 
 ### 🔑 Deterministic Per-App Keystores
@@ -256,6 +177,7 @@ graph TD
 
 ### 🔄 Dedicated Updates Hub
 - **Independent Navigation**: Dedicated Updates tab in the bottom navigation bar (`Icons.Outlined.SystemUpdate`) separating pending updates from installed apps.
+- **Instant Cold-Boot Scanning**: Scans installed apps in the background once upon application launch via `InstalledAppsManager` cache, eliminating screen-switch scanning lag.
 - **Streamlined Update Modes**:
   - **Auto-Prompt** (*Default*): Automatically prompts the system installer as soon as compilation completes.
   - **Manual**: Compiles updates and allows user inspection before manual installation.
@@ -264,15 +186,16 @@ graph TD
 - **Scrollable Release Notes**: Modal bottom sheet with bounded scrollable release notes that never overflows the viewport.
 
 ### 📱 My Apps Management Hub
-- **Installed App Tracking**: Scans and displays WebAPKs generated by Packora on your device.
+- **Installed App Tracking**: Scans and displays WebAPKs generated by Packora on your device using cached background discovery.
 - **Strict Two-Button System**: Cards feature strictly two actions: **Open** (`FilledTonalButton`) and **Uninstall** (`FilledTonalButton` with error-tonal confirmation sheet).
-- **Compile Capability Badges**: Displays indicators for Stealth Privacy, AdBlocker, DoH Provider, Per-App Key, and Hidden Footers.
+- **Comprehensive App Info Inspector**: Tap on any app card or info badge to open the dedicated `PackoraAppInfoBottomSheetDialog`, revealing complete architecture flags, privacy shield status, tracker blockers, encrypted DNS resolvers, and destination download path with 1-tap launch & system settings access.
+- **Compile Capability Badges**: Displays indicators for App Architecture (Offline HTML, SPA, Multi-Web, Media Player), Stealth Privacy, AdBlocker, DoH Provider, Per-App Key, and Hidden Footers.
 - **Instant Search & Sort**: Filter installed applications instantly by name, package ID, or installation date with smooth Compose item placement animations (`Modifier.animateItem()`).
 
 ### 📜 Build History & Config Reusability
 - **Strict Two-Button System**: Cards feature strictly two actions: **Reuse Config** (`FilledTonalButton`) and **Remove** (`FilledTonalButton` with confirmation sheet).
-- **1-Tap Config Restoration**: Restores previous URLs, options, colors, and keystore settings into Build Studio in a single tap.
-- **Detailed Build Records**: Displays actual app icons, build timestamps, version numbers, package IDs, and output paths.
+- **Complete 16-Parameter State Restoration**: Restores previous URLs, app architecture targets, privacy shield settings, ad-block filters, DNS providers, custom download folders, colors, and keystore settings into Build Studio in a single tap.
+- **Detailed Build Records & App Info**: Displays actual app icons, build timestamps, version numbers, package IDs, output paths, and offers full architecture inspection sheets.
 
 ### 🎨 Dynamic App Icons & Theming
 - **12 Dynamic Launcher Icons**: Switch between 12 distinct launcher app icons (Original Classic Blue, Cyber Lime, Ruby Blaze, Ocean Teal, Frost White, Neon Indigo, Deep Sapphire, Electric Azure, Emerald Green, Royal Violet, Amber Sunset, and Stealth Onyx) via Android manifest activity aliases.
@@ -311,13 +234,13 @@ Packora adheres to strict privacy standards. It contains **no third-party tracki
 | **Language** | Kotlin | `2.2.10` | Coroutines, Flow, modern functional syntax |
 | **UI Toolkit** | Jetpack Compose | `2026.02.01 (BOM)` | Material Design 3, Navigation, Custom Components |
 | **Android SDK** | Android SDK | `API 35 (15)` | Min SDK: 24 (Android 7.0+), Compile: 35 |
-| **Signing Engine** | Android `apksig` & `PerAppSigningIdentity` | `v5.2.0` | Cryptographic V2 / V3 signatures & isolated RSA-3072 keystores |
-| **Privacy Shield** | In-House `PackoraFingerprintDisguise` | `v5.2.0` | 50+ vector anti-fingerprinting & WebRTC IP leak blocking |
-| **Ad Blocker** | In-House `PackoraAdBlocker` | `v5.2.0` | Zero-dependency high-speed domain & cosmetic ad blocker |
-| **Encrypted DNS** | In-House `PackoraDnsManager` (OkHttp DoH) | `v5.2.0` | 9 privacy DNS-over-HTTPS resolvers & custom DoH |
-| **Page Alignment** | In-House `ElfAligner16k` | `v5.2.0` | 16KB ELF boundary alignment for Android 15+ kernels |
-| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v5.2.0` | Low-level byte-level binary manifest & resource rewriter |
-| **Template Engine** | In-House `:template` Shell | `v5.2.0` | High-performance standalone WebAPK runtime container |
+| **Signing Engine** | Android `apksig` & `PerAppSigningIdentity` | `v5.3.0` | Cryptographic V2 / V3 signatures & isolated RSA-3072 keystores |
+| **Privacy Shield** | In-House `PackoraFingerprintDisguise` | `v5.3.0` | 50+ vector anti-fingerprinting & WebRTC IP leak blocking |
+| **Ad Blocker** | In-House `PackoraAdBlocker` | `v5.3.0` | Zero-dependency high-speed domain & cosmetic ad blocker |
+| **Encrypted DNS** | In-House `PackoraDnsManager` (OkHttp DoH) | `v5.3.0` | 9 privacy DNS-over-HTTPS resolvers & custom DoH |
+| **Page Alignment** | In-House `ElfAligner16k` | `v5.3.0` | 16KB ELF boundary alignment for Android 15+ kernels |
+| **Binary Engine** | In-House `AxmlRebuilder` & `ArscRebuilder` | `v5.3.0` | Low-level byte-level binary manifest & resource rewriter |
+| **Template Engine** | In-House `:template` Shell | `v5.3.0` | High-performance standalone WebAPK runtime container |
 
 ---
 
@@ -451,6 +374,6 @@ Packora is free and open-source software licensed under the **[GNU General Publi
 ---
 
 <p align="center">
-  <b>Packora v5.2.0 — Unlocking Web-to-APK Limits.</b><br>
+  <b>Packora v5.3.0 — Unlocking Web-to-APK Limits.</b><br>
   Built with ❤️ for the Android open-source community.
 </p>

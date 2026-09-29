@@ -192,7 +192,7 @@ features:
     <thead>
       <tr>
         <th>Feature</th>
-        <th class="highlight-col">Packora v5.2.0</th>
+        <th class="highlight-col">Packora v5.3.0</th>
         <th>Chrome PWA Shortcut</th>
         <th>Hermit Lite Apps</th>
         <th>TWA / Bubblewrap</th>

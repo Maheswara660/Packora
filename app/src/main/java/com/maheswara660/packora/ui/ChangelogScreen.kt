@@ -34,9 +34,25 @@ data class ReleaseItem(
 
 val packoraReleases = listOf(
     ReleaseItem(
-        version = "5.2.0",
+        version = "5.3.0",
         date = "September 29, 2026",
         isLatest = true,
+        summary = "Cross-Screen Config Parity, In-App Packora App Info BottomSheet, Interactive Multi-Web Tabs, Startup App Scanning & Caching, Decluttered Install Modes, Monochrome Black & White Website",
+        changes = listOf(
+            "Startup Package Scanning & Session Caching: Automatically performs installed package discovery once in the background on app startup. Cached across the entire session, eliminating screen re-scans and loading delays when navigating between My Apps and Updates screens.",
+            "Cross-Screen Config Parity: All build options (app target types, multi-web tabs, custom storage folders, SPA routing fallback, keep screen on, stealth anti-fingerprinting vectors, adblock filters, DoH resolvers) are fully preserved in History and applied during single and batch updates in Updates Screen.",
+            "In-App Packora App Info BottomSheet: Introduced a rich details bottom sheet accessible from My Apps and History showing full application architecture, stealth privacy shield status, tracker defense, encrypted DNS resolver, custom storage folder, and launch/system shortcuts with an Understood button.",
+            "Interactive Multi-Web Tab Bar in Template APK: Multi-Web apps now render an interactive, native dark pill tab bar allowing instant switching between configured URLs.",
+            "Template Download Location Support: Downloaded files in generated WebAPKs now honor custom download subfolder configurations in Android DownloadManager.",
+            "Continuous Background Audio in Media Mode: Media apps now keep audio streaming uninterrupted when turning off the screen or minimizing the app.",
+            "Decluttered Package Installation Dialog: Removed unnecessary description subtitles under options in the settings dialog, displaying clean, bold option names for faster recognition.",
+            "Elegant Monochrome Website Redesign: Complete black & white / grayscale transformation across light and dark modes with high contrast, clean typography, and zero colorful neon gradients."
+        )
+    ),
+    ReleaseItem(
+        version = "5.2.0",
+        date = "September 29, 2026",
+        isLatest = false,
         summary = "Restored 4 Update Installation Modes with Background Automation, Material 3 Play Protect Warning BottomSheet, Fixed Auto-Prompt Installer Launching, Fixed Template Freeze & Touch Lock, Full Multi-Screen Responsive Docs Redesign",
         changes = listOf(
             "Restored 4 Update Installation Modes: Brought back 'Automate Update All Only' and 'Automate All Updates' alongside 'Auto-Prompt' (Default) and 'Manual', giving users total control over background and sequential update automation.",

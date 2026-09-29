@@ -54,6 +54,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -697,6 +699,116 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
+        setupMultiWebTabs(config)
+    }
+
+    private fun setupMultiWebTabs(config: JSONObject?) {
+        val appType = config?.optString("appType", "WEB") ?: "WEB"
+        val tabsJson = config?.optJSONArray("multiWebTabs")
+        if (!appType.equals("MULTI_WEB", ignoreCase = true) || tabsJson == null || tabsJson.length() == 0) {
+            return
+        }
+
+        val tabUrls = mutableListOf<String>()
+        val defaultUrl = config.optString("targetUrl", "").takeIf { it.isNotBlank() }
+        if (defaultUrl != null) {
+            tabUrls.add(defaultUrl)
+        }
+        for (i in 0 until tabsJson.length()) {
+            val u = tabsJson.optString(i, "").trim()
+            if (u.isNotBlank() && !tabUrls.contains(u)) {
+                tabUrls.add(u)
+            }
+        }
+        if (tabUrls.isEmpty()) return
+
+        try {
+            val horizontalScroll = android.widget.HorizontalScrollView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = android.view.Gravity.BOTTOM
+                    bottomMargin = (12 * resources.displayMetrics.density).toInt()
+                    leftMargin = (16 * resources.displayMetrics.density).toInt()
+                    rightMargin = (16 * resources.displayMetrics.density).toInt()
+                }
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+            }
+
+            val tabsContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+                val padH = (6 * resources.displayMetrics.density).toInt()
+                val padV = (6 * resources.displayMetrics.density).toInt()
+                setPadding(padH, padV, padH, padV)
+                val bg = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(android.graphics.Color.parseColor("#E61E293B"))
+                    cornerRadius = 24 * resources.displayMetrics.density
+                    setStroke((1 * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#33475569"))
+                }
+                background = bg
+            }
+
+            var activeIndex = 0
+            val tabViews = mutableListOf<TextView>()
+
+            for ((index, url) in tabUrls.withIndex()) {
+                val host = try {
+                    val h = Uri.parse(url).host?.removePrefix("www.")
+                    if (!h.isNullOrBlank()) h.split(".").first().replaceFirstChar { it.uppercase() } else "Tab ${index + 1}"
+                } catch (e: Exception) {
+                    "Tab ${index + 1}"
+                }
+
+                val tabBtn = TextView(this).apply {
+                    text = host
+                    textSize = 12f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    val padX = (14 * resources.displayMetrics.density).toInt()
+                    val padY = (8 * resources.displayMetrics.density).toInt()
+                    setPadding(padX, padY, padX, padY)
+                    setTextColor(if (index == 0) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.parseColor("#94A3B8"))
+
+                    val pillBg = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(if (index == 0) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT)
+                        cornerRadius = 18 * resources.displayMetrics.density
+                    }
+                    background = pillBg
+
+                    setOnClickListener {
+                        if (activeIndex != index) {
+                            tabViews.getOrNull(activeIndex)?.let { prev ->
+                                prev.setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                                (prev.background as? android.graphics.drawable.GradientDrawable)?.setColor(android.graphics.Color.TRANSPARENT)
+                            }
+                            setTextColor(android.graphics.Color.parseColor("#0F172A"))
+                            (background as? android.graphics.drawable.GradientDrawable)?.setColor(android.graphics.Color.WHITE)
+                            activeIndex = index
+                            binding.webView.loadUrl(url)
+                        }
+                    }
+                }
+                tabViews.add(tabBtn)
+                tabsContainer.addView(tabBtn)
+                if (index < tabUrls.size - 1) {
+                    val spacer = View(this).apply {
+                        layoutParams = LinearLayout.LayoutParams((4 * resources.displayMetrics.density).toInt(), 1)
+                    }
+                    tabsContainer.addView(spacer)
+                }
+            }
+
+            horizontalScroll.addView(tabsContainer)
+            binding.root.addView(horizontalScroll)
+
+            binding.webView.setPadding(0, 0, 0, (68 * resources.displayMetrics.density).toInt())
+        } catch (e: Exception) {}
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -716,7 +828,11 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         if (::binding.isInitialized) {
-            try { binding.webView.onPause() } catch (e: Exception) {}
+            val isBackgroundAudio = config?.optBoolean("backgroundAudio", false) == true ||
+                    config?.optString("appType", "WEB").equals("MEDIA", ignoreCase = true)
+            if (!isBackgroundAudio) {
+                try { binding.webView.onPause() } catch (e: Exception) {}
+            }
         }
         try { CookieManager.getInstance().flush() } catch (e: Exception) {}
     }
@@ -852,6 +968,31 @@ class MainActivity : ComponentActivity() {
         settings.mediaPlaybackRequiresUserGesture = false
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = true
+
+        val appType = config?.optString("appType", "WEB") ?: "WEB"
+        val isOfflineHtml = appType.equals("HTML", ignoreCase = true) || config?.optBoolean("isOfflineHtml", false) == true
+        val isMediaMode = appType.equals("MEDIA", ignoreCase = true) || config?.optBoolean("mediaMode", false) == true || config?.optBoolean("keepScreenOn", false) == true
+        val isSpaMode = appType.equals("FRONTEND", ignoreCase = true) || config?.optBoolean("spaMode", false) == true
+
+        if (isOfflineHtml) {
+            settings.allowFileAccess = true
+            settings.allowContentAccess = true
+            @Suppress("DEPRECATION")
+            settings.allowFileAccessFromFileURLs = true
+            @Suppress("DEPRECATION")
+            settings.allowUniversalAccessFromFileURLs = true
+        }
+
+        if (isMediaMode) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            settings.mediaPlaybackRequiresUserGesture = false
+        }
+
+        if (isSpaMode) {
+            settings.domStorageEnabled = true
+            @Suppress("DEPRECATION")
+            settings.databaseEnabled = true
+        }
 
         // Universal Cookie & Session Acceptance (First-party + Third-party)
         val cookieManager = CookieManager.getInstance()
@@ -1535,8 +1676,17 @@ class MainActivity : ComponentActivity() {
                     addRequestHeader("Accept", "*/*")
                     setTitle(fileName)
                     setDescription("Downloading $fileName")
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                    val webViewCfg = config?.optJSONObject("webViewConfig")
+                    val customSubDir = webViewCfg?.optString("customDownloadFolder", "")?.takeIf { it.isNotBlank() }
+                        ?: webViewCfg?.optString("downloadLocation", "")?.takeIf { it.isNotBlank() }
+
+                    val downloadSubPath = if (!customSubDir.isNullOrBlank()) {
+                        val cleanDir = customSubDir.removePrefix("Downloads/").removePrefix("/").trim()
+                        if (cleanDir.isNotBlank()) "$cleanDir/$fileName" else fileName
+                    } else {
+                        fileName
+                    }
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, downloadSubPath)
                     setAllowedOverMetered(true)
                     setAllowedOverRoaming(true)
                 }

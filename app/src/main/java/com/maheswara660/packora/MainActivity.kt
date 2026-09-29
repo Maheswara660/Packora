@@ -63,12 +63,15 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (context == null || intent == null) return
             val action = intent.action
+            val installedPackageName = intent.data?.schemeSpecificPart ?: return
             if (action == Intent.ACTION_PACKAGE_ADDED || action == Intent.ACTION_PACKAGE_REPLACED) {
-                val installedPackageName = intent.data?.schemeSpecificPart ?: return
                 val prefs = PackoraPreferencesManager(context)
                 if (prefs.autoDeleteApkAfterInstall) {
                     deleteApksForPackage(context, installedPackageName)
                 }
+                com.maheswara660.packora.manager.InstalledAppsManager.scanApps(context, force = true)
+            } else if (action == Intent.ACTION_PACKAGE_REMOVED) {
+                com.maheswara660.packora.manager.InstalledAppsManager.removeApp(installedPackageName)
             }
         }
     }
@@ -78,9 +81,13 @@ class MainActivity : ComponentActivity() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
             addDataScheme("package")
         }
         ContextCompat.registerReceiver(this, packageInstallReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+
+        // Perform initial installed apps scan once on app launch in the background
+        com.maheswara660.packora.manager.InstalledAppsManager.scanApps(this, force = false)
 
         enableEdgeToEdge()
         setContent {
@@ -291,6 +298,7 @@ fun MainAppNavigation(
             }
         }
 ) { innerPadding ->
+    var reusedConfigItem by remember { mutableStateOf<com.maheswara660.packora.manager.HistoryItem?>(null) }
     val handleReuseConfig: (com.maheswara660.packora.manager.HistoryItem) -> Unit = { item ->
         url = item.targetUrl
         appName = item.appName
@@ -311,6 +319,7 @@ fun MainAppNavigation(
             com.maheswara660.packora.model.PackoraDnsProvider.SYSTEM
         }
         perAppSigningEnabled = item.perAppSigning
+        reusedConfigItem = item
         if (!item.iconPath.isNullOrBlank() && File(item.iconPath).exists()) {
             try {
                 autoFetchedIconBitmap = android.graphics.BitmapFactory.decodeFile(item.iconPath)
@@ -346,6 +355,8 @@ fun MainAppNavigation(
                         adBlockEnabled = adBlockEnabled, onAdBlockEnabledChange = { adBlockEnabled = it },
                         selectedDnsProvider = selectedDnsProvider, onDnsProviderChange = { selectedDnsProvider = it },
                         perAppSigningEnabled = perAppSigningEnabled, onPerAppSigningEnabledChange = { perAppSigningEnabled = it },
+                        reusedConfigItem = reusedConfigItem,
+                        onConfigReused = { reusedConfigItem = null },
                         onNavigateHistory = { selectedTab = Screen.HISTORY },
                         onNavigateSettings = { selectedTab = Screen.SETTINGS }
                     )
@@ -382,9 +393,9 @@ fun incrementVersionString(v: String): String {
 fun Context.appVersion(): String {
     return try {
         val pInfo = packageManager.getPackageInfo(packageName, 0)
-        pInfo.versionName ?: "5.2.0"
+        pInfo.versionName ?: "5.3.0"
     } catch (e: Exception) {
-        "5.2.0"
+        "5.3.0"
     }
 }
 

@@ -103,7 +103,9 @@ fun BuildScreen(
     selectedDnsProvider: PackoraDnsProvider = PackoraDnsProvider.SYSTEM,
     onDnsProviderChange: (PackoraDnsProvider) -> Unit = {},
     perAppSigningEnabled: Boolean = true,
-    onPerAppSigningEnabledChange: (Boolean) -> Unit = {}
+    onPerAppSigningEnabledChange: (Boolean) -> Unit = {},
+    reusedConfigItem: com.maheswara660.packora.manager.HistoryItem? = null,
+    onConfigReused: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -159,6 +161,43 @@ fun BuildScreen(
     var isScrapingOffline by remember { mutableStateOf(false) }
     var scrapeProgressStatus by remember { mutableStateOf("") }
     var scrapedOfflineFilesCount by remember { mutableIntStateOf(0) }
+    var scrapedOfflineDir by remember { mutableStateOf<File?>(null) }
+
+    // Specialized App Target States
+    var enableSpaRoutingFallback by remember { mutableStateOf(true) }
+    var multiWebTabsText by remember { mutableStateOf("") }
+    var keepScreenOnDuringPlayback by remember { mutableStateOf(true) }
+    var enableBackgroundAudio by remember { mutableStateOf(true) }
+
+    LaunchedEffect(reusedConfigItem) {
+        val item = reusedConfigItem ?: return@LaunchedEffect
+        selectedAppType = try {
+            PackoraAppType.valueOf(item.appType)
+        } catch (e: Exception) {
+            PackoraAppType.WEB
+        }
+        multiWebTabsText = item.multiWebTabs
+        enableSpaRoutingFallback = item.spaRoutingFallback
+        keepScreenOnDuringPlayback = item.keepScreenOn
+        if (item.customDownloadFolder != null) {
+            useCustomDownloadFolder = true
+            customDownloadFolder = item.customDownloadFolder
+        } else {
+            useCustomDownloadFolder = false
+        }
+        maskCanvas = item.maskCanvas
+        maskWebGL = item.maskWebGL
+        maskAudioContext = item.maskAudioContext
+        maskClientRects = item.maskClientRects
+        maskWebRtcIp = item.maskWebRtcIp
+        clearDataOnExit = item.clearDataOnExit
+        blockTrackers = item.blockTrackers
+        cosmeticFiltering = item.cosmeticFiltering
+        customDohUrl = item.customDohUrl
+        strictDoh = item.strictDoh
+        enableEch = item.enableEch
+        onConfigReused()
+    }
 
     var isBuilding by remember { mutableStateOf(false) }
     var targetProgressPercent by remember { mutableIntStateOf(0) }
@@ -431,6 +470,7 @@ fun BuildScreen(
                                                 withContext(Dispatchers.Main) {
                                                     isScrapingOffline = false
                                                     if (res.isSuccess) {
+                                                        scrapedOfflineDir = outDir
                                                         Toast.makeText(context, "Offline pack ready! ${scrapedOfflineFilesCount} assets bundled.", Toast.LENGTH_LONG).show()
                                                     } else {
                                                         Toast.makeText(context, "Scrape completed with warnings: ${res.exceptionOrNull()?.message ?: "Check URL"}", Toast.LENGTH_LONG).show()
@@ -451,6 +491,144 @@ fun BuildScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("SCRAPE & BUNDLE OFFLINE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // Dedicated Card for Frontend Single Page Apps (SPA)
+                if (selectedAppType == PackoraAppType.FRONTEND) {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Code, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Frontend SPA Runtime Engine", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Text(
+                                "Applies specialized client-side routing, service workers, DOM storage, and offline caching for React, Vue, Vite, Svelte, and Next/Nuxt static apps.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Client History Routing Fallback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Routes deep-links to index entrypoint preventing 404 errors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(
+                                    checked = enableSpaRoutingFallback,
+                                    onCheckedChange = { enableSpaRoutingFallback = it }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Dedicated Card for Multi-Site Hub
+                if (selectedAppType == PackoraAppType.MULTI_WEB) {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Tab, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Multi-Site Destination Hub", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Text(
+                                "Aggregate multiple web destinations into tabs. Enter additional site URLs below (separated by commas or newlines). The main URL above serves as the primary home tab.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = multiWebTabsText,
+                                onValueChange = { multiWebTabsText = it },
+                                label = { Text("Secondary URLs") },
+                                placeholder = { Text("https://example.com/docs, https://example.com/forum") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                maxLines = 3
+                            )
+                        }
+                    }
+                }
+
+                // Dedicated Card for Media Streamer
+                if (selectedAppType == PackoraAppType.MEDIA) {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.PlayCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Media Streamer Runtime", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Text(
+                                "Optimized for audio and video streaming platforms with auto-keep-screen-on and background audio playback.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Keep Screen On during Playback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Prevents display sleep while watching videos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(
+                                    checked = keepScreenOnDuringPlayback,
+                                    onCheckedChange = { keepScreenOnDuringPlayback = it }
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Background Audio Playback", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("Allows media stream to continue when app is minimized", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(
+                                    checked = enableBackgroundAudio,
+                                    onCheckedChange = { enableBackgroundAudio = it }
+                                )
                             }
                         }
                     }
@@ -1483,6 +1661,13 @@ fun BuildScreen(
                                             enableEch = enableEch
                                         ),
                                         perAppSigningEnabled = perAppSigningEnabled,
+                                        appType = selectedAppType,
+                                        offlinePackDir = if (selectedAppType == PackoraAppType.HTML) scrapedOfflineDir else null,
+                                        multiWebTabs = if (selectedAppType == PackoraAppType.MULTI_WEB) {
+                                            multiWebTabsText.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }
+                                        } else emptyList(),
+                                        spaRoutingFallback = enableSpaRoutingFallback,
+                                        keepScreenOn = keepScreenOnDuringPlayback,
                                         onProgress = { p, _ ->
                                             Handler(Looper.getMainLooper()).post {
                                                 targetProgressPercent = maxOf(targetProgressPercent, p)
@@ -1523,7 +1708,7 @@ fun BuildScreen(
                                                         id = itemId,
                                                         appName = appName.ifBlank { "My App" },
                                                         packageName = finalPackage,
-                                                        targetUrl = url,
+                                                        targetUrl = if (selectedAppType == PackoraAppType.HTML) "file:///android_asset/www/index.html" else url,
                                                         versionCode = finalCode,
                                                         versionName = finalName,
                                                         isDesktopMode = isDesktopMode,
@@ -1538,7 +1723,23 @@ fun BuildScreen(
                                                         disguiseFingerprint = disguiseFingerprint,
                                                         adBlockEnabled = adBlockEnabled,
                                                         dohProvider = selectedDnsProvider.name,
-                                                        perAppSigning = perAppSigningEnabled
+                                                        perAppSigning = perAppSigningEnabled,
+                                                        appType = selectedAppType.name,
+                                                        customDownloadFolder = if (useCustomDownloadFolder && customDownloadFolder.isNotBlank()) customDownloadFolder else null,
+                                                        multiWebTabs = if (selectedAppType == PackoraAppType.MULTI_WEB) multiWebTabsText else "",
+                                                        spaRoutingFallback = enableSpaRoutingFallback,
+                                                        keepScreenOn = keepScreenOnDuringPlayback,
+                                                        maskCanvas = maskCanvas,
+                                                        maskWebGL = maskWebGL,
+                                                        maskAudioContext = maskAudioContext,
+                                                        maskClientRects = maskClientRects,
+                                                        maskWebRtcIp = maskWebRtcIp,
+                                                        clearDataOnExit = clearDataOnExit,
+                                                        blockTrackers = blockTrackers,
+                                                        cosmeticFiltering = cosmeticFiltering,
+                                                        customDohUrl = customDohUrl,
+                                                        strictDoh = strictDoh,
+                                                        enableEch = enableEch
                                                     )
                                                 )
                                             }
@@ -1706,6 +1907,8 @@ fun BuildScreen(
                                 onAllowCopyingChange(false)
                                 onEnableWebFooterChange(false)
                                 selectedAppType = PackoraAppType.WEB
+                                scrapedOfflineDir = null
+                                multiWebTabsText = ""
 
                                 useCustomDownloadFolder = false
                                 customDownloadFolder = ""

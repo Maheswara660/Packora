@@ -432,17 +432,15 @@ function testNotification() {
 .studio-tab-btn.active {
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+  border: 1px solid var(--packora-glass-border);
 }
 
 /* Main Card */
 .studio-main-card, .studio-detail-card {
-  background: rgba(14, 21, 38, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 20px;
   padding: 24px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .studio-card-header {
@@ -539,9 +537,9 @@ function testNotification() {
 }
 
 .preset-chip.active {
-  background: rgba(37, 99, 235, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #93c5fd;
+  background: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-bg);
 }
 
 /* Metadata inputs */
@@ -675,7 +673,7 @@ function testNotification() {
 }
 
 .switch-ui input:checked + .switch-slider {
-  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+  background: var(--vp-c-brand-1);
 }
 
 .switch-ui input:checked + .switch-slider:before {
@@ -690,8 +688,8 @@ function testNotification() {
 }
 
 .build-progress-box {
-  background: rgba(10, 15, 28, 0.8);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 12px;
   padding: 12px 16px;
 }
@@ -699,7 +697,7 @@ function testNotification() {
 .progress-bar-track {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--vp-c-bg-soft);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -707,7 +705,7 @@ function testNotification() {
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  background: var(--vp-c-brand-1);
   transition: width 0.3s ease;
   border-radius: 6px;
 }
@@ -744,21 +742,22 @@ function testNotification() {
   justify-content: center;
   flex: 1;
   padding: 14px 24px;
-  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
-  border: none;
+  background: var(--vp-c-brand-1);
+  border: 1px solid var(--vp-c-brand-1);
   border-radius: 14px;
-  color: white;
+  color: var(--vp-c-bg);
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.3s;
-  box-shadow: 0 8px 24px -6px rgba(37, 99, 235, 0.5);
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .build-trigger-btn:hover:not(:disabled) {
+  opacity: 0.9;
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px -4px rgba(6, 182, 212, 0.6);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .build-trigger-btn:disabled {
@@ -794,12 +793,11 @@ function testNotification() {
 
 /* Simulated Android Notification */
 .simulated-notification {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   border-radius: 16px;
   padding: 14px 16px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
 }
 
 .notif-header {
@@ -893,8 +891,9 @@ function testNotification() {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--packora-glass-border);
   padding: 3px 8px;
   border-radius: 6px;
   margin-bottom: 8px;
@@ -938,9 +937,7 @@ function testNotification() {
   display: block;
   font-size: 1.8rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #60a5fa, #38bdf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--vp-c-text-1);
   margin-bottom: 6px;
 }
 
